@@ -26,10 +26,12 @@ Codex and Claude use their own saved paths and hook formats; preserve unrelated 
 Setup includes this official skill but does not install user catalog content or grant hook trust.
 For a Git catalog, replace the bootstrap example with `aem bootstrap --catalog-repository URL --catalog-path catalogs/personal.toml`.
 For an external source, add `--external NAME=/absolute/source` to bootstrap.
+General directories use a required named target root bound with `--root NAME=/absolute/parent`; they are independent of agent integrations and default to links.
+Use a link when writes at the installed path should reach the publish source; installed-copy edits are never collected.
 Bootstrap prepares sources without updating existing checkouts or installing targets; apply installs from local prepared paths without fetching.
 
 To install newly declared content, use `aem bootstrap --item NAME`, then preview and apply the corresponding installation item with `aem apply --item ID --dry-run` and `aem apply --item ID`.
-Skill and setting IDs are their catalog names; an instruction entry uses `NAME:entry`, which also selects its bundle and hook.
+Skill, directory and setting IDs are their catalog names; an instruction entry uses `NAME:entry`, which also selects its bundle and hook.
 Omitting selectors prepares all declared sources and applies eligible items except
 personal hooks: register those only with explicit `apply --item NAME`. Bind a
 requested interpreter with bootstrap `--runtime NAME=/absolute/executable`; AEM
@@ -49,7 +51,7 @@ aem apply --item ID --dry-run
 aem apply --item ID
 ```
 
-Update accepts catalog skill, instruction, setting or personal hook names.
+Update accepts catalog skill, directory, instruction, setting or personal hook names.
 Live links change immediately during update; copies need apply, and settings receive into their stage before apply changes the actual file.
 For a complete source update followed by installation, use `aem sync`.
 `sync --item ID` filters only installation: its update phase still visits all sources and must succeed before application starts.
@@ -60,7 +62,7 @@ Catalog updates, content updates, and AEM self-updates are separate operations.
 
 ## Edit managed content and share it
 
-For a skill or instruction edit, locate its prepared source first and use the returned path as the explicit working directory for editing tools.
+For a skill, directory or instruction edit, locate its prepared source first and use the returned path as the explicit working directory for editing tools.
 For inspection of the installed content instead, omit `--source`.
 
 ```bash
@@ -111,6 +113,7 @@ For automation changes, inspect `aem --json status` and choose the requested dev
 Use `aem automation --dry-run` to inspect the current mode's planned work.
 When mode or schedule choices remain unresolved, consult setup help first, then the local automation guide only if more behavioral detail is needed.
 For individual policies, use the relevant command help before consulting the guide as needed.
+Directories share the skill update policy system and participate in full runs, preserving empty-trigger exclusions and detach.
 Settings have independent automatic sync policies and participate by default in full runs, receiving then applying changes while preserving conflicts, explicit exclusions, and detach.
 Collection, export, and publication remain explicit.
 

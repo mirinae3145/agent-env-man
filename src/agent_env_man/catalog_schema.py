@@ -9,7 +9,7 @@ from .model import Config, Error, identifier
 from .updates import TRIGGERS, policy_fields
 
 
-TOP_LEVEL = {"version", "sources", "skills", "instructions", "settings", "hooks", "updates"}
+TOP_LEVEL = {"version", "sources", "skills", "directories", "instructions", "settings", "hooks", "updates"}
 SKILL_FIELDS = {"source", "subdir", "install", "update"}
 INSTRUCTION_FIELDS = {"source", "subdir", "entry", "install"}
 
@@ -60,23 +60,23 @@ def validate(document):
             Config._validate_repository(data, f"Source {name}")
         else:
             table(data, {"type"}, f"Source {name}")
-    for kind in ("skills", "instructions"):
+    for kind in ("skills", "directories", "instructions"):
         entries = document.get(kind, {})
         if not isinstance(entries, dict):
             raise Error(f"Catalog {kind} must be a TOML table")
         for name, data in entries.items():
             identifier(name)
-            table(data, SKILL_FIELDS if kind == "skills" else INSTRUCTION_FIELDS, f"{kind}.{name}")
+            table(data, INSTRUCTION_FIELDS if kind == "instructions" else SKILL_FIELDS, f"{kind}.{name}")
             source = data.get("source")
             if not isinstance(source, str) or source not in sources:
                 raise Error(f"{kind}.{name}: source must name a declared source")
             install = data.get("install", {})
-            if kind == "skills":
-                if sources[source]["type"] != "git":
+            if kind in ("skills", "directories"):
+                if kind == "skills" and sources[source]["type"] != "git":
                     raise Error(f"Skill {name}: external sources are supported only for instructions")
-                table(install, {"root", "mode"}, f"skills.{name}.install")
+                table(install, {"root", "mode", "destination"} if kind == "directories" else {"root", "mode"}, f"{kind}.{name}.install")
                 if "update" in data:
-                    _validate_policy(data["update"], f"skills.{name}.update", allow_policy=True)
+                    _validate_policy(data["update"], f"{kind}.{name}.update", allow_policy=True)
             else:
                 table(install, {"bundle", "entry"}, f"instructions.{name}.install")
                 for part in ("bundle", "entry"):
@@ -111,7 +111,7 @@ def validate(document):
         from .personal_hooks import validate_binding
         for agent, binding in data['agents'].items():
             validate_binding(binding, profile(agent))
-    names = [set(document.get(kind, {})) for kind in ("skills", "instructions", "settings", "hooks")]
+    names = [set(document.get(kind, {})) for kind in ("skills", "directories", "instructions", "settings", "hooks")]
     collision = set().union(*(a & b for i, a in enumerate(names) for b in names[i + 1:]))
     if collision:
         raise Error(f"Instruction name collides with another source: {sorted(collision)[0]}")
@@ -135,14 +135,14 @@ def normalize(document):
     sources = document.get("sources", {})
     result = {"repositories": {name: dict(data) for name, data in sources.items() if data["type"] == "git"},
               "externals": {name: {} for name, data in sources.items() if data["type"] == "external"}}
-    for kind in ("skills", "instructions"):
+    for kind in ("skills", "directories", "instructions"):
         result[kind] = {}
         for name, data in document.get(kind, {}).items():
             source = data["source"]
             field = "repo" if sources[source]["type"] == "git" else "external"
             entry = {field: source, **{k: data[k] for k in ("subdir", "entry") if k in data}}
             install = data.get("install", {})
-            if kind == "skills":
+            if kind in ("skills", "directories"):
                 entry.update(install)
                 if "update" in data:
                     entry["update"] = _policy_model(data["update"])

@@ -132,7 +132,7 @@ def self_publish_command(runtime, checkout, timeout, dry_run):
 def automation_command(runtime, trigger, dry_run):
     """Run or preview the selected device automation mode.
 
-    Policies mode runs independent tool, catalog, skill, and settings policies.
+    Policies mode runs independent tool, catalog, skill, directory, and settings policies.
     Settings always receive then apply; full also prepares new eligible items.
     Collection, export, and publication remain explicit.
     """

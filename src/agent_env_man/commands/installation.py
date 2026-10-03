@@ -21,9 +21,11 @@ def apply(runtime, agent, item, timeout, adopt, replace, reattach, dry_run):
     """Install prepared local content into selected destinations.
 
     Omit --item to install non-detached items except personal hooks, which need
-    explicit NAME or NAME:hook / NAME:hook@claude selection. Skill and setting
-    IDs are catalog names; instruction IDs are NAME:bundle, NAME:entry, and
-    NAME:hook. Selecting an entry or hook also selects its instruction group.
+    explicit NAME or NAME:hook / NAME:hook@claude selection. Skill, directory,
+    and setting IDs are catalog names; directories also accept NAME:directory.
+    Instruction IDs are NAME:bundle, NAME:entry, and NAME:hook. Selecting an
+    entry or hook also selects its instruction group. Directories remain
+    included with --agent because they are independent of agent bindings.
     """
     if adopt and replace:
         raise click.UsageError("--adopt and --replace are mutually exclusive")
@@ -58,7 +60,12 @@ def sync(runtime, agent, item, timeout):
 @preview_option
 @pass_runtime
 def auto(runtime, trigger, item, dry_run):
-    """Run due skill policies for an external event."""
+    """Run due skill and directory policies for an external event.
+
+    --item selects catalog names; omission considers all their policies.
+    Sources must be prepared. External directory checks do not fetch;
+    sync applies their local contents. --dry-run is offline.
+    """
     return runtime.run(lambda session: run_updates(session.manager, trigger, item, dry_run=dry_run))
 
 
@@ -103,10 +110,11 @@ def detach(runtime, item, agent, dry_run):
 def locate(runtime, name, agent, source, target, cd):
     """Locate installed content or its prepared source offline.
 
-    NAME is a catalog skill, instruction, setting or personal hook name. Skills and
-    instructions default to their saved installation, or the prepared source
-    when uninstalled. Settings default to the editable stage; --source selects
-    shared content and --target selects the actual application file.
+    NAME is a catalog skill, directory, instruction, setting or personal hook
+    name. Skills, directories and instructions default to their saved
+    installation, or the prepared source when uninstalled. Directories are
+    agent-independent. Settings default to the editable stage; --source
+    selects shared content and --target selects the actual application file.
 
     --cd requires setup --shell and a reloaded profile to change the calling
     shell's directory; rerun setup for older shell registrations. Otherwise it

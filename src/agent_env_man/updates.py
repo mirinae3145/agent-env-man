@@ -65,8 +65,8 @@ def catalog_policy(value):
             **policy_fields(value, 'catalog_update')}
 
 
-def resolve_policies(updates, skills, *, default_trigger=None):
-    """Merge built-ins, global defaults, one named policy, then skill fields.
+def resolve_policies(updates, skills, *, default_trigger=None, kind="skills"):
+    """Merge built-ins, global defaults, one named policy, then item fields.
 
     Trigger lists replace rather than append; manual explicitly disables events.
     Source-specific capabilities are checked here, before any network operation.
@@ -85,19 +85,20 @@ def resolve_policies(updates, skills, *, default_trigger=None):
                 for name, value in named.items()}
     result = {}
     for name, skill in skills.items():
-        own = policy_fields(skill.get("update", {}), f"skills.{name}.update", allow_policy=True)
+        own = policy_fields(skill.get("update", {}), f"{kind}.{name}.update", allow_policy=True)
         selection = own.pop("policy", None)
         if selection is not None and selection not in policies:
-            raise Error(f"Skill {name}: unknown update policy {selection!r}")
+            label = "Directory" if kind == "directories" else "Skill"
+            raise Error(f"{label} {name}: unknown update policy {selection!r}")
         effective = {**defaults, **policies.get(selection, {}), **own}
-        if skill.get("type", "git" if "repo" in skill else None) != "git":
+        if kind == "skills" and skill.get("type", "git" if "repo" in skill else None) != "git":
             raise Error(f"Skill {name}: update actions are unsupported for source type {skill.get('type')!r}")
         result[name] = effective
     return result
 
 
 def run_updates(manager, trigger, names=(), *, dry_run=False):
-    """Run due catalog skills independently under the caller's configuration lock.
+    """Run due skills and directories independently under the configuration lock.
 
     Persist attempts before network access, so failures and interruptions are
     throttled too. Events share one per-skill clock; manual commands do not use it.
@@ -111,7 +112,7 @@ def run_updates(manager, trigger, names=(), *, dry_run=False):
         raise Error('Use automation --trigger EVENT in full mode')
     policies = manager.config.update_policies()
     if set(names) - policies.keys():
-        raise Error("Unknown catalog skill selection")
+        raise Error("Unknown catalog skill or directory selection")
     manager.state.ready()
     sources = manager.config.sources
     report, failed = [], False
@@ -119,7 +120,7 @@ def run_updates(manager, trigger, names=(), *, dry_run=False):
     for name, policy in policies.items():
         if names and name not in names:
             continue
-        entry = {"skill": name, "policy": policy}
+        entry = {"directory" if name in manager.config._directories else "skill": name, "policy": policy}
         report.append(entry)
         previous = manager.state.data["sources"].get(name, {}).get("automation", {})
         current = time.time()
@@ -143,7 +144,16 @@ def run_updates(manager, trigger, names=(), *, dry_run=False):
         manager.state.save()
         try:
             source = manager.delivery_source(sources[name])
-            if policy["action"] == "check":
+            if not source.git:
+                if not source.path.is_dir():
+                    raise Error(f"External source missing: {source.path}")
+                for item in manager.config.declarations(sources[name]):
+                    manager.payload(item)
+                entry["status"] = "external-no-fetch"
+                if policy["action"] == "sync":
+                    entry["apply"] = manager.apply([name], timeout=policy["timeout"])
+                    entry["status"] = "synced"
+            elif policy["action"] == "check":
                 git = Git(policy["timeout"])
                 revision = git.fetch(source)
                 source_state.update(last_fetch=now(), observed_revision=revision)
@@ -241,7 +251,7 @@ def startup_skills_changed(outcomes, records, agent, sources):
                     and outcome.get("revision") is not None
                     and outcome["previous_revision"] != outcome["revision"])
         if advanced:
-            source = sources.get(outcome.get("skill", outcome.get("setting")))
+            source = sources.get(outcome.get("skill", outcome.get("directory", outcome.get("setting"))))
             if source is not None:
                 advanced_checkouts.add(source.path)
         if outcome.get("status") == "synced":
@@ -277,10 +287,11 @@ def startup_briefing(outcomes):
             detail = "installed/refreshed"
         else:
             continue
-        changes.append(f"{outcome['skill']}: {detail}")
+        changes.append(f"{outcome.get('skill', outcome.get('directory'))}: {detail}")
     if not changes:
         return ""
-    summary = "AEM skill updates: " + "; ".join(changes[:10])
+    label = "content" if any("directory" in outcome for outcome in outcomes) else "skill"
+    summary = f"AEM {label} updates: " + "; ".join(changes[:10])
     if len(changes) > 10:
         summary += f"; +{len(changes) - 10} more (see aem status)"
     return summary
