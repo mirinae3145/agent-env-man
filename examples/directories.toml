@@ -1,0 +1,20 @@
+# Bind personal with bootstrap --root personal=/absolute/parent.
+# Targets are independent of agent skill and instruction locations.
+version = 2
+
+[sources.case-store]
+type = "git"
+repository = "https://github.com/OWNER/case-store.git"
+
+[directories.cases]
+source = "case-store"
+subdir = "."
+
+[directories.cases.install]
+root = "personal"
+destination = "agent-loop"
+mode = "link"
+
+# Optional, using the same policy system as skills.
+[directories.cases.update]
+trigger = []

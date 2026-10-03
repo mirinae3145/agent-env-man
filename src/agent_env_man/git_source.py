@@ -191,7 +191,7 @@ class Git:
 
     def guard_links(self, source: Source, revision: str, records: dict):
         for key, record in records.items():
-            shared_item = (record.get("kind") in ("skill", "instruction", "instruction-entry")
+            shared_item = (record.get("kind") in ("skill", "directory", "instruction", "instruction-entry")
                             and record.get("source") == str(source.path / record["relative"]))
             if (record.get("source_name") != source.name and not shared_item) or record.get("detached") or record["mode"] != "link":
                 continue
@@ -202,7 +202,9 @@ class Git:
                 self.skill_descriptor(source, relative, revision)
             if record.get("kind") == "instruction":
                 self.instruction_descriptor(source, relative, record["entry"], revision)
-            if relative == "." and record.get("kind") in ("skill", "instruction"):
+            if record.get("kind") == "directory":
+                self.directory_descriptor(source, relative, revision)
+            if relative == "." and record.get("kind") in ("skill", "directory", "instruction"):
                 mode = "040000"
             else:
                 listing = self.run(source.path, "ls-tree", "-z", revision, "--", relative).stdout
@@ -215,6 +217,17 @@ class Git:
                 tree = self.run(source.path, "ls-tree", "-rz", revision, "--", *pathspec).stdout
                 if any(entry.split(" ", 1)[0] not in ("100644", "100755") for entry in tree.split("\0") if entry):
                     raise Error(f"{key}: incoming linked directory contains a symlink or submodule")
+
+    def directory_descriptor(self, source, relative, revision="HEAD"):
+        """Require a Git tree of regular files without imposing an entry document."""
+        if relative != ".":
+            listing = self.run(source.path, "ls-tree", "-z", revision, "--", relative).stdout
+            if not listing or listing.split(" ", 1)[0] != "040000":
+                raise Error(f"{source.name}: directory must be a tracked Git tree: {relative}")
+        pathspec = () if relative == "." else (relative,)
+        tree = self.run(source.path, "ls-tree", "-rz", revision, "--", *pathspec).stdout
+        if any(entry.split(" ", 1)[0] not in ("100644", "100755") for entry in tree.split("\0") if entry):
+            raise Error(f"{source.name}: directory contains a Git symlink or submodule")
 
     def instruction_descriptor(self, source, relative, entry, revision="HEAD"):
         """Validate the entry and complete regular-file tree before publishing Git content."""

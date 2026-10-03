@@ -80,6 +80,33 @@ def verify_settings(cli, root, source, git):
         require(json.loads(cli("locate", name))["detached"], f"{format}: detach retained ownership")
 
 
+def verify_directories(cli, root, source, git):
+    """Verify entry-free directory copies through the installed command flow."""
+    target = root / 'personal/agent-loop'
+    cli('apply', '--item', 'cases', '--agent', 'claude')
+    require((target / 'first.md').read_text(encoding='utf-8') == 'First case\n',
+            'Directory apply did not install its payload')
+    location = json.loads(cli('locate', 'cases', '--agent', 'claude'))
+    require(location['entry'] == str(target), 'Directory locate requires an entry file or agent binding')
+    (source / 'cases/first.md').write_text('Received case\n', encoding='utf-8')
+    git('add', 'cases')
+    git('commit', '-m', 'Update directory fixture')
+    cli('update', 'cases')
+    require((target / 'first.md').read_text(encoding='utf-8') == 'First case\n',
+            'Directory update applied a copy implicitly')
+    cli('apply', '--item', 'cases')
+    require((target / 'first.md').read_text(encoding='utf-8') == 'Received case\n',
+            'Directory apply did not refresh its copy')
+    (target / 'local.md').write_text('Preserve local case', encoding='utf-8')
+    cli('apply', '--item', 'cases', code=1)
+    original = Path(json.loads(cli('locate', 'cases', '--source'))['root'])
+    require(not (original / 'local.md').exists(), 'Directory copy edits were implicitly collected')
+    cli('detach', 'cases', '--agent', 'claude')
+    require((target / 'local.md').read_text(encoding='utf-8') == 'Preserve local case',
+            'Directory detach lost local edits')
+    require(json.loads(cli('locate', 'cases'))['detached'], 'Directory detach retained ownership')
+
+
 def verify():
     """Check runtime isolation and local operations in the target interpreter.
 
@@ -138,7 +165,7 @@ def verify():
         docs_root = Path(docs["root"])
         require(package.parent in docs_root.parents, "Documentation must come from the installed wheel")
         for resource in ("README.md", "LICENSE.txt", "docs/commands.md", "examples/skills.toml",
-                         "docs/personal-hooks.md", "examples/personal-hooks.toml"):
+                         "docs/personal-hooks.md", "examples/personal-hooks.toml", "examples/directories.toml"):
             require((docs_root / resource).is_file(), f"Missing installed resource: {resource}")
         require(not Path(str(invalid) + ".state").exists(), "Help/docs touched invalid configuration state")
 
@@ -146,6 +173,8 @@ def verify():
         source.mkdir()
         skill = b"---\nname: smoke\ndescription: Local runtime verification\n---\n\nTest content.\n"
         (source / "SKILL.md").write_bytes(skill)
+        (source / 'cases').mkdir()
+        (source / 'cases/first.md').write_text('First case\n', encoding='utf-8')
         for format in ("toml", "json"):
             (source / f"settings_{format}.{format}").write_text(
                 'count = 1\n' if format == "toml" else '{"count": 1}\n', encoding="utf-8")
@@ -154,7 +183,7 @@ def verify():
             return run_captured(["git", "-C", str(source), "-c", f"core.hooksPath={os.devnull}", *arguments],
                                 cwd=root, env=environment, check=True, capture_output=True, text=True, timeout=30)
 
-        for arguments in (("init", "-b", "main"), ("add", "SKILL.md", "settings_toml.toml", "settings_json.json"),
+        for arguments in (("init", "-b", "main"), ("add", "SKILL.md", "cases", "settings_toml.toml", "settings_json.json"),
                           ("-c", "user.name=AEM runtime check", "-c", "user.email=runtime@example.invalid",
                            "commit", "-m", "Local fixture")):
             git(*arguments)
@@ -165,12 +194,15 @@ def verify():
         catalog.write_text('version = 2\n[sources.fixture]\ntype = "git"\n'
                            f'repository = {json.dumps(str(source), ensure_ascii=False)}\n'
                            '[skills.smoke]\nsource = "fixture"\n[skills.smoke.install]\nmode = "copy"\n'
+                           '[directories.cases]\nsource = "fixture"\nsubdir = "cases"\n'
+                           '[directories.cases.install]\nroot = "personal"\ndestination = "agent-loop"\nmode = "copy"\n'
                            '[settings.settings_toml]\nsource = "fixture"\npath = "settings_toml.toml"\nformat = "toml"\n'
                            '[settings.settings_json]\nsource = "fixture"\npath = "settings_json.json"\nformat = "json"\n',
                            encoding="utf-8")
         destination = root / "skills"
         cli("bootstrap", catalog, "--checkout-root", root / "checkouts",
             "--root", f"skills={destination}", "--root", f"agent={home / '.codex'}",
+            "--root", f"personal={root / 'personal'}",
             "--setting-target", f"settings_toml={root / 'settings_toml.toml'}",
             "--setting-target", f"settings_json={root / 'settings_json.json'}")
         target = destination / "smoke"
@@ -186,6 +218,7 @@ def verify():
         state = json.loads((Path(str(config) + ".state") / "state.json").read_text(encoding="utf-8"))
         require(state["items"]["smoke"].get("detached"), "Detach did not release ownership")
         verify_settings(cli, root, source, git)
+        verify_directories(cli, root, source, git)
         # A separate hook target exercises the installed CLI without using any
         # real product home or executing the script.
         hook_source = root / 'hook-source'

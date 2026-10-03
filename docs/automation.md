@@ -7,8 +7,8 @@ For complete command syntax and configuration fields, see [Commands](commands.md
 | Device mode | Startup and event behavior | Content installation |
 | --- | --- | --- |
 | `off` | Automatic work is disabled; explicit commands remain available. | Use explicit bootstrap and apply. |
-| `policies` (default) | AEM, catalog, and skill updates use their independent opt-in policies. | Skill `sync` policies apply prepared skills; catalog updates do not install new declarations. |
-| `full` | One queued sequence updates AEM, then the catalog, then eligible skill/instruction/settings sources. | Prepares new declarations and applies eligible content after delivery succeeds. |
+| `policies` (default) | AEM, catalog, skill, and directory updates use their independent opt-in policies. | Skill/directory `sync` policies apply prepared content; catalog updates do not install new declarations. |
+| `full` | One queued sequence updates AEM, then the catalog, then eligible skill/directory/instruction/settings sources. | Prepares new declarations and applies eligible content after delivery succeeds. |
 
 Application settings have independent per-item sync policies in `policies` mode and participate by default in `full`, preserving explicit empty-trigger exclusions and detach.
 Linked content changes as soon as its shared source checkout advances, including links excluded from installation.
@@ -31,13 +31,13 @@ aem setup --automation off
 
 1. Update AEM within its saved release range, or skip this stage when tool updates are off.
 1. Invoke the installed AEM afresh and validate/fast-forward the Git catalog; local or unbound catalogs skip delivery.
-1. Prepare and update eligible skill/instruction/settings sources, receiving settings into their stages, then apply after all selected delivery succeeds.
+1. Prepare and update eligible skill/directory/instruction/settings sources, receiving settings into their stages, then apply after all selected delivery succeeds.
 
 Full mode uses one shared trigger list and attempt interval, including failed attempts.
 Its defaults are shell/agent startup, 3600 seconds between attempts, and 30 seconds per content/catalog Git phase.
 It replaces individual automatic triggers, intervals, and check/sync actions for this run.
-Skills without an explicit trigger policy participate; explicit `manual` exclusions resolve through catalog defaults, named policy, and skill fields.
-Detached skills and detached instruction groups remain excluded.
+Skills and directories without an explicit trigger policy participate; explicit `manual` exclusions resolve through catalog defaults, named policy, and item fields.
+Detached skills, directories, and instruction groups remain excluded.
 Shared checkout updates can still change linked consumers excluded from installation, including manual skills; this is the existing shared-source contract.
 It never adopts conflicts, replaces user edits, reattaches detached content, removes undeclared targets, or grants agent hook trust.
 New valid catalog declarations can be prepared and installed in full mode.
@@ -124,7 +124,7 @@ The default trigger is `manual`; automatic updates require a Git catalog binding
 In `policies` mode, setup's existing startup callback updates a due catalog first, then resolves skill policies from the validated new catalog.
 If that catalog attempt fails, the callback skips skill updates for the event and still allows startup to continue.
 External callers can use `aem catalog auto --trigger interval`; add `--dry-run` for an offline preview.
-`aem auto` continues to operate on skills only.
+`aem auto` operates on skill and directory policies.
 
 Catalog automation shares one attempt clock across events, throttling failures too.
 It uses the same validation and fast-forward guards as `aem catalog update`, preserving local edits and the previous catalog on validation failure.
@@ -148,14 +148,17 @@ timeout = 5
 trigger = []
 ```
 
-Policies apply only to skills and do not install integrations.
+These policies apply to skills and directories and do not install integrations.
+Directories use the same defaults, named policies, per-item overrides, and attempt clocks.
+External directory checks validate local availability without fetching; sync applies the local source.
+Neither path collects installed copies or publishes changes.
 Setup connects interactive shell and agent startup to a fail-open `startup` callback.
 Without setup, external callers can invoke `aem auto --trigger shell-start`, `agent-start`, or `interval`.
 For `interval`, arrange an OS scheduler; AEM does not run a daemon.
 Preview due work with `aem auto --trigger agent-start --dry-run`.
 
-Each skill has one attempt clock across events; failed attempts are throttled too.
-Automatic sync handles skills independently and preserves conflicts and detached items.
+Each skill or directory has one attempt clock across events; failed attempts are throttled too.
+Automatic sync handles skills and directories independently and preserves conflicts and detached items.
 Explicit `update`, `apply`, `sync`, and `status --refresh` ignore automatic policies.
 Agent startup shows a brief message for completed updates or installations; full outcomes and failures remain in status.
 Instruction location hooks installed by apply do not trigger updates.

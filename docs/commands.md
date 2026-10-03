@@ -38,7 +38,7 @@ Read-only commands and dry runs may create the lock directory/file; `setup --dry
 | `publish` | Commit local changes and push selected checkouts. | Inspect remote refs, fetch when populated, and push; none in dry run. |
 | `apply` | Install from local prepared sources. | None. |
 | `sync` | Update all sources, then apply if every update succeeds. | Yes for Git. |
-| `auto` | Run due per-skill policies for an event. | Due skills only; none in dry run. |
+| `auto` | Run due skill/directory policies for an event. | Due Git items only; none in dry run. |
 | `status` | Inspect sources and saved installations. | Only with `--refresh`. |
 | `detach` | Preserve contents and release ownership. | None. |
 | `locate` | Find installed content or prepared editing sources. | None. |
@@ -241,7 +241,7 @@ The default branch is discovered and written to the machine binding; repeating r
 Catalog, checkout-root, and external CLI paths resolve relative to the working directory and are saved as absolute paths.
 Root paths must be absolute or begin with `~/`.
 Repeated `--external` binds declared external names; duplicate names in one invocation are invalid, and omitted saved bindings remain.
-`--item` selects catalog skill, instruction, setting or personal hook names for preparation, not ownership IDs or repository names.
+`--item` selects catalog skill, directory, instruction, setting or personal hook names for preparation, not ownership IDs or repository names.
 No selection prepares all declared sources.
 Missing repositories are cloned and validated; existing checkouts are validated without pulling or resetting.
 A failed content download leaves the machine binding saved so bootstrap can be retried.
@@ -256,6 +256,7 @@ An interrupted machine-file save may leave a validated checkout that the same re
 Existing machine settings and omitted external/root bindings are preserved.
 
 The JSON result retains `skills`, `config`, and `next`.
+The legacy `skills` array also contains directory preparation results: Git entries use `directory: NAME`, while external entries use the existing `source: NAME` and `external-ready` fields.
 For Git bindings it also includes `catalog`, with `status` (`cloned` or `already-prepared`), absolute `checkout` and `entry` paths, `repository`, resolved `branch`, and `revision`.
 
 ## catalog
@@ -322,7 +323,7 @@ Bootstrap validates an existing catalog checkout without pulling it.
 aem update [NAME ...] [--git-timeout TIMEOUT]
 ```
 
-Select skill, instruction, or setting source names, or omit names for all sources.
+Select skill, directory, instruction, setting, or personal hook source names, or omit names for all sources.
 Shared checkouts advance once and guard every active link, including orphaned declarations.
 Links change immediately; copies are refreshed by apply.
 External sources only receive an existence check (`external-no-fetch`).
@@ -336,7 +337,7 @@ aem publish NAME [NAME ...] [-m MESSAGE | --message MESSAGE]
 ```
 
 Edit the prepared checkout directly, or edit through an installed link pointing to it.
-Select catalog skill, instruction bundle, or setting names, not ownership IDs or repository aliases:
+Select catalog skill, directory, instruction bundle, or setting names, not ownership IDs or repository aliases:
 
 ```bash
 aem publish report personal --dry-run
@@ -386,10 +387,10 @@ aem apply [--agent AGENT] [--item ID ...] [--git-timeout TIMEOUT]
 ```
 
 Omit items to install all declared, non-detached items except personal hooks, which require explicit selection.
-Skill IDs are skill names; instruction IDs are `NAME:bundle`, `NAME:entry`, and `NAME:hook`.
+Skill and directory selectors are catalog names (directories also accept `NAME:directory`); instruction IDs are `NAME:bundle`, `NAME:entry`, and `NAME:hook`.
 Selecting an entry or hook also selects its bundle and the other instruction items.
 Selecting only a bundle installs its directory link alone.
-`--agent` filters installation destinations.
+`--agent` filters installation destinations; directories remain included as agent-independent targets.
 
 `--adopt` records matching existing content; `--replace` backs up and replaces a conflict.
 Both require explicit `--item` selections, as does `--reattach` for detached items.
@@ -414,13 +415,17 @@ For throttled event-based work, configure policies and use `auto`.
 aem auto --trigger EVENT [--item NAME ...] [--dry-run]
 ```
 
-Select catalog skills only; omitted names consider all skill policies.
-Due skills require prepared checkouts and run independently.
-One failure does not block another skill, but an unresolved recovery journal stops further work.
+Select catalog skills or directories; omitted names consider all their policies.
+Due items require prepared sources and run independently.
+One failure does not block another item, but an unresolved recovery journal stops further work.
 Attempts are persisted before network access and throttle failures as well as successes.
 Dry run shows effective policies and due work without fetching or saving attempts.
-Automatic execution never adopts conflicts, replaces local edits, or reattaches detached skills.
-It exits `1` if any attempted skill fails, otherwise `0`.
+Automatic execution never adopts conflicts, replaces local edits, or reattaches detached items.
+It exits `1` if any attempted item fails, otherwise `0`.
+
+Directory policy results use `directory: NAME` instead of `skill: NAME`, retaining the same policy and attempt fields.
+External directory checks report `external-no-fetch` without installing; sync validates and applies their local source without Git transport.
+Directories participate in agent-filtered apply, status, detach, and locate as common items.
 
 ## status
 
@@ -467,9 +472,10 @@ The option cannot be combined with `--json`.
 Lookup failures leave the shell directory unchanged; help still prints normally.
 Existing shell registrations need setup run again to install this function.
 
-The agent defaults to `codex`; NAME is a catalog skill, instruction bundle, or setting name; setting locations do not depend on an agent.
+The agent defaults to `codex`; NAME is a catalog skill, directory, instruction bundle, setting, or personal hook name; directory and setting locations do not depend on an agent.
 By default, returns `root`, `entry`, `installed_root`, and `detached` from the selected agent's saved installation when one exists.
 For skills, `entry` is SKILL.md, and `location` distinguishes a linked source from a copy.
+For directories, both `root` and `entry` identify the directory; no entry file is required.
 An installed copy or detached item resolves to its preserved local contents, not the publish source.
 Saved lookup works without loading the catalog or validating installation fields, accepts state versions 1 and 2, and never changes ownership.
 Missing or redirected entries and replaced active links are errors; a broken installation never silently falls back to its source.
@@ -541,7 +547,7 @@ aem startup --trigger EVENT [--agent AGENT]
 ```
 
 Callback registered by setup; runs the selected device automation mode and remains fail-open.
-In the default `policies` mode it independently queues due AEM self-updates, runs the machine catalog policy, then runs the same skill policy engine as `auto`.
+In the default `policies` mode it independently queues due AEM self-updates, runs the machine catalog policy, then runs the same skill/directory policy engine as `auto`.
 In `full` mode it queues the entire sequence for execution after the callback exits; in `off` mode it performs no automatic work.
 An empty update result skips skill reload detection without reading the content catalog, so a missing or invalid catalog does not produce callback errors when automation is off.
 A successful catalog update reloads declarations before resolving skill policies for that event.

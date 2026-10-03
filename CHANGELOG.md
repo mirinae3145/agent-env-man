@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- General directory management from Git or external sources, with explicit target roots, link/copy installation, existing publication and preservation contracts, and skill-style automatic update policies.
 - Configure the agent startup callback duration through setup and the standalone installer, retaining the ten-second default and preserving instruction hooks.
 - Introduce explicit Git timeout option names while retaining the previous CLI names as compatible aliases and preserving saved policy keys.
 - Explicit personal command hook resources for Codex and Claude, with machine-local runtime bindings that preserve virtualenv interpreters, group ownership and existing transaction/recovery protections.

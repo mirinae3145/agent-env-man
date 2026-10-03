@@ -21,6 +21,7 @@ Other target backups are retained as `<target>.aem-backup-<id>`.
 Existing sibling backups are preserved; move reviewed old skill backups outside discovery roots if they appear as duplicate skills.
 A directory item owns its entire subtree; local additions count as modifications.
 Detach materializes links, preserves copies, and records a tombstone to prevent automatic reinstall.
+General directories use these same preservation rules; `detach NAME` releases the single `NAME:directory` item without collecting its contents into the source.
 After moving the preserved target aside, explicitly reattach with `aem apply --item report --reattach`.
 Detaching instructions retains hook configuration and locator records for the preserved copy; disable the retained hook in Codex if no longer wanted.
 

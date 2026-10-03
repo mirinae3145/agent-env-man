@@ -112,11 +112,11 @@ def full_content(manager, timeout):
             excluded.append({'source': name, 'reason': 'manual'})
             continue
         declarations = manager.config.declarations(source)
-        detached_agents = {item.agent for item in declarations if item.kind != 'skill'
+        detached_agents = {item.agent for item in declarations if item.kind not in ('skill', 'directory')
                            and manager.state.data['items'].get(item.key, {}).get('detached')}
         selected = [item.key for item in declarations
                     if not manager.state.data['items'].get(item.key, {}).get('detached')
-                    and (item.kind == 'skill' or item.agent not in detached_agents)]
+                    and (item.kind in ('skill', 'directory') or item.agent not in detached_agents)]
         if not selected:
             excluded.append({'source': name, 'reason': 'detached'})
             continue

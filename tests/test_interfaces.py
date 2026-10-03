@@ -95,6 +95,9 @@ class Interfaces(unittest.TestCase):
             bindings = {name: str(self.root / "externals" / name) for name, value in document.get("sources", {}).items() if value["type"] == "external"}
             machine = {"version": 1, "catalog": str(path), "external_paths": bindings,
                        "roots": {"agent": str(self.root / "agent"), "skills": str(self.root / "skills")}}
+            for directory in document.get("directories", {}).values():
+                root = directory["install"]["root"]
+                machine["roots"].setdefault(root, str(self.root / root))
             machine['runtimes'] = {binding['runtime']: sys.executable
                                    for hook in document.get('hooks', {}).values()
                                    for binding in hook['agents'].values()}

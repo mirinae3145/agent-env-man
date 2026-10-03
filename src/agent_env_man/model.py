@@ -152,6 +152,7 @@ class Config(MachineFile):
         self._instructions = {}
         self._settings = {}
         self._hooks = {}
+        self._directories = {}
         self._update_policies = {}
         self.checkout_root = absolute(self.doc["checkout_root"]) if "checkout_root" in self.doc else self.path.parent / (self.path.name + ".checkouts")
         if overlaps(self.checkout_root, self.path) or overlaps(self.checkout_root, self.state_dir):
@@ -194,7 +195,7 @@ class Config(MachineFile):
             runtime(self.doc.get('self_update', {}))
         self.modes = self.doc.get("modes", {})
         if not isinstance(self.modes, dict) or any(v not in ("link", "copy") for v in self.modes.values()):
-            raise Error("Machine modes must map skill names to link or copy")
+            raise Error("Machine modes must map skill or directory names to link or copy")
         for name in self.modes:
             identifier(name)
 
@@ -228,6 +229,7 @@ class Config(MachineFile):
         instructions = document["instructions"]
         settings = document["settings"]
         declared_hooks = document['hooks']
+        directories = document['directories']
         machine_settings = self.doc.get("settings", {})
         if not isinstance(machine_settings, dict):
             raise Error("Machine settings must be a table")
@@ -281,6 +283,17 @@ class Config(MachineFile):
                 relative(data["entry_destination"])
             if "entry_root" not in data and not self.agents:
                 raise Error(f"Instruction {name}: missing target root entry_root")
+        for name, data in directories.items():
+            if "external" in data and data["external"] not in bindings:
+                raise Error(f"Directory {name}: missing machine external_paths.{data['external']}")
+            if data.get("subdir", ".") != ".":
+                relative(data["subdir"])
+            root = data.get("root")
+            if not isinstance(root, str) or root not in self.roots:
+                raise Error(f"Directory {name}: missing target root {root!r}")
+            relative(data.get("destination", name))
+            if data.get("mode", "link") not in ("link", "copy"):
+                raise Error(f"Directory {name}: expected link or copy mode")
         external_paths = {identifier(k): absolute(v) for k, v in bindings.items()}
         protected = [self.path, self.state_dir, self.checkout_root]
         if self.catalog_path:
@@ -294,15 +307,19 @@ class Config(MachineFile):
         self._instructions = instructions
         self._settings = settings
         self._hooks = declared_hooks
-        if self.modes.keys() - skills.keys():
-            raise Error("Machine mode override does not name a skill in the catalog")
+        self._directories = directories
+        if self.modes.keys() - (skills.keys() | directories.keys()):
+            raise Error("Machine mode override does not name a skill or directory in the catalog")
         from .updates import resolve_policies
 
         self._update_policies = resolve_policies(document.get("updates", {}), skills)
+        self._update_policies.update(resolve_policies(document.get("updates", {}), directories, kind="directories"))
         # Full mode supplies its own opt-in default; explicit empty-trigger
         # overrides still resolve through the same precedence rules.
         from .updates import TRIGGERS
         self._full_update_policies = resolve_policies(document.get('updates', {}), skills, default_trigger=list(TRIGGERS))
+        self._full_update_policies.update(resolve_policies(document.get('updates', {}), directories,
+                                                          default_trigger=list(TRIGGERS), kind="directories"))
         self._repositories = repositories
         self._catalog = skills
         return skills
@@ -340,7 +357,7 @@ class Config(MachineFile):
     def sources(self) -> dict[str, Source]:
         """Derive checkout paths; the inventory never needs device-local bindings."""
         result = {}
-        declarations = {**self.catalog(), **self._instructions, **self._settings, **self._hooks}
+        declarations = {**self.catalog(), **self._directories, **self._instructions, **self._settings, **self._hooks}
         for name, data in declarations.items():
             if "external" in data:
                 result[name] = Source(name, self._external_paths[data["external"]], None, None)
@@ -376,6 +393,12 @@ class Config(MachineFile):
     def declarations(self, source: Source) -> list[Item]:
         from .agents import profile, suffix
         self.catalog()
+        if source.name in self._directories:
+            data = self._directories[source.name]
+            subdir = data.get("subdir", ".")
+            return [Item(source.name, "directory", subdir, source.path / subdir,
+                         self.target(data["root"], relative(data.get("destination", source.name))),
+                         self.modes.get(source.name, data.get("mode", "link")), "directory")]
         if source.name in self._hooks:
             result = []
             data = self._hooks[source.name]

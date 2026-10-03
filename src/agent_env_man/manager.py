@@ -41,7 +41,7 @@ class Manager:
         return source
 
     def prepare_skills(self, names=(), *, timeout=30, defer_settings=False):
-        """Clone listed repositories, validating skills before publishing a checkout.
+        """Clone listed repositories, validating consumers before publishing a checkout.
 
         Clone success does not install anything. Existing checkouts are checked
         in place and never reset or pulled by bootstrap.
@@ -86,11 +86,13 @@ class Manager:
                     branch = git.run(local_path, "symbolic-ref", "--quiet", "--short", "HEAD").stdout
                 prepared = replace(source, path=local_path, branch=branch)
                 git.clean(prepared)
-                # A shared checkout is published only when every declared skill is valid.
+                # A shared checkout is published only when every declared consumer is valid.
                 for skill_name, skill_source in members:
                     item = self.config.declarations(skill_source)[0]
                     if item.kind == "skill":
                         git.skill_descriptor(prepared, item.relative)
+                    elif item.kind == "directory":
+                        git.directory_descriptor(prepared, item.relative)
                     elif item.kind == "setting":
                         if defer_settings and not created:
                             continue
@@ -130,12 +132,14 @@ class Manager:
                     if created:
                         member_state.update(last_fetch=now(), observed_revision=revision)
                 for skill_name, _ in selected:
-                    report.append({"skill": skill_name, "status": "cloned" if created else "already-prepared", "checkout": str(source.path)})
+                    report.append({"directory" if skill_name in self.config._directories else "skill": skill_name,
+                                   "status": "cloned" if created else "already-prepared", "checkout": str(source.path)})
             except (Error, OSError, ValueError) as exc:
                 failed = True
                 for skill_name, _ in selected:
                     self.state.data["sources"].setdefault(skill_name, {})["error"] = str(exc)
-                    report.append({"skill": skill_name, "status": "failed", "error": str(exc)})
+                    report.append({"directory" if skill_name in self.config._directories else "skill": skill_name,
+                                   "status": "failed", "error": str(exc)})
             finally:
                 if temporary:
                     # Git can mark object files read-only on Windows; a failed
@@ -169,7 +173,7 @@ class Manager:
 
     @staticmethod
     def matches(item, requested):
-        logical = item.source_name if item.kind in ("skill", "setting", 'personal-hook') else f"{item.source_name}:{item.id.split('@')[0]}"
+        logical = item.source_name if item.kind in ("skill", "directory", "setting", 'personal-hook') else f"{item.source_name}:{item.id.split('@')[0]}"
         return item.key in requested or logical in requested
 
     def selected(self, requested=(), *, reattach=False, agent=None):
@@ -178,7 +182,7 @@ class Manager:
         # likewise needs a usable entry. Flags still require explicit selection.
         requested = set(requested)
         expanded = {i.key for i in all_items if self.matches(i, requested)}
-        logical = {i.source_name if i.kind in ("skill", "setting", 'personal-hook') else f"{i.source_name}:{i.id.split('@')[0]}" for i in all_items}
+        logical = {i.source_name if i.kind in ("skill", "directory", "setting", 'personal-hook') else f"{i.source_name}:{i.id.split('@')[0]}" for i in all_items}
         requested = expanded | (requested - logical - {i.key for i in all_items})
         for item in all_items:
             if item.key in requested and item.kind in ("instruction-entry", "instruction-hook"):
@@ -195,7 +199,7 @@ class Manager:
         self.check_destinations([i for i in all_items if i.key not in detached])
         if agent is not None:
             profile(agent)
-            items = [i for i in items if (i.kind == "setting" or agent in (i.agents or (i.agent,)))]
+            items = [i for i in items if (i.kind in ("setting", "directory") or agent in (i.agents or (i.agent,)))]
         self.check_destinations(items)
         return items
 
@@ -261,12 +265,14 @@ class Manager:
             cursor = cursor.parent
         if item.kind == "skill" and (not item.source.is_dir() or not (item.source / "SKILL.md").is_file()):
             raise Error(f"{item.key}: skill path must be a directory containing SKILL.md")
+        if item.kind == "directory" and not item.source.is_dir():
+            raise Error(f"{item.key}: source must be a directory")
         if item.kind in ("instruction", "instruction-hook"):
             if not item.source.is_dir() or not (item.source / item.entry).is_file():
                 raise Error(f"{item.key}: instruction bundle needs a regular entry document: {item.entry}")
         if item.kind == "instruction-entry" and not item.source.is_file():
             raise Error(f"{item.key}: instruction entry must be a regular file")
-        return fingerprint(item.source, exclude_git=item.kind in ("skill", "instruction", "instruction-hook") and item.relative == ".")
+        return fingerprint(item.source, exclude_git=item.kind in ("skill", "directory", "instruction", "instruction-hook") and item.relative == ".")
 
     def locate(self, name, agent="codex", *, source=False, target=False):
         """Locate saved content by default, or current catalog source content explicitly.
@@ -302,6 +308,22 @@ class Manager:
             raise Error("--target is supported only for settings")
         profile(agent)
         if not source:
+            record = self.state.data["items"].get(f"{name}:directory")
+            if record is not None:
+                target = saved_path(record.get("target"))
+                linked = record.get("mode") == "link" and not record.get("detached")
+                if linked:
+                    if not link_matches(observation(target), record.get("source")):
+                        raise Error(f"{name}: installed directory link was replaced; inspect status")
+                elif record.get("mode") not in ("link", "copy"):
+                    raise Error(f"{name}: unsupported saved directory mode")
+                elif target.is_symlink() or is_reparse(target):
+                    raise Error(f"{name}: saved directory copy was replaced by a link")
+                root = target.resolve(strict=True)
+                if not root.is_dir():
+                    raise Error(f"{name}: saved directory is missing or is not a directory")
+                return {"root": str(root), "entry": str(root), "installed_root": str(target),
+                        "detached": bool(record.get("detached")), "location": "source" if linked else "copy"}
             record = self.state.data["items"].get(f"{name}:bundle{suffix(agent)}")
             if record is not None:
                 return self.locate_instruction(name, agent)
@@ -329,10 +351,10 @@ class Manager:
         config = Config(self.config.path)
         sources = config.sources
         if name not in sources:
-            raise Error(f"{name}: unknown catalog skill, instruction bundle, setting or personal hook")
+            raise Error(f"{name}: unknown catalog skill, directory, instruction bundle, setting or personal hook")
         selected = sources[name]
-        items = [i for i in config.declarations(selected) if i.kind in ("skill", "instruction", 'personal-hook')
-                 and (i.kind == "setting" or agent in (i.agents or (i.agent,)))]
+        items = [i for i in config.declarations(selected) if i.kind in ("skill", "directory", "instruction", 'personal-hook')
+                 and (i.kind == "directory" or agent in (i.agents or (i.agent,)))]
         if not items:
             raise Error(f"{name}: no declaration for agent {agent}")
         item = items[0]
@@ -340,8 +362,17 @@ class Manager:
             raise Error(f"{name}: source is missing; run bootstrap or restore the external folder")
         if selected.git:
             Git().validate(self.delivery_source(selected))
-        entry = item.source if item.kind == 'personal-hook' else item.source / ("SKILL.md" if item.kind == "skill" else item.entry)
-        self.locate_entry(selected.path, entry)
+        entry = item.source if item.kind in ('personal-hook', 'directory') else item.source / ("SKILL.md" if item.kind == "skill" else item.entry)
+        if item.kind == "directory":
+            cursor = entry
+            while cursor != selected.path:
+                if cursor.is_symlink() or is_reparse(cursor):
+                    raise Error(f"Directory source redirects through a link: {cursor}")
+                cursor = cursor.parent
+            if not entry.is_dir():
+                raise Error(f"{name}: directory source is missing")
+        else:
+            self.locate_entry(selected.path, entry)
         return {"root": str(item.source.parent if item.kind == 'personal-hook' else item.source), "entry": str(entry), "installed_root": None,
                 "detached": False, "location": "source", "repository": selected.git,
                 "checkout": str(selected.path) if selected.git else None,
@@ -453,8 +484,11 @@ class Manager:
                   "id": item.id,
                   "target": str(item.target), "mode": item.mode, "hash": payload_hash,
                   "directory": item.source.is_dir(), "detached": False, "kind": item.kind,
-                  "exclude_git": item.kind in ("skill", "instruction", "instruction-hook") and item.relative == ".",
+                  "exclude_git": item.kind in ("skill", "directory", "instruction", "instruction-hook") and item.relative == ".",
                   "entry": item.entry, "agent": item.agent, "agents": list(item.agents or (item.agent,))}
+        if item.kind == "directory":
+            record.pop("agent")
+            record.pop("agents")
         present = before["kind"] != "missing"
         if item.mode == "agent-hook":
             if item.kind == 'personal-hook':
@@ -716,6 +750,8 @@ class Manager:
                 for item in [i for i in items if i.source_name == name]:
                     if item.kind == "skill":
                         git.skill_descriptor(source, item.relative)
+                    elif item.kind == "directory":
+                        git.directory_descriptor(source, item.relative)
                     elif item.kind in ("instruction", "instruction-hook"):
                         git.instruction_descriptor(source, item.relative, item.entry)
                     else:
@@ -810,12 +846,13 @@ class Manager:
         requested = set(keys)
         records = self.state.data["items"]
         def logical(key, record):
-            return record.get("source_name") if record.get("kind") in ("skill", "setting", 'personal-hook') else key.split('@')[0]
+            return record.get("source_name") if record.get("kind") in ("skill", "directory", "setting", 'personal-hook') else key.split('@')[0]
         expanded = [k for k, r in records.items() if k in requested or logical(k, r) in requested]
         unknown = requested - records.keys() - {logical(k, r) for k, r in records.items()}
         if unknown:
             raise Error(f"Not a managed item: {sorted(unknown)}")
-        keys = [k for k in expanded if agent is None or agent in records[k].get("agents", [records[k].get("agent", "codex")])]
+        keys = [k for k in expanded if agent is None or records[k].get("kind") == "directory"
+                or agent in records[k].get("agents", [records[k].get("agent", "codex")])]
         if agent:
             profile(agent)
             for key in keys:
@@ -877,7 +914,7 @@ class Manager:
         self.state.ready()
         sources = self.config.sources
         if not names or set(names) - sources.keys():
-            raise Error("publish requires known catalog skill, instruction bundle, setting or personal hook names")
+            raise Error("publish requires known catalog skill, directory, instruction bundle, setting or personal hook names")
         if message is not None and not message.strip():
             raise Error("--message must not be empty")
         groups = {}
@@ -1089,7 +1126,7 @@ class Manager:
             try:
                 for item in self.config.declarations(source):
                     seen.add(item.key)
-                    if agent and agent not in (item.agents or (item.agent,)):
+                    if agent and item.kind != "directory" and agent not in (item.agents or (item.agent,)):
                         continue
                     item_entry = {"item": item.key, "target": str(item.target), "mode": item.mode}
                     old = self.state.data["items"].get(item.key)
@@ -1117,7 +1154,8 @@ class Manager:
         for key, old in self.state.data["items"].items():
             if old.get("mode") == "setup-config":
                 continue
-            if key not in seen and (agent is None or agent in old.get("agents", [old.get("agent", "codex")])):
+            if key not in seen and (agent is None or old.get("kind") == "directory"
+                                    or agent in old.get("agents", [old.get("agent", "codex")])):
                 report["items"].append({"item": key, "target": old["target"],
                                         "installation": self.installed_status(old),
                                         "status": "detached" if old.get("detached") else "setup" if old.get("kind") == "setup" else "orphaned-or-source-unavailable"})
@@ -1130,7 +1168,7 @@ class Manager:
         if error:
             report["configuration_error"] = str(error)
         for key, record in self.state.data["items"].items():
-            if agent and agent not in record.get("agents", [record.get("agent", "codex")]):
+            if agent and record.get("kind") != "directory" and agent not in record.get("agents", [record.get("agent", "codex")]):
                 continue
             item = {"item": key, "target": record.get("target"), "mode": record.get("mode"),
                     "status": "detached" if record.get("detached") else "recorded"}
