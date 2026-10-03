@@ -54,7 +54,9 @@ class MachineSetup(SetupFixture):
         for name in ('codex', 'claude'):
             record = self.state()['items']['setup:agent-' + name]
             hook = json.loads(Path(record['target']).read_text())['hooks']['SessionStart'][0]
-            self.assertEqual(hook['hooks'][0]['timeout'], 65.5)
+            self.assertEqual(hook['hooks'][0]['timeout'], 66 if name == 'codex' else 65.5)
+            if name == 'codex':
+                self.assertIs(type(hook['hooks'][0]['timeout']), int)
         self.assertEqual(json.loads((self.agent / 'hooks.json').read_text())['hooks']['SessionStart'][-1], instruction)
         self.setup_cli()
         self.assertEqual(Config(self.config).startup_hook_timeout, 65.5)
@@ -67,6 +69,7 @@ class MachineSetup(SetupFixture):
         self.setup_cli('--agent', 'codex')
         record = self.state()['items']['setup:agent-codex']
         self.assertEqual(record['hook_group']['hooks'][0]['timeout'], 45)
+        self.assertIs(type(record['hook_group']['hooks'][0]['timeout']), int)
 
     def test_git_policy_aliases_preserve_saved_keys(self):
         for flag in ('--automation-git-timeout', '--automation-timeout'):

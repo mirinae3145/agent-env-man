@@ -15,7 +15,9 @@ def now() -> str:
 
 
 class Git:
-    def __init__(self, timeout: float = 30):
+    def __init__(self, timeout: float = 30, *, fetch_cache=None):
+        self.fetch_cache = fetch_cache
+        self.timeout = timeout
         self.deadline = time.monotonic() + timeout
 
     def run(self, path: Path | None, *args: str, check: bool = True, strict_utf8: bool = False) -> subprocess.CompletedProcess:
@@ -176,10 +178,24 @@ class Git:
     def fetch(self, source: Source) -> str:
         self.validate(source)
         self.run(source.path, "check-ref-format", "refs/heads/" + source.branch)
-        # A forced remote-tracking update is observational; HEAD is never reset.
-        self.run(source.path, "fetch", "--no-tags", "origin",
-                 f"+refs/heads/{source.branch}:refs/remotes/origin/{source.branch}")
-        return self.run(source.path, "rev-parse", "refs/remotes/origin/" + source.branch).stdout
+        key = (source.path, source.git, source.branch, self.timeout)
+        if self.fetch_cache is not None and key in self.fetch_cache:
+            result = self.fetch_cache[key]
+            if isinstance(result, Exception):
+                raise Error(str(result))
+            return result
+        try:
+            # A forced remote-tracking update is observational; HEAD is never reset.
+            self.run(source.path, "fetch", "--no-tags", "origin",
+                     f"+refs/heads/{source.branch}:refs/remotes/origin/{source.branch}")
+            result = self.run(source.path, "rev-parse", "refs/remotes/origin/" + source.branch).stdout
+        except (Error, OSError, ValueError) as exc:
+            if self.fetch_cache is not None:
+                self.fetch_cache[key] = exc
+            raise
+        if self.fetch_cache is not None:
+            self.fetch_cache[key] = result
+        return result
 
     def relation(self, source: Source) -> str:
         result = self.run(source.path, "rev-list", "--left-right", "--count",

@@ -453,6 +453,8 @@ Machine `[setup].startup_hook_timeout` is a finite positive integer or float in 
 Set it with `aem setup --startup-hook-timeout 60` or `python scripts/setup.py --startup-hook-timeout 60`.
 Setup updates the registered Codex and Claude startup hooks and preserves the saved value when the option is omitted.
 It can also save the value before agents are registered.
+Codex requires an unsigned integer timeout: its generated hook rounds fractional seconds up (for example, `65.5` becomes `66`) and rejects values at or above `2**64`.
+Claude retains the configured fractional value.
 Instruction-location hooks retain their ten-second limit, and shell callbacks have no corresponding agent hook limit.
 Git policy `timeout` fields remain independent; in policies mode, all synchronous startup work must fit within the outer agent limit.
 In full mode, the callback queues the update sequence for execution after it exits.

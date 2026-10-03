@@ -244,6 +244,94 @@ class SkillCatalog(unittest.TestCase):
         self.assertEqual(self.catalog.read_bytes(), before)
         self.assertEqual(self.git(self.repo, "status", "--porcelain"), "")
 
+    def shared_auto_fixture(self, *, second_policy=None):
+        second = self.repo / 'skills/second'
+        second.mkdir()
+        (second / 'SKILL.md').write_text('# Second\n', encoding='utf-8')
+        self.commit(self.repo)
+        self.skills = {name: {'subdir': 'skills/' + name, 'source': 'tools',
+                             'install': {'mode': 'copy'}} for name in ('report', 'second')}
+        if second_policy:
+            self.skills['second']['update'] = second_policy
+        self.catalog_sources = {'tools': {'type': 'git', 'repository': str(self.repo)}}
+        self.save_catalog()
+        self.update_policy({'trigger': ['agent-start'], 'action': 'check', 'min_interval': 0})
+        self.bootstrap()
+        self.run_cli('apply')
+        self.publish_skill_change()
+
+    def test_auto_shares_fetch_across_check_and_sync_but_not_events(self):
+        self.shared_auto_fixture(second_policy={'action': 'sync'})
+        original = Git.run
+        fetches = []
+
+        def record(git, path, *args, **kwargs):
+            if args[0] == 'fetch':
+                fetches.append(path)
+            return original(git, path, *args, **kwargs)
+
+        with patch.object(Git, 'run', record):
+            result = self.run_cli('auto', '--trigger', 'agent-start')
+            self.assertEqual(len(fetches), 1)
+            self.assertEqual([item['status'] for item in result], ['checked', 'synced'])
+            self.run_cli('auto', '--trigger', 'agent-start')
+            self.assertEqual(len(fetches), 2)
+        self.assertNotIn('Published change', (self.destination / 'report/SKILL.md').read_text())
+        self.assertEqual((self.destination / 'second/SKILL.md').read_text(), '# Second\n')
+        self.assertIn('Published change', (self.checkouts / '.aem-repositories/tools/skills/report/SKILL.md').read_text())
+
+    def test_shared_fetch_keeps_modified_copy_and_other_skill_independent(self):
+        self.shared_auto_fixture(second_policy={'action': 'sync'})
+        self.update_policy({'trigger': ['agent-start'], 'action': 'sync', 'min_interval': 0})
+        target = self.destination / 'report/SKILL.md'
+        target.write_text('# Local edit\n')
+        original = Git.run
+        fetches = []
+
+        def record(git, path, *args, **kwargs):
+            if args[0] == 'fetch':
+                fetches.append(path)
+            return original(git, path, *args, **kwargs)
+
+        with patch.object(Git, 'run', record):
+            result = self.run_cli('auto', '--trigger', 'agent-start', code=1)
+        self.assertEqual(len(fetches), 1)
+        self.assertEqual([item['status'] for item in result], ['failed', 'synced'])
+        self.assertEqual(target.read_text(), '# Local edit\n')
+        self.assertEqual((self.destination / 'second/SKILL.md').read_text(), '# Second\n')
+
+    def test_auto_keeps_distinct_fetch_timeout_budgets(self):
+        self.shared_auto_fixture(second_policy={'timeout': 15})
+        original = Git.run
+        budgets = []
+
+        def record(git, path, *args, **kwargs):
+            if args[0] == 'fetch':
+                budgets.append(git.timeout)
+            return original(git, path, *args, **kwargs)
+
+        with patch.object(Git, 'run', record):
+            self.run_cli('auto', '--trigger', 'agent-start')
+        self.assertEqual(budgets, [30, 15])
+
+    def test_auto_shares_network_failure_and_records_each_skill_attempt(self):
+        self.shared_auto_fixture()
+        original = Git.run
+        attempts = []
+
+        def fail(git, path, *args, **kwargs):
+            if args[0] == 'fetch':
+                attempts.append(path)
+                raise Error('Remote unavailable')
+            return original(git, path, *args, **kwargs)
+
+        with patch.object(Git, 'run', fail):
+            result = self.run_cli('auto', '--trigger', 'agent-start', code=1)
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual([item['status'] for item in result], ['failed', 'failed'])
+        sources = self.run_cli('status')['sources']
+        self.assertTrue(all(item['automation']['status'] == 'failed' for item in sources))
+
     def test_shared_repository_prepares_once_and_installs_two_skills(self):
         second = self.repo / "skills/second"
         second.mkdir()

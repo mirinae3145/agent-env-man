@@ -102,9 +102,9 @@ def remove(path: Path):
         shutil.rmtree(path)
 
 
-def lock(directory: Path, *, timeout: float = 0):
+def lock(directory: Path, *, timeout: float = 0, shared: bool = False):
     from .process_lock import lock as process_lock
-    return process_lock(directory, timeout=timeout, error_type=Error)
+    return process_lock(directory, timeout=timeout, error_type=Error, shared=shared)
 
 class State:
     def __init__(self, directory: Path, *, maintenance=False):
