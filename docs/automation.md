@@ -19,7 +19,7 @@ See [Maintenance and recovery](maintenance.md) for conflicts, preservation, and 
 ```bash
 python scripts/setup.py --shell bash --agent codex --automation full --self-update compatible
 aem setup --automation full --automation-trigger shell-start --automation-trigger agent-start \
-  --automation-interval 3600 --automation-timeout 30
+  --automation-interval 3600 --automation-git-timeout 30
 aem automation --trigger agent-start --dry-run
 aem setup --automation policies
 aem setup --automation off
@@ -110,7 +110,7 @@ aem bootstrap --catalog-repository URL --catalog-path catalogs/personal.toml \
 Change the saved policy later:
 
 ```bash
-aem setup --catalog-trigger agent-start --catalog-interval 3600 --catalog-timeout 5
+aem setup --catalog-trigger agent-start --catalog-interval 3600 --catalog-git-timeout 5
 aem setup --catalog-trigger manual  # Disable automatic catalog updates.
 aem setup --catalog-trigger interval --dry-run
 ```
@@ -186,3 +186,19 @@ Repeat this for each setting that should remain manual.
 Older packages reject the new settings `update` table, so add it only after upgrading.
 In `policies` mode, omitted settings triggers still disable automatic settings work.
 Once the exclusions are saved, restore full mode with `aem setup --automation full` and inspect `aem automation --trigger agent-start --dry-run` before invoking the next automatic event.
+
+## Personal hooks
+
+Personal hook registrations are always excluded from policies and full mode.
+Explicit `apply --item NAME` is required. A skill sharing a source checkout can
+still update a live script; registration definitions and trust remain unchanged.
+See [Personal hooks](personal-hooks.md).
+
+## Startup contention and shared fetches
+
+Startup callbacks wait up to five seconds for short lock contention. On Linux/WSL, instruction callbacks can return validated saved location metadata while a content update holds the configuration lock. They still refuse package-replacement contention, pending recovery, replaced links, or a saved configuration/state change during lookup. Native Windows retains exclusive installation locking.
+
+In one automatic skill-policy run, skills sharing a prepared checkout, remote, branch, and Git timeout reuse the same fetch observation, including a network failure. Different timeout budgets fetch separately. Each skill retains its own selection, attempt clock, outcome, local-file checks, and application. Later events fetch again when due; manual commands remain unthrottled.
+Checks and sync guards compare HEAD with their fetched or reused commit, even if a different timeout's fetch updates the shared remote-tracking ref during the run.
+
+Policy updates remain synchronous and must fit the configured outer startup hook duration. Reusing fetches reduces network work but does not impose a total run deadline or queue policy runs in the background.

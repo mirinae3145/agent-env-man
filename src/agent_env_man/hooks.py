@@ -55,11 +55,34 @@ def read(path: Path) -> dict:
         raise Error(f"Cannot read hook configuration {path}: {exc}") from exc
     if not isinstance(doc, dict) or not isinstance(doc.get("hooks", {}), dict):
         raise Error("Hook configuration and hooks must be JSON objects")
-    groups = doc.get("hooks", {}).get("SessionStart", [])
-    if (not isinstance(groups, list) or any(not isinstance(g, dict) or not isinstance(g.get("hooks"), list)
-            or any(not isinstance(h, dict) for h in g["hooks"]) for g in groups)):
-        raise Error("SessionStart must be an array of hook groups")
+    for event, groups in doc.get("hooks", {}).items():
+        if (not isinstance(groups, list) or any(not isinstance(g, dict) or not isinstance(g.get("hooks"), list)
+                or any(not isinstance(h, dict) for h in g["hooks"]) for g in groups)):
+            raise Error(f"{event} must be an array of hook groups")
     return doc
+
+
+def serialize(path, doc):
+    """Edit event arrays while retaining original tokens of unchanged groups."""
+    from .settings_formats import FORMATS
+    adapter = FORMATS['json']
+    document = adapter.parse(path.read_text(encoding='utf-8')) if exists(path) else adapter.empty_document()
+    original = document.root.children.get('hooks')
+    if original is None:
+        adapter.put(document, ('hooks',), adapter.parse('{}').root)
+    for event, groups in doc['hooks'].items():
+        previous = original.children.get(event) if original else None
+        # read() supplies ordinary decoded values for ownership checks. Use
+        # that same decoding only to find retained groups, never to emit their
+        # numbers: float conversion can round, underflow, or overflow them.
+        retained = [(json.loads(node.raw), node.raw) for node in previous.children] if previous else []
+        raw_groups = []
+        for group in groups:
+            raw = next((raw for value, raw in retained if value == group), None)
+            raw_groups.append(raw if raw is not None else json.dumps(group))
+        value = adapter.parse('{"groups":[' + ', '.join(raw_groups) + ']}').root.children['groups']
+        adapter.put(document, ('hooks', event), value)
+    return adapter.dump(document).encode('utf-8')
 
 
 def matching(doc: dict, marker: str, *, marker_field="statusMessage") -> list[int]:
@@ -120,7 +143,7 @@ def render(path: Path, marker: str, desired: dict, old: dict | None, *, adopt=Fa
     # Preserve formatting and bytes as well when no semantic update is needed.
     if exists(path) and read(path) == doc:
         return path.read_bytes()
-    return (json.dumps(doc, indent=2, ensure_ascii=True) + "\n").encode("utf-8")
+    return serialize(path, doc)
 
 
 def remove(path, record, *, marker_field="statusMessage"):
@@ -130,4 +153,4 @@ def remove(path, record, *, marker_field="statusMessage"):
     if len(indices) != 1 or doc["hooks"]["SessionStart"][indices[0]] != record["hook_group"]:
         raise Error("Managed hook changed or disappeared; reconcile before removal")
     del doc["hooks"]["SessionStart"][indices[0]]
-    return (json.dumps(doc, indent=2, ensure_ascii=True) + "\n").encode()
+    return serialize(path, doc)

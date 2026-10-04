@@ -1,0 +1,22 @@
+version = 2
+
+[sources.logger]
+type = "git"
+repository = "https://example.com/owner/session-logger.git"
+
+[hooks.session-log]
+source = "logger"
+
+[hooks.session-log.agents.codex]
+event = "SessionEnd"
+runtime = "python"
+script = "bin/session-logger"
+args = ["hook", "codex"]
+timeout = 3
+
+[hooks.session-log.agents.claude]
+event = "SessionEnd"
+runtime = "python"
+script = "bin/session-logger"
+args = ["hook", "claude"]
+timeout = 3

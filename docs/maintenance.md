@@ -51,3 +51,11 @@ Portable copy metadata is preserved; platform-specific ACLs, alternate streams, 
 To remove integrations, detach managed agent content first, then use `aem setup --remove-agent codex` and the appropriate `--remove-shell` options.
 Agent removal also attempts to remove the unchanged official skill link; failures are reported separately, and changed links, edited official sources, or substituted copies are preserved with their paths reported.
 Disable any retained detached instruction hooks before uninstalling AEM with `uv tool uninstall agent-env-man`.
+
+## Personal hook removal
+
+Use `aem hooks remove NAME --dry-run`, then the same command without preview to
+remove only unchanged saved personal groups. It works without the catalog or
+runtime and preserves other groups and Claude preferences. Detach retains groups
+and does not copy scripts; keep their source/runtime available. Recovery retains
+the existing later-user-edit protection. See [Personal hooks](personal-hooks.md).

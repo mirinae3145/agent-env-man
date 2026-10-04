@@ -99,7 +99,10 @@ Keep copy/detached locations distinct from source editing paths so publication n
 Use an absolute interpreter for hook execution, quote POSIX arguments, and explicitly encode a PowerShell command on Windows without evaluating user paths.
 Instruction callbacks emit only path metadata, never document contents.
 Codex uses `additionalContext` and a structured stop; Claude uses plain stdout and stderr with exit 2 on failure, which does not stop SessionStart.
-Instruction callbacks wait at most 5 seconds total for the installation and configuration locks within their 10-second hook limit, then read configuration and state under the acquired lock; other commands retain immediate contention failure.
+Instruction callbacks wait at most 5 seconds total for the installation and configuration locks within their 10-second hook limit.
+On POSIX, CLI processes hold a shared installation lock; package-replacement workers retain the exclusive lock. Windows retains exclusive installation locking.
+If only the configuration lock remains busy, instruction callbacks may resolve read-only location metadata from saved state. Reject pending recovery, invalid or replaced links, and any change to the machine file or ownership state during lookup before emitting context.
+Startup callbacks also wait up to 5 seconds for contention instead of skipping immediately; other commands retain immediate configuration contention failure.
 Limit callback metadata to the effective `root`, `entry`, and `global_entry` reading locations.
 Explain their correspondence without assuming the entry's contents have already been loaded or requesting a redundant read when they have.
 Resolve entry-relative references from its parent directory and supplemental references from the referring document's directory, unless the user documents explicitly specify another base.
@@ -312,3 +315,23 @@ Deletion, ownership release, and local detach have distinct semantics; preserve 
 Preflight grouped settings/metadata writes before mutation and commit comparison records with their journal.
 Recovery must validate the complete group before rollback and remain compatible with existing single-target journals.
 Reuse existing whole-checkout publication and Git safety rules; field merging never reconciles Git history.
+
+
+## Personal command hook resources
+
+Catalog `hooks` extends declared content, independently of skill/plugin discovery.
+The catalog owns per-agent event/script/literal arguments; the machine binds
+runtime executable paths. Profiles own supported events, timeout/matcher limits
+and direct command rendering. AEM never invokes script logic or grants product
+trust. No callback proxy, scheduler, workflow runner or source manifest is added.
+
+Preparation validates all agent scripts in a shared checkout before publishing.
+Incoming revisions guard declared and saved active scripts, including orphaned
+consumers; updates expose source content directly without changing registration.
+Personal hooks require explicit apply selection and remain excluded from full
+mode. Group ownership recognizes an exact silent command prefix and compares the
+complete saved event/group. Duplicate identities across events fail closed.
+Event moves, multiple selected groups and shared JSON settings use one image per
+target and existing journals. Preserve unrelated JSON fields, including exact
+numeric tokens. Saved removal remains independent of catalog/profile/runtime;
+detach retains groups and does not materialize standalone scripts.

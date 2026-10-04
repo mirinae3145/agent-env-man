@@ -100,6 +100,13 @@ class Manager:
                                     format=self.config._settings[skill_name]["format"])
                         if metadata_path(local_path / item.relative).exists():
                             git.tracked_payload(prepared, item.relative + ".aem.toml")
+                    elif item.kind == 'personal-hook':
+                        if defer_settings and not created:
+                            continue
+                        from .personal_hooks import source_script
+                        for member_item in self.config.declarations(skill_source):
+                            git.tracked_payload(prepared, member_item.relative)
+                            source_script(local_path, member_item.relative)
                     else:
                         git.instruction_descriptor(prepared, item.relative, item.entry)
                     payload = local_path / item.relative
@@ -162,7 +169,7 @@ class Manager:
 
     @staticmethod
     def matches(item, requested):
-        logical = item.source_name if item.kind in ("skill", "setting") else f"{item.source_name}:{item.id.split('@')[0]}"
+        logical = item.source_name if item.kind in ("skill", "setting", 'personal-hook') else f"{item.source_name}:{item.id.split('@')[0]}"
         return item.key in requested or logical in requested
 
     def selected(self, requested=(), *, reattach=False, agent=None):
@@ -171,7 +178,7 @@ class Manager:
         # likewise needs a usable entry. Flags still require explicit selection.
         requested = set(requested)
         expanded = {i.key for i in all_items if self.matches(i, requested)}
-        logical = {i.source_name if i.kind in ("skill", "setting") else f"{i.source_name}:{i.id.split('@')[0]}" for i in all_items}
+        logical = {i.source_name if i.kind in ("skill", "setting", 'personal-hook') else f"{i.source_name}:{i.id.split('@')[0]}" for i in all_items}
         requested = expanded | (requested - logical - {i.key for i in all_items})
         for item in all_items:
             if item.key in requested and item.kind in ("instruction-entry", "instruction-hook"):
@@ -183,6 +190,7 @@ class Manager:
         if reattach and not requested:
             raise Error("--reattach requires explicit --item selections")
         items = [i for i in all_items if not requested or i.key in requested]
+        items = [i for i in items if i.kind != 'personal-hook' or i.key in requested]
         items = [i for i in items if reattach or not self.state.data["items"].get(i.key, {}).get("detached")]
         self.check_destinations([i for i in all_items if i.key not in detached])
         if agent is not None:
@@ -241,6 +249,10 @@ class Manager:
             from .settings import Settings
             Settings(self).source(item)
         root = self.config.sources[item.source_name].path
+        if item.kind == 'personal-hook':
+            from .personal_hooks import source_script, definition
+            source_script(root, item.relative)
+            definition(self.config, item)
         # Intermediate source symlinks would bypass directory-tree validation.
         cursor = item.source
         while cursor != root:
@@ -276,6 +288,16 @@ class Manager:
             if name in current._settings:
                 self.config = current
                 return Settings(self).locate(name, source=source, target=target)
+        hook_record = self.state.data['items'].get(f'{name}:hook{suffix(agent)}')
+        if hook_record and hook_record.get('kind') == 'personal-hook' and not source:
+            if target:
+                raise Error('--target is supported only for settings')
+            path = saved_path(hook_record.get('source'))
+            if not path.is_file() or path.is_symlink() or is_reparse(path):
+                raise Error('Saved hook source is missing or redirected; inspect status')
+            return {'root': str(path.parent), 'entry': str(path), 'hook_file': hook_record['target'],
+                    'hook_event': hook_record['hook_event'], 'detached': bool(hook_record.get('detached')),
+                    'location': 'source'}
         if target:
             raise Error("--target is supported only for settings")
         profile(agent)
@@ -307,9 +329,9 @@ class Manager:
         config = Config(self.config.path)
         sources = config.sources
         if name not in sources:
-            raise Error(f"{name}: unknown catalog skill, instruction bundle, or setting")
+            raise Error(f"{name}: unknown catalog skill, instruction bundle, setting or personal hook")
         selected = sources[name]
-        items = [i for i in config.declarations(selected) if i.kind in ("skill", "instruction")
+        items = [i for i in config.declarations(selected) if i.kind in ("skill", "instruction", 'personal-hook')
                  and (i.kind == "setting" or agent in (i.agents or (i.agent,)))]
         if not items:
             raise Error(f"{name}: no declaration for agent {agent}")
@@ -318,9 +340,9 @@ class Manager:
             raise Error(f"{name}: source is missing; run bootstrap or restore the external folder")
         if selected.git:
             Git().validate(self.delivery_source(selected))
-        entry = item.source / ("SKILL.md" if item.kind == "skill" else item.entry)
+        entry = item.source if item.kind == 'personal-hook' else item.source / ("SKILL.md" if item.kind == "skill" else item.entry)
         self.locate_entry(selected.path, entry)
-        return {"root": str(item.source), "entry": str(entry), "installed_root": None,
+        return {"root": str(item.source.parent if item.kind == 'personal-hook' else item.source), "entry": str(entry), "installed_root": None,
                 "detached": False, "location": "source", "repository": selected.git,
                 "checkout": str(selected.path) if selected.git else None,
                 "members": sorted(n for n, s in sources.items() if s.path == selected.path)}
@@ -435,8 +457,15 @@ class Manager:
                   "entry": item.entry, "agent": item.agent, "agents": list(item.agents or (item.agent,))}
         present = before["kind"] != "missing"
         if item.mode == "agent-hook":
-            marker, group = profile(item.agent).definition(self.config.path, item.source_name)
-            content = profile(item.agent).render(item.target, marker, group, old, adopt=adopt, replace=replace)
+            if item.kind == 'personal-hook':
+                from .personal_hooks import definition, render
+                marker, event, group = definition(self.config, item)
+                content = render(item.target, marker, event, group, None if old and old.get('removed') else old,
+                                 adopt=adopt, replace=replace)
+                record.update(hook_event=event, shared_settings_format=profile(item.agent).shared_settings_format)
+            else:
+                marker, group = profile(item.agent).definition(self.config.path, item.source_name)
+                content = profile(item.agent).render(item.target, marker, group, old, adopt=adopt, replace=replace)
             record.update(hook_marker=marker, hook_group=group)
             changed = not present or item.target.read_bytes() != content
             return Plan(item, before, record, changed, content=content)
@@ -761,8 +790,14 @@ class Manager:
                         shadow.write_bytes(target.read_bytes())
                     for plan in group:
                         old = self.state.data["items"].get(plan.item.key)
-                        shadow.write_bytes(profile(plan.item.agent).render(shadow, plan.record["hook_marker"],
-                                           plan.record["hook_group"], old, adopt=True, replace=True))
+                        if plan.item.kind == 'personal-hook':
+                            from .personal_hooks import render
+                            content = render(shadow, plan.record['hook_marker'], plan.record['hook_event'],
+                                             plan.record['hook_group'], old, adopt=True, replace=True)
+                        else:
+                            content = profile(plan.item.agent).render(shadow, plan.record["hook_marker"],
+                                           plan.record["hook_group"], old, adopt=True, replace=True)
+                        shadow.write_bytes(content)
                     first.content = shadow.read_bytes()
                 first.change = not exists(target) or first.content != target.read_bytes()
                 first.records = {p.item.key: p.record for p in group[1:]}
@@ -775,7 +810,7 @@ class Manager:
         requested = set(keys)
         records = self.state.data["items"]
         def logical(key, record):
-            return record.get("source_name") if record.get("kind") in ("skill", "setting") else key.split('@')[0]
+            return record.get("source_name") if record.get("kind") in ("skill", "setting", 'personal-hook') else key.split('@')[0]
         expanded = [k for k, r in records.items() if k in requested or logical(k, r) in requested]
         unknown = requested - records.keys() - {logical(k, r) for k, r in records.items()}
         if unknown:
@@ -842,7 +877,7 @@ class Manager:
         self.state.ready()
         sources = self.config.sources
         if not names or set(names) - sources.keys():
-            raise Error("publish requires known catalog skill, instruction bundle, or setting names")
+            raise Error("publish requires known catalog skill, instruction bundle, setting or personal hook names")
         if message is not None and not message.strip():
             raise Error("--message must not be empty")
         groups = {}
@@ -898,7 +933,7 @@ class Manager:
                 self.state.save()
         return results, failed
 
-    def update(self, names=(), *, timeout=30, prepare_settings=False):
+    def update(self, names=(), *, timeout=30, prepare_settings=False, fetch_cache=None):
         self.state.ready()
         if set(names) - self.config.sources.keys():
             raise Error("Unknown source selection")
@@ -914,12 +949,17 @@ class Manager:
             source_state = self.state.data["sources"].setdefault(name, {})
             try:
                 if source.git:
-                    Git(timeout).update(self.delivery_source(source), self.state.data["items"], source_state,
+                    git = Git(timeout) if fetch_cache is None else Git(timeout, fetch_cache=fetch_cache)
+                    git.update(self.delivery_source(source), self.state.data["items"], source_state,
                         validate_candidate=lambda git, src, rev: self.validate_settings_revision(git, src, rev, members))
                     status = "updated"
                 else:
                     if not source.path.is_dir():
                         raise Error(f"External source missing: {source.path}")
+                    for member_name, member in members:
+                        if member_name in self.config._hooks:
+                            for item in self.config.declarations(member):
+                                self.payload(item)
                     status = "external-no-fetch"
                     source_state["error"] = None
                 for skill_name, _ in members:
@@ -952,6 +992,13 @@ class Manager:
     def validate_settings_revision(self, git, source, revision, members):
         """Reject invalid incoming settings before advancing a shared checkout."""
         from .settings import Bundle
+        from .personal_hooks import guard_revision
+        paths = {item.relative for name, member in members if name in self.config._hooks
+                 for item in self.config.declarations(member)}
+        paths.update(record['relative'] for record in self.state.data['items'].values()
+                     if record.get('kind') == 'personal-hook' and not record.get('detached')
+                     and str(source.path / record.get('relative', '')) == record.get('source'))
+        guard_revision(git, source, revision, paths)
         for name, _ in members:
             if name not in self.config._settings:
                 continue
@@ -979,6 +1026,13 @@ class Manager:
         if current["kind"] == "missing":
             return "missing", None
         if item.mode == "agent-hook":
+            if item.kind == 'personal-hook':
+                from .personal_hooks import definition, current
+                marker, event, group = definition(self.config, item)
+                if current(item.target, marker, event, group):
+                    return 'current', ('changed-live' if desired != old['hash'] else None)
+                return ('stale' if current(item.target, old['hook_marker'], old['hook_event'], old['hook_group'])
+                        else 'modified-locally'), None
             marker, group = profile(item.agent).definition(self.config.path, item.source_name)
             if profile(item.agent).current(item.target, marker, group):
                 return "current", None
@@ -1084,6 +1138,9 @@ class Manager:
             try:
                 target = saved_path(record.get("target"))
                 item["observation"] = observation(target)
+                if record.get("kind") == "personal-hook":
+                    item["installation"] = self.installed_status(record)
+                    item["hook_event"] = record.get("hook_event")
                 if target.is_symlink():
                     item["link_available"] = target.exists()
             except (Error, OSError, ValueError) as exc:
@@ -1108,7 +1165,11 @@ class Manager:
                     return "modified-locally"
                 return "linked" if target.exists() else "broken-link"
             if record["mode"] == "agent-hook":
-                matches = profile(record.get("agent", "codex")).current(target, record["hook_marker"], record["hook_group"])
+                if record.get('kind') == 'personal-hook':
+                    from .personal_hooks import current
+                    matches = current(target, record['hook_marker'], record['hook_event'], record['hook_group'])
+                else:
+                    matches = profile(record.get("agent", "codex")).current(target, record["hook_marker"], record["hook_group"])
             elif record.get("kind") == "setup":
                 block = record.get("block")
                 matches = bool(block) and target.read_bytes().decode("utf-8").count(block) == 1

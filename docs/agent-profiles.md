@@ -21,7 +21,8 @@ API or a general application-settings manager.
 
 Every profile supplies name, entry_name, hook_name, notice, failure_to_stderr,
 failure_exit_code, defaults, definition,
-render, current, remove, context, failure, startup_result, validate_skill_name and shared_settings_format.
+render, current, remove, context, failure, startup_result, validate_skill_name and shared_settings_format. Personal command hooks additionally use
+command_events, hook_timeout_limits, unmatched_hook_events and personal_command.
 Defaults return root/skills. definition returns an identity marker and hook group.
 render/current/remove respect saved ownership and preserve unrelated content.
 context/failure/startup_result return the product's payload. Startup accepts the
@@ -51,3 +52,7 @@ the same destination; use native separate roots for new installs.
 Profiles declare `shared_settings_format` when their hook file also accepts
 application preferences. Claude opts into JSON; Codex keeps separate files. Shared
 ownership reserves the top-level hooks subtree for group-owned integration.
+
+Personal bindings use direct native commands with a silent identity prefix outside
+script arguments. Profiles define event and field limits; the manager does not
+translate payloads. See [Personal hooks](personal-hooks.md).

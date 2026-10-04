@@ -20,7 +20,8 @@ from ..updates import run_updates, TRIGGERS
 def apply(runtime, agent, item, timeout, adopt, replace, reattach, dry_run):
     """Install prepared local content into selected destinations.
 
-    Omit --item to install all declared non-detached items. Skill and setting
+    Omit --item to install non-detached items except personal hooks, which need
+    explicit NAME or NAME:hook / NAME:hook@claude selection. Skill and setting
     IDs are catalog names; instruction IDs are NAME:bundle, NAME:entry, and
     NAME:hook. Selecting an entry or hook also selects its instruction group.
     """
@@ -102,7 +103,7 @@ def detach(runtime, item, agent, dry_run):
 def locate(runtime, name, agent, source, target, cd):
     """Locate installed content or its prepared source offline.
 
-    NAME is a catalog skill, instruction, or setting name. Skills and
+    NAME is a catalog skill, instruction, setting or personal hook name. Skills and
     instructions default to their saved installation, or the prepared source
     when uninstalled. Settings default to the editable stage; --source selects
     shared content and --target selects the actual application file.

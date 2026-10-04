@@ -105,6 +105,9 @@ def full_content(manager, timeout):
                 **manager.config.settings_update_policies(full=True)}
     sources, items, excluded = [], [], []
     for name, source in manager.config.sources.items():
+        if name in manager.config._hooks:
+            excluded.append({'source': name, 'reason': 'personal-hook-requires-explicit-apply'})
+            continue
         if name in policies and policies[name]['trigger'] == ['manual']:
             excluded.append({'source': name, 'reason': 'manual'})
             continue

@@ -79,6 +79,17 @@ def bootstrap_skills(config, state, args):
         if not target.is_absolute():
             raise Error("Setting target must be absolute")
         document.setdefault("settings", {})[key] = {"target": str(target)}
+    runtime_names = set()
+    for value in getattr(args, 'hook_runtime', ()):
+        key, separator, location = value.partition('=')
+        if not separator or not location:
+            raise Error('--runtime expects NAME=ABSOLUTE_EXECUTABLE')
+        identifier(key)
+        if key in runtime_names:
+            raise Error(f'Duplicate runtime binding: {key}')
+        runtime_names.add(key)
+        from ..personal_hooks import runtime_path
+        document.setdefault('runtimes', {})[key] = str(runtime_path(location))
     candidate = Config(config.path, document=document)
     # A remote inventory must be downloaded before its declarations can be
     # checked. Content repositories remain untouched until all preflight passes.
@@ -110,6 +121,7 @@ def bootstrap_skills(config, state, args):
 @click.option("--root", multiple=True, metavar="NAME=PATH", help="Bind a destination root; repeat for multiple roots.")
 @click.option("--external", multiple=True, metavar="NAME=PATH", help="Bind an external source; repeat for multiple sources.")
 @click.option("--setting-target", multiple=True, metavar="NAME=PATH", help="Bind a setting target file.")
+@click.option('--runtime', 'hook_runtime', multiple=True, metavar='NAME=PATH', help='Bind a personal hook runtime to an absolute executable; never install it.')
 @item_option
 @timeout_option
 @catalog_policy_options
@@ -118,7 +130,7 @@ def bootstrap(runtime, **options):
     """Prepare catalog content and save machine bindings; never install targets.
 
     Omit CATALOG to reuse the saved binding. --item selects catalog skill,
-    instruction, or setting names, not installation component IDs. Omit --item
+    instruction, setting or personal hook names, not installation component IDs. Omit --item
     to prepare all declared sources. Existing checkouts are not updated.
     """
     options["catalog_trigger"] = list(options["catalog_trigger"]) or None
@@ -144,7 +156,7 @@ def update(runtime, source, timeout):
 def publish(runtime, source, message, dry_run, timeout):
     """Export selected settings and publish whole checkouts by catalog item name.
 
-    NAME selects a catalog skill, instruction, or setting, not a repository or
+    NAME selects a catalog skill, instruction, setting or personal hook, not a repository or
     installation component ID. Settings export their stage before publication;
     actual application edits are not collected.
 
@@ -154,4 +166,3 @@ def publish(runtime, source, message, dry_run, timeout):
     successfully verified empty remote; remote errors stop publication.
     """
     return runtime.run(lambda session: session.manager.publish(source, message=message, dry_run=dry_run, timeout=timeout))
-

@@ -5,6 +5,7 @@ The registry is intentionally internal, not a user-loadable plugin mechanism.
 """
 from dataclasses import dataclass
 import os
+import math
 from pathlib import Path
 
 from . import hooks
@@ -23,6 +24,15 @@ class Codex:
     entry_name: str = 'AGENTS.md'
     hook_name: str = 'hooks.json'
     shared_settings_format: str | None = None
+    command_events: tuple = ('SessionStart', 'SessionEnd', 'PreToolUse', 'PermissionRequest',
+                             'PostToolUse', 'PreCompact', 'PostCompact', 'SubagentStart',
+                             'SubagentStop', 'UserPromptSubmit', 'Stop', 'Interrupt')
+    hook_timeout_limits: tuple = (('SessionEnd', 3), ('Interrupt', 3))
+    unmatched_hook_events: tuple = ('UserPromptSubmit', 'Stop', 'Interrupt')
+
+    def personal_command(self, marker, args):
+        from .personal_hooks import direct_command
+        return direct_command(marker, args)
     notice: str = hooks.TRUST_NOTICE
     failure_to_stderr: bool = False
     failure_exit_code: int = 0
@@ -31,12 +41,15 @@ class Codex:
         return {'root': str(Path(os.environ.get('CODEX_HOME') or Path.home() / '.codex').expanduser().resolve()),
                 'skills': str(Path.home() / '.agents/skills')}
 
-    def definition(self, config, name, *, startup=False):
+    def definition(self, config, name, *, startup=False, startup_timeout=10):
+        timeout = math.ceil(startup_timeout) if startup else 10
+        if not 0 < timeout < 2**64:
+            raise Error('Codex hook timeout must fit an unsigned 64-bit integer')
         identity = f'{self.name}:startup' if startup else f'{self.name}:{name}'
         args = ['startup', '--trigger', 'agent-start', '--agent', self.name] if startup else ['agent-hook', name, '--agent', self.name]
         marker = hooks.marker(config, identity, 'startup' if startup else 'instruction roots')
         return marker, {'matcher': '^(startup|resume|clear|compact)$', 'hooks': [
-            {'type': 'command', 'command': hooks.command(config, args), 'timeout': 10,
+            {'type': 'command', 'command': hooks.command(config, args), 'timeout': timeout,
              'statusMessage': marker, 'additionalContextLimit': 1000}]}
 
     def render(self, path, marker, group, old, **options):
@@ -74,6 +87,15 @@ class Claude:
     entry_name: str = 'CLAUDE.md'
     hook_name: str = 'settings.json'
     shared_settings_format: str | None = 'json'
+    command_events: tuple = ('SessionStart', 'SessionEnd', 'PreToolUse', 'PermissionRequest',
+                             'PostToolUse', 'PostToolUseFailure', 'PreCompact', 'PostCompact',
+                             'SubagentStart', 'SubagentStop', 'UserPromptSubmit', 'Stop')
+    hook_timeout_limits: tuple = (('SessionEnd', 60),)
+    unmatched_hook_events: tuple = ('UserPromptSubmit', 'Stop')
+
+    def personal_command(self, marker, args):
+        from .personal_hooks import direct_command
+        return direct_command(marker, args)
     failure_to_stderr: bool = True
     failure_exit_code: int = 2
     notice: str = ("Claude Code hooks are registered in the user settings file; review them with /hooks. "
@@ -83,14 +105,14 @@ class Claude:
         root = Path(os.environ.get('CLAUDE_CONFIG_DIR') or Path.home() / '.claude').expanduser().resolve()
         return {'root': str(root), 'skills': str(root / 'skills')}
 
-    def definition(self, config, name, *, startup=False):
+    def definition(self, config, name, *, startup=False, startup_timeout=10):
         identity = f'{self.name}:startup' if startup else f'{self.name}:{name}'
         marker = hooks.marker(config, identity, 'startup' if startup else 'instruction roots')
         args = (['startup', '--trigger', 'agent-start', '--agent', self.name] if startup else
                 ['agent-hook', name, '--agent', self.name])
         command = hooks.command(config, [*args, '--aem-hook-id', marker], preserve_exit=True)
         return marker, {'matcher': '^(startup|resume|clear|compact|fork)$', 'hooks': [
-            {'type': 'command', 'command': command, 'timeout': 10}]}
+            {'type': 'command', 'command': command, 'timeout': startup_timeout if startup else 10}]}
 
     def render(self, path, marker, group, old, **options):
         return hooks.render(path, marker, group, old, marker_field='command', **options)

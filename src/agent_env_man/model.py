@@ -101,7 +101,7 @@ class Config(MachineFile):
         version = self.doc.get("version")
         if isinstance(version, bool) or not isinstance(version, int) or version != 1:
             raise Error("Unsupported machine config version")
-        unknown = set(self.doc) - {"version", "catalog", "checkout_root", "roots", "agents", "external_paths", "modes", "setup", "self_update", "catalog_update", "automation", "settings"}
+        unknown = set(self.doc) - {"version", "catalog", "checkout_root", "roots", "agents", "external_paths", "modes", "setup", "self_update", "catalog_update", "automation", "settings", "runtimes"}
         if unknown:
             raise Error("Unknown machine fields: " + ", ".join(sorted(unknown)))
         if not isinstance(self.doc.get("roots", {}), dict):
@@ -112,8 +112,11 @@ class Config(MachineFile):
             identifier(name)
             absolute(value)
         setup = self.doc.get("setup", {})
-        if not isinstance(setup, dict) or set(setup) - {"shells", "executable"}:
-            raise Error("Machine setup accepts only shells and executable")
+        if not isinstance(setup, dict) or set(setup) - {"shells", "executable", "startup_hook_timeout"}:
+            raise Error("Machine setup accepts only shells, executable, and startup_hook_timeout")
+        from .updates import policy_fields
+        self.startup_hook_timeout = setup.get("startup_hook_timeout", 10)
+        policy_fields({"timeout": self.startup_hook_timeout}, "setup.startup_hook_timeout")
         shells = setup.get("shells", {})
         if not isinstance(shells, dict) or any(
                 name not in ("bash", "zsh", "powershell") or not isinstance(path, str)
@@ -129,6 +132,10 @@ class Config(MachineFile):
         self.roots = {identifier(k): absolute(v) for k, v in self.doc.get("roots", {}).items()}
         from .agents import bindings
         self.agents = bindings(self.doc)
+        if not isinstance(self.doc.get('runtimes', {}), dict):
+            raise Error('Machine runtimes must map names to absolute executable paths')
+        from .personal_hooks import runtime_path
+        self.runtimes = {identifier(k): str(runtime_path(v)) for k, v in self.doc.get('runtimes', {}).items()}
         for name, paths in self.agents.items():
             for category, field in (("agent", "root"), ("skills", "skills")):
                 key, path = f"aem-{category}-{name}", absolute(paths[field])
@@ -144,6 +151,7 @@ class Config(MachineFile):
         self._repositories = {}
         self._instructions = {}
         self._settings = {}
+        self._hooks = {}
         self._update_policies = {}
         self.checkout_root = absolute(self.doc["checkout_root"]) if "checkout_root" in self.doc else self.path.parent / (self.path.name + ".checkouts")
         if overlaps(self.checkout_root, self.path) or overlaps(self.checkout_root, self.state_dir):
@@ -219,6 +227,7 @@ class Config(MachineFile):
         externals = document["externals"]
         instructions = document["instructions"]
         settings = document["settings"]
+        declared_hooks = document['hooks']
         machine_settings = self.doc.get("settings", {})
         if not isinstance(machine_settings, dict):
             raise Error("Machine settings must be a table")
@@ -239,6 +248,15 @@ class Config(MachineFile):
             if "external" in data and data["external"] not in self.doc.get("external_paths", {}):
                 raise Error(f"Setting {name}: missing external path binding")
         bindings = self.doc.get("external_paths", {})
+        from .personal_hooks import runtime
+        for name, data in declared_hooks.items():
+            if 'external' in data and data['external'] not in bindings:
+                raise Error(f'Hook {name}: missing external path binding')
+            selected_agents = set(data['agents']) & (set(self.agents) or {'codex'})
+            if not selected_agents:
+                raise Error(f'Hook {name}: no declared agent is bound on this machine')
+            for agent in selected_agents:
+                runtime(self, data['agents'][agent]['runtime'])
         for name, data in skills.items():
             path = data.get("subdir", ".")
             if path != ".":
@@ -275,6 +293,7 @@ class Config(MachineFile):
         self._external_names = set(externals)
         self._instructions = instructions
         self._settings = settings
+        self._hooks = declared_hooks
         if self.modes.keys() - skills.keys():
             raise Error("Machine mode override does not name a skill in the catalog")
         from .updates import resolve_policies
@@ -321,7 +340,7 @@ class Config(MachineFile):
     def sources(self) -> dict[str, Source]:
         """Derive checkout paths; the inventory never needs device-local bindings."""
         result = {}
-        declarations = {**self.catalog(), **self._instructions, **self._settings}
+        declarations = {**self.catalog(), **self._instructions, **self._settings, **self._hooks}
         for name, data in declarations.items():
             if "external" in data:
                 result[name] = Source(name, self._external_paths[data["external"]], None, None)
@@ -357,6 +376,16 @@ class Config(MachineFile):
     def declarations(self, source: Source) -> list[Item]:
         from .agents import profile, suffix
         self.catalog()
+        if source.name in self._hooks:
+            result = []
+            data = self._hooks[source.name]
+            for agent in sorted(set(data['agents']) & (set(self.agents) or {'codex'})):
+                binding = data['agents'][agent]
+                root = f'aem-agent-{agent}' if self.agents else 'agent'
+                result.append(Item(source.name, 'hook' + suffix(agent), binding['script'],
+                    source.path / relative(binding['script']), self.target(root, relative(profile(agent).hook_name)),
+                    'agent-hook', 'personal-hook', agent=agent))
+            return result
         if source.name in self._settings:
             from .settings import declaration
             return [declaration(self, source, self._settings[source.name])]

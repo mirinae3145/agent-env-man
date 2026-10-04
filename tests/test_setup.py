@@ -42,6 +42,61 @@ class SetupFixture(InstructionFixture):
 
 
 class MachineSetup(SetupFixture):
+    def test_startup_timeout_updates_saved_agents_and_preserves_instruction_hooks(self):
+        self.configure()
+        self.setup_cli('--agent', 'codex', '--agent', 'claude')
+        self.run_cli('apply', '--item', 'personal:entry')
+        instruction = json.loads((self.agent / 'hooks.json').read_text())['hooks']['SessionStart'][-1]
+        self.run_cli('setup', '--startup-hook-timeout', '65.5', '--dry-run')
+        self.assertEqual(Config(self.config).startup_hook_timeout, 10)
+        self.run_cli('setup', '--startup-hook-timeout', '65.5')
+        self.assertEqual(Config(self.config).startup_hook_timeout, 65.5)
+        for name in ('codex', 'claude'):
+            record = self.state()['items']['setup:agent-' + name]
+            hook = json.loads(Path(record['target']).read_text())['hooks']['SessionStart'][0]
+            self.assertEqual(hook['hooks'][0]['timeout'], 66 if name == 'codex' else 65.5)
+            if name == 'codex':
+                self.assertIs(type(hook['hooks'][0]['timeout']), int)
+        self.assertEqual(json.loads((self.agent / 'hooks.json').read_text())['hooks']['SessionStart'][-1], instruction)
+        self.setup_cli()
+        self.assertEqual(Config(self.config).startup_hook_timeout, 65.5)
+        self.run_cli('apply', '--item', 'personal:entry')
+
+    def test_startup_timeout_can_be_saved_before_registering_agents(self):
+        self.run_cli('setup', '--startup-hook-timeout', '45')
+        self.assertEqual(Config(self.config).startup_hook_timeout, 45)
+        self.assertFalse((self.home / '.codex').exists())
+        self.setup_cli('--agent', 'codex')
+        record = self.state()['items']['setup:agent-codex']
+        self.assertEqual(record['hook_group']['hooks'][0]['timeout'], 45)
+        self.assertIs(type(record['hook_group']['hooks'][0]['timeout']), int)
+
+    def test_git_policy_aliases_preserve_saved_keys(self):
+        for flag in ('--automation-git-timeout', '--automation-timeout'):
+            self.run_cli('setup', flag, '12.5')
+            self.assertEqual(Config(self.config).automation['timeout'], 12.5)
+        for flag in ('--catalog-git-timeout', '--catalog-timeout'):
+            self.run_cli('setup', flag, '3.5')
+            self.assertEqual(Config(self.config).catalog_update['timeout'], 3.5)
+
+    def test_startup_timeout_refuses_local_hook_edits_without_saving_value(self):
+        self.setup_cli('--agent', 'codex')
+        path = self.home / '.codex/hooks.json'
+        doc = json.loads(path.read_text())
+        doc['hooks']['SessionStart'][0]['hooks'][0]['timeout'] = 99
+        path.write_text(json.dumps(doc))
+        before = path.read_bytes()
+        self.run_cli('setup', '--startup-hook-timeout', '60', code=1)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual(Config(self.config).startup_hook_timeout, 10)
+
+    def test_invalid_saved_startup_timeout_is_rejected(self):
+        for value in (0, -1, True, '30', float('inf'), float('nan')):
+            with self.subTest(value=value):
+                from agent_env_man.model import Error
+                with self.assertRaises(Error):
+                    Config(self.config, document={'version': 1, 'setup': {'startup_hook_timeout': value}})
+
     def test_invalid_agent_bindings_fail_before_profile_or_machine_writes(self):
         invalid = [[], {'unknown': {}}, {'claude': 'not-a-table'},
                    {'claude': {'root': 'relative'}}, {'claude': {'skills': 42}},
@@ -363,7 +418,11 @@ class Installer(SetupFixture):
             self.assertEqual(module.main(['--shell', 'bash', '--config', str(self.config), '--dry-run']), 0)
             self.assertFalse(any('install' in call for call in calls))
             calls.clear()
-            self.assertEqual(module.main(['--shell', 'bash', '--config', str(self.config)]), 0)
+            self.assertEqual(module.main(['--shell', 'bash', '--config', str(self.config),
+                                          '--startup-hook-timeout', '60', '--automation-git-timeout', '15']), 0)
+        self.assertIn('--startup-hook-timeout', calls[-1])
+        self.assertEqual(calls[-1][calls[-1].index('--startup-hook-timeout') + 1], '60.0')
+        self.assertIn('--automation-git-timeout', calls[-1])
         self.assertIn('install', calls[2])
         self.assertIn('--reinstall', calls[2])
         self.assertEqual(calls[-1][0], str(self.executable))

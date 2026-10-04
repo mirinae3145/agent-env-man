@@ -29,7 +29,8 @@ from ..updates import TRIGGERS, startup_briefing, startup_skills_changed
 @click.option("--automation", type=click.Choice(device_automation.MODES))
 @click.option("--automation-trigger", multiple=True, type=click.Choice(("manual", *TRIGGERS)), help="Replace device triggers; repeat for multiple events.")
 @click.option("--automation-interval", type=INTERVAL, help="Minimum seconds between device attempts.")
-@click.option("--automation-timeout", type=SECONDS, help="Seconds per Git phase in device automation.")
+@click.option("--automation-git-timeout", "--automation-timeout", "automation_timeout", type=SECONDS, help="Seconds per Git phase in device automation.")
+@click.option("--startup-hook-timeout", type=SECONDS, help="Seconds the agent waits for the startup callback (default: 10); updates saved agent hooks. Git phase limits are separate.")
 @catalog_policy_options
 @preview_option
 @pass_runtime
@@ -44,6 +45,7 @@ def setup(runtime, **options):
     args = SimpleNamespace(**options)
     remove_only = bool((args.remove_shell or args.remove_agent)
                        and not (args.shell or args.agent or args.self_update is not None
+                                or args.startup_hook_timeout is not None
                                 or args.catalog_trigger is not None or args.catalog_interval is not None or args.catalog_timeout is not None
                                 or any(getattr(args, option) is not None for _, option in device_automation.FIELDS)
                                 or any(getattr(args, "update_" + field) for field in ("repository", "python", "uv", "tool_dir", "bin_dir"))))
@@ -103,7 +105,7 @@ def self_update_command(runtime, mode, dry_run):
 
 @self_group.command(name="publish")
 @click.option("--checkout", type=click.Path(path_type=Path), help="AEM Git checkout root; defaults to the local installation source.")
-@click.option("--timeout", type=SECONDS, default=30.0, show_default=True, help="Total seconds for Git operations.")
+@click.option("--git-timeout", "--timeout", "timeout", type=SECONDS, default=30.0, show_default=True, help="Total seconds for Git operations.")
 @preview_option
 @pass_runtime
 def self_publish_command(runtime, checkout, timeout, dry_run):

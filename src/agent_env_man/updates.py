@@ -116,6 +116,7 @@ def run_updates(manager, trigger, names=(), *, dry_run=False):
     sources = manager.config.sources
     report, failed = [], False
     initial_revisions = {}
+    fetch_cache = {}
     for name, policy in policies.items():
         if names and name not in names:
             continue
@@ -144,18 +145,18 @@ def run_updates(manager, trigger, names=(), *, dry_run=False):
         try:
             source = manager.delivery_source(sources[name])
             if policy["action"] == "check":
-                git = Git(policy["timeout"])
+                git = Git(policy["timeout"], fetch_cache=fetch_cache)
                 revision = git.fetch(source)
                 source_state.update(last_fetch=now(), observed_revision=revision)
-                entry.update(status="checked", remote_relation=git.relation(source))
+                entry.update(status="checked", remote_relation=git.relation(source, revision=revision))
             else:
                 # Keep the first observed HEAD for shared checkouts: an earlier
                 # skill in this invocation may already have advanced the branch.
-                git = Git(policy["timeout"])
+                git = Git(policy["timeout"], fetch_cache=fetch_cache)
                 if source.path not in initial_revisions:
                     initial_revisions[source.path] = git.run(source.path, "rev-parse", "HEAD").stdout
                 entry["previous_revision"] = initial_revisions[source.path]
-                outcomes, update_failed = manager.update([name], timeout=policy["timeout"])
+                outcomes, update_failed = manager.update([name], timeout=policy["timeout"], fetch_cache=fetch_cache)
                 if update_failed:
                     raise Error(outcomes[0]["error"])
                 entry["revision"] = git.run(source.path, "rev-parse", "HEAD").stdout

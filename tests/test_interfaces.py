@@ -3,6 +3,7 @@
 from contextlib import redirect_stderr, redirect_stdout
 import io
 import json
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -94,6 +95,9 @@ class Interfaces(unittest.TestCase):
             bindings = {name: str(self.root / "externals" / name) for name, value in document.get("sources", {}).items() if value["type"] == "external"}
             machine = {"version": 1, "catalog": str(path), "external_paths": bindings,
                        "roots": {"agent": str(self.root / "agent"), "skills": str(self.root / "skills")}}
+            machine['runtimes'] = {binding['runtime']: sys.executable
+                                   for hook in document.get('hooks', {}).values()
+                                   for binding in hook['agents'].values()}
             if document.get("documents"):
                 machine["agents"] = {name: {"root": str(self.root / name), "skills": str(self.root / name / "skills")}
                                      for name in ("codex", "claude")}

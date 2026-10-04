@@ -53,7 +53,9 @@ class CliTests(unittest.TestCase):
         self.assertEqual(list(self.root.iterdir()), [])
 
     def test_nonfinite_and_out_of_range_durations_are_usage_errors(self):
-        cases = (("status", "--timeout"), ("bootstrap", "--timeout"),
+        cases = (("setup", "--startup-hook-timeout"), ("status", "--git-timeout"),
+                 ("setup", "--catalog-git-timeout"), ("setup", "--automation-git-timeout"),
+                 ("status", "--timeout"), ("bootstrap", "--timeout"),
                  ("catalog", "update", "--timeout"), ("setup", "--catalog-timeout"),
                  ("setup", "--automation-timeout"), ("setup", "--catalog-interval"),
                  ("setup", "--automation-interval"))
@@ -64,6 +66,14 @@ class CliTests(unittest.TestCase):
                         result = self.invoke(*args, value)
                         self.assertEqual(result.exit_code, 2, result.output)
         self.assertEqual(list(self.root.iterdir()), [])
+
+    def test_git_timeout_aliases_pass_the_same_value_to_delivery(self):
+        self.config.write_text('version = 1\n', encoding='utf-8')
+        for flag in ('--git-timeout', '--timeout'):
+            with self.subTest(flag=flag), patch('agent_env_man.manager.Manager.update', return_value=([], False)) as update:
+                result = self.invoke('update', flag, '7.5')
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertEqual(update.call_args.kwargs['timeout'], 7.5)
 
     def test_operation_errors_use_stderr_and_exit_one(self):
         result = self.invoke("locate", "missing")

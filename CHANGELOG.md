@@ -7,6 +7,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Configure the agent startup callback duration through setup and the standalone installer, retaining the ten-second default and preserving instruction hooks.
+- Introduce explicit Git timeout option names while retaining the previous CLI names as compatible aliases and preserving saved policy keys.
+- Explicit personal command hook resources for Codex and Claude, with machine-local runtime bindings that preserve virtualenv interpreters, group ownership and existing transaction/recovery protections.
+Saved offline removal uses ownership records without requiring current agent profiles or editable preference stages.
+Personal registrations remain excluded from automatic full runs.
+
+### Fixed
+
+- Emit Codex startup timeouts as unsigned integers, rounding fractional seconds up while retaining Claude precision.
+- Reuse shared-checkout fetch results within automatic skill-policy runs while preserving independent policies, attempts, and installation guards, and compare Git history against each reused commit.
+- Wait for short startup contention and allow validated read-only instruction location snapshots during long configuration-lock holds; POSIX CLI readers share the installation lock while update workers remain exclusive.
+
+- Preserve numeric precision in unrelated hook groups when registering or removing AEM hooks, fixing JSON reserialization loss.
+
 ## [1.0.1] &mdash; 2026-10-04
 
 Git tag `v1.0.1` corresponds to Python package version `1.0.1`; based on `v1.0.0`.

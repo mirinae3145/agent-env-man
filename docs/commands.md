@@ -64,6 +64,10 @@ The directory also contains docs/, examples/, and LICENSE.txt with working relat
 Lookup is offline and independent of machine configuration, catalogs, state, and setup integrations.
 Editable/source development resolves to the repository's canonical documentation.
 
+Git duration options use `--git-timeout`, `--catalog-git-timeout`, and `--automation-git-timeout`.
+The previous names `--timeout`, `--catalog-timeout`, and `--automation-timeout` remain supported aliases with identical behavior.
+Saved TOML `timeout` keys and effective JSON policy fields retain their names.
+
 ## setup
 
 ```text
@@ -73,14 +77,17 @@ aem setup [--shell SHELL ...] [--agent AGENT ...]
           [--update-repository URL] [--update-python PATH] [--update-uv PATH]
           [--update-tool-dir PATH] [--update-bin-dir PATH]
           [--catalog-trigger TRIGGER ...] [--catalog-interval SECONDS]
-          [--catalog-timeout SECONDS]
+          [--catalog-git-timeout SECONDS] [--startup-hook-timeout SECONDS]
           [--automation off|policies|full] [--automation-trigger EVENT ...]
-          [--automation-interval SECONDS] [--automation-timeout SECONDS]
+          [--automation-interval SECONDS] [--automation-git-timeout SECONDS]
 ```
 
 Shell choices are `bash`, `zsh`, and `powershell`.
 Selections accumulate; omitted selections remain saved, and repeated setup avoids duplicate blocks/groups.
 Initial integration setup requires at least one shell or agent selection.
+`--startup-hook-timeout` may also be saved before agents are registered; with saved agents, setup updates their managed startup groups.
+Omission retains the saved value, defaulting to ten seconds.
+It does not change instruction-location hooks or Git phase limits.
 A call supplying only catalog/device automation policy options (and optionally `--dry-run`) can save policy without registering integrations or requiring an executable.
 Adding and removing the same integration in one call is invalid.
 `--executable` overrides the saved absolute executable path, otherwise it defaults beside the running Python interpreter.
@@ -96,7 +103,7 @@ The `--update-*` options register the release source and external installer runt
 Enabling updates requires runtime registration; the repository installer supplies those paths.
 Changing self-update settings does not immediately update the package.
 `--catalog-trigger` sets `manual` or a supported event; repeat it to replace the complete saved trigger list.
-`--catalog-interval` sets the finite nonnegative attempt interval, and `--catalog-timeout` sets the finite positive per-Git-phase timeout.
+`--catalog-interval` sets the finite nonnegative attempt interval, and `--catalog-git-timeout` sets the finite positive per-Git-phase timeout.
 Omitted policy options preserve their saved fields; configuring events requires a bound Git catalog.
 Policy-only edits validate machine settings and use the configuration journal without reading or rewriting profiles, even when those profiles contain local edits.
 They do not fetch, run automatic updates, or register startup integrations; the result includes the effective `catalog_update` policy.
@@ -122,7 +129,7 @@ The repository installer `python scripts/setup.py` installs AEM using uv and del
 ```text
 aem self status
 aem self update [--mode compatible|breaking] [--dry-run]
-aem self publish [--checkout PATH] [--dry-run] [--timeout SECONDS]
+aem self publish [--checkout PATH] [--dry-run] [--git-timeout SECONDS]
 ```
 
 `status` is offline and reports `version`, `mode`, `repository`, `runtime_registered`, and `last_attempt`.
@@ -194,7 +201,7 @@ Equivalent remote tags are retained, including their existing annotation/signatu
 Push explicitly selects the reviewed commit for the current branch and, when absent remotely, the existing local release tag object.
 Atomic push is required, even when the release tag already exists; unsupported or rejected atomic pushes fail without sequential fallback.
 No force push or implicit additional branches/tags are permitted.
-Authentication is noninteractive; `--timeout` bounds all Git operations together and defaults to 30 seconds.
+Authentication is noninteractive; `--git-timeout` bounds all Git operations together and defaults to 30 seconds.
 The command preserves local commits, tags, index, and worktree on success or failure; actual execution may refresh the remote-tracking branch and `FETCH_HEAD`.
 External Git processes do not participate in AEM coordination; keep the checkout stable during publication.
 
@@ -215,9 +222,10 @@ Operational failures are returned in this report on stdout, including with `--js
 aem bootstrap [CATALOG | --catalog PATH] [--checkout-root PATH]
               [--catalog-repository URL --catalog-path RELATIVE_PATH [--catalog-branch BRANCH]]
               [--root NAME=PATH ...] [--external NAME=PATH ...]
-              [--item NAME ...] [--timeout TIMEOUT]
+              [--setting-target NAME=PATH ...] [--runtime NAME=PATH ...]
+              [--item NAME ...] [--git-timeout TIMEOUT]
               [--catalog-trigger TRIGGER ...] [--catalog-interval SECONDS]
-              [--catalog-timeout SECONDS]
+              [--catalog-git-timeout SECONDS]
 ```
 
 Omit the catalog argument to reuse the saved binding.
@@ -225,7 +233,7 @@ A positional catalog and `--catalog` cannot both be supplied.
 Bootstrap accepts the same catalog policy options as setup, allowing initial Git registration and automatic policy selection in one call.
 Omitted options retain saved policy fields, and repeated triggers replace the saved list.
 Policy validation precedes cloning or configuration writes; enabling events for a local catalog is rejected.
-`--catalog-timeout` controls future automatic updates; `--timeout` controls the current bootstrap delivery.
+`--catalog-git-timeout` controls future automatic updates; `--git-timeout` controls the current bootstrap delivery.
 Git catalog registration requires `--catalog-repository` and `--catalog-path` together, optionally with `--catalog-branch`; these cannot be combined with a local catalog argument.
 `--catalog-path` is relative to the repository root, not the working directory, and must identify a tracked regular TOML file.
 Repository syntax matches catalog repository declarations: a URL, SSH location, or absolute local repository path.
@@ -233,7 +241,7 @@ The default branch is discovered and written to the machine binding; repeating r
 Catalog, checkout-root, and external CLI paths resolve relative to the working directory and are saved as absolute paths.
 Root paths must be absolute or begin with `~/`.
 Repeated `--external` binds declared external names; duplicate names in one invocation are invalid, and omitted saved bindings remain.
-`--item` selects catalog skill, instruction, or setting names for preparation, not ownership IDs or repository names.
+`--item` selects catalog skill, instruction, setting or personal hook names for preparation, not ownership IDs or repository names.
 No selection prepares all declared sources.
 Missing repositories are cloned and validated; existing checkouts are validated without pulling or resetting.
 A failed content download leaves the machine binding saved so bootstrap can be retried.
@@ -253,16 +261,16 @@ For Git bindings it also includes `catalog`, with `status` (`cloned` or `already
 ## catalog
 
 ```text
-aem catalog status [--timeout TIMEOUT]
-aem catalog locate [--timeout TIMEOUT] [--cd]
-aem catalog update [--timeout TIMEOUT]
+aem catalog status [--git-timeout TIMEOUT]
+aem catalog locate [--git-timeout TIMEOUT] [--cd]
+aem catalog update [--git-timeout TIMEOUT]
 aem catalog auto --trigger EVENT [--dry-run]
-aem catalog publish [-m MESSAGE | --message MESSAGE] [--dry-run] [--timeout TIMEOUT]
+aem catalog publish [-m MESSAGE | --message MESSAGE] [--dry-run] [--git-timeout TIMEOUT]
 ```
 
 These commands select the bound catalog, independently of the skill/instruction namespace.
 They never install content or run content automatic policies.
-`status` and `locate` are offline and do not change saved state; their Git subprocesses still respect `--timeout`.
+`status` and `locate` are offline and do not change saved state; their Git subprocesses still respect `--git-timeout`.
 `status` reports the entry, checkout, repository, `status` (`ready`, `unavailable`, or `unbound`), and `automation` (the last automatic attempt, or an empty object).
 For Git catalogs it also reports the branch, current revision, local changes, tracked diff, outgoing commits, and remote relation at the last fetch, using the same fields as publication inspection.
 Catalog reading/inspection failures appear as `error` with status `unavailable` and exit 0; machine/state loading failures still exit 1.
@@ -311,7 +319,7 @@ Bootstrap validates an existing catalog checkout without pulling it.
 ## update
 
 ```text
-aem update [NAME ...] [--timeout TIMEOUT]
+aem update [NAME ...] [--git-timeout TIMEOUT]
 ```
 
 Select skill, instruction, or setting source names, or omit names for all sources.
@@ -324,7 +332,7 @@ Dirty, divergent, local-ahead, detached, misidentified, or unsupported incoming 
 
 ```text
 aem publish NAME [NAME ...] [-m MESSAGE | --message MESSAGE]
-            [--dry-run] [--timeout TIMEOUT]
+            [--dry-run] [--git-timeout TIMEOUT]
 ```
 
 Edit the prepared checkout directly, or edit through an installed link pointing to it.
@@ -373,11 +381,11 @@ External sources are reported as unsupported for publication; their synchronizat
 ## apply
 
 ```text
-aem apply [--agent AGENT] [--item ID ...] [--timeout TIMEOUT]
+aem apply [--agent AGENT] [--item ID ...] [--git-timeout TIMEOUT]
           [--adopt | --replace] [--reattach] [--dry-run]
 ```
 
-Omit items to install all declared, non-detached items.
+Omit items to install all declared, non-detached items except personal hooks, which require explicit selection.
 Skill IDs are skill names; instruction IDs are `NAME:bundle`, `NAME:entry`, and `NAME:hook`.
 Selecting an entry or hook also selects its bundle and the other instruction items.
 Selecting only a bundle installs its directory link alone.
@@ -392,7 +400,7 @@ Prepared checkouts must be clean even though this command does not fetch.
 ## sync
 
 ```text
-aem sync [--agent AGENT] [--item ID ...] [--timeout TIMEOUT]
+aem sync [--agent AGENT] [--item ID ...] [--git-timeout TIMEOUT]
 ```
 
 Updates all sources, then applies only if every update succeeds.
@@ -417,7 +425,7 @@ It exits `1` if any attempted skill fails, otherwise `0`.
 ## status
 
 ```text
-aem status [--agent AGENT] [--refresh] [--timeout TIMEOUT]
+aem status [--agent AGENT] [--refresh] [--git-timeout TIMEOUT]
 ```
 
 Reports local checkout observations, last observed remote state, ownership, and startup outcomes.
@@ -549,6 +557,10 @@ It exits `0` on handled operational failures so startup can continue; CLI usage 
 With an agent, completed changes can return an agent-specific briefing; shell callbacks return `{}`.
 This command does not install integrations.
 
+`setup --startup-hook-timeout SECONDS` saves the agent startup callback limit and rewrites registered startup hooks, preserving omitted values and unrelated hook groups.
+The default is 10 seconds; this does not change instruction-location hooks, shell callbacks, or Git phase limits.
+In policies mode, catalog and skill work shares the outer startup hook limit; full mode queues work after the callback exits.
+
 ## agent-hook
 
 ```text
@@ -602,3 +614,26 @@ runs and failures without a relevant change do not request reload. In full async
 mode, wait for worker completion and start a fresh session to discover changes.
 The hidden --aem-hook-id identifies supported command-field ownership.
 See [profile contracts](agent-profiles.md).
+
+
+## hooks remove
+
+```text
+aem hooks remove NAME... [--agent AGENT] [--dry-run]
+```
+
+NAME selects saved personal hook resources, not source repository names or
+instruction hooks. Omit `--agent` to remove all saved agent groups for those
+names. Removal checks the exact saved group and stable identity, preserves
+unselected groups/preferences, and releases ownership. Edited, duplicate,
+missing or detached groups are refused; no force removal is supplied.
+It works offline without a catalog, runtime or source. Dry run preserves targets
+and records. Detach instead preserves groups. Explicit selected reattachment is
+required after removal. This operation does not remove AEM setup/instruction
+hooks or revoke product trust.
+
+Prepare with `bootstrap --runtime NAME=ABSOLUTE_EXECUTABLE`, then register with
+`apply --item NAME` (or `NAME:hook` / `NAME:hook@claude`). Plain apply and plain
+sync exclude personal hook registration. Update visits the source without
+changing installed definitions; its live script contents may change immediately.
+See [Personal hooks](personal-hooks.md).

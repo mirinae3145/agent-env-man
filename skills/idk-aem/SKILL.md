@@ -30,7 +30,12 @@ Bootstrap prepares sources without updating existing checkouts or installing tar
 
 To install newly declared content, use `aem bootstrap --item NAME`, then preview and apply the corresponding installation item with `aem apply --item ID --dry-run` and `aem apply --item ID`.
 Skill and setting IDs are their catalog names; an instruction entry uses `NAME:entry`, which also selects its bundle and hook.
-Omitting selectors prepares or applies all eligible declared items.
+Omitting selectors prepares all declared sources and applies eligible items except
+personal hooks: register those only with explicit `apply --item NAME`. Bind a
+requested interpreter with bootstrap `--runtime NAME=/absolute/executable`; AEM
+never installs it or grants native trust. Remove an unchanged saved personal
+group using `aem hooks remove NAME --dry-run`, then without preview. Detach retains
+the group and its source/runtime dependency.
 
 ## Receive updates or inspect the installation
 
@@ -44,7 +49,7 @@ aem apply --item ID --dry-run
 aem apply --item ID
 ```
 
-Update accepts catalog skill, instruction, or setting names.
+Update accepts catalog skill, instruction, setting or personal hook names.
 Live links change immediately during update; copies need apply, and settings receive into their stage before apply changes the actual file.
 For a complete source update followed by installation, use `aem sync`.
 `sync --item ID` filters only installation: its update phase still visits all sources and must succeed before application starts.

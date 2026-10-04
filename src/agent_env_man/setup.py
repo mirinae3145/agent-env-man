@@ -285,6 +285,9 @@ def setup(manager, args):
     catalog_changed = set_catalog_policy(document, args)
     from .automation import set_options
     automation_changed = set_options(document, args)
+    startup_timeout = getattr(args, "startup_hook_timeout", None)
+    if startup_timeout is not None:
+        document.setdefault("setup", {})["startup_hook_timeout"] = startup_timeout
     update_fields = ("repository", "python", "uv", "tool_dir", "bin_dir")
     if args.self_update is not None or any(getattr(args, "update_" + f) for f in update_fields):
         settings = document.setdefault("self_update", {})
@@ -295,8 +298,10 @@ def setup(manager, args):
             value = getattr(args, "update_" + field)
             if value is not None:
                 settings[field] = value
-    policy_only = ((catalog_changed or automation_changed) and not (args.shell or args.agent or args.remove_shell or args.remove_agent
-                   or args.self_update is not None or args.executable
+    timeout_only = (startup_timeout is not None and not config.agents
+                    and not (args.shell or args.agent or args.remove_shell or args.remove_agent))
+    policy_only = ((catalog_changed or automation_changed or timeout_only) and not (args.shell or args.agent or args.remove_shell or args.remove_agent
+                   or (startup_timeout is not None and not timeout_only) or args.self_update is not None or args.executable
                    or any(getattr(args, 'update_' + f) for f in update_fields)))
     if policy_only:
         # Policy edits need no executable or profile rewrites, including on a
@@ -307,6 +312,7 @@ def setup(manager, args):
             manager.install(plan)
         return {'integrations': [], 'agents': list(config.agents),
                 'shells': list(config.doc.get('setup', {}).get('shells', {})),
+                'startup_hook_timeout': candidate.startup_hook_timeout,
                 'catalog_update': candidate.catalog_update, 'automation': candidate.automation, 'notices': [],
                 'next': 'Use automation --trigger EVENT or configured startup integrations.'}
     selected = document.setdefault('setup', {})
@@ -395,7 +401,7 @@ def setup(manager, args):
             record['block'] = block
         else:
             adapter = profile(name)
-            marker, group = adapter.definition(config.path, '', startup=True)
+            marker, group = adapter.definition(config.path, '', startup=True, startup_timeout=candidate.startup_hook_timeout)
             content = adapter.remove(path, baseline) if removing else adapter.render(path, marker, group, baseline)
             record.update(hook_marker=marker, hook_group=group)
         record['hash'] = hashlib.sha256(content).hexdigest()
@@ -416,6 +422,7 @@ def setup(manager, args):
         install_optional_skills(manager, skill_plans, skill_report)
     return {'integrations': report, 'official_skills': skill_report, 'agents': list(agents), 'shells': list(shells),
             'self_update': document.get('self_update', {'mode': 'off'}),
+            'startup_hook_timeout': candidate.startup_hook_timeout,
             'catalog_update': candidate.catalog_update,
             'automation': candidate.automation,
             'notices': [profile(n).notice for n in agents],

@@ -321,6 +321,12 @@ Transactions are per target, so earlier successful work can remain after a later
 Recovery preserves later user edits; keep state and backups instead of deleting them to bypass conflicts.
 See [Maintenance and recovery](docs/maintenance.md) for adoption/replacement, reattachment, Git safety, backup locations, and uninstalling.
 
+## Personal command hooks
+
+Declare user-authored scripts separately from skills/plugins, bind their runtime
+on each machine, and register only with explicit `apply --item NAME`. AEM never
+executes scripts or grants product trust. See [Personal hooks](docs/personal-hooks.md).
+
 ## License
 
 [MIT License](LICENSE.txt).

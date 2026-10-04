@@ -9,7 +9,7 @@ from .model import Config, Error, identifier
 from .updates import TRIGGERS, policy_fields
 
 
-TOP_LEVEL = {"version", "sources", "skills", "instructions", "settings", "updates"}
+TOP_LEVEL = {"version", "sources", "skills", "instructions", "settings", "hooks", "updates"}
 SKILL_FIELDS = {"source", "subdir", "install", "update"}
 INSTRUCTION_FIELDS = {"source", "subdir", "entry", "install"}
 
@@ -97,8 +97,22 @@ def validate(document):
         from .settings_formats import FORMATS
         if not isinstance(data.get("format"), str) or data["format"] not in FORMATS:
             raise Error(f"settings.{name}: unsupported format; choose from {', '.join(FORMATS)}")
-    names = [set(document.get(kind, {})) for kind in ("skills", "instructions", "settings")]
-    collision = (names[0] & names[1]) | (names[0] & names[2]) | (names[1] & names[2])
+    declared_hooks = document.get('hooks', {})
+    if not isinstance(declared_hooks, dict):
+        raise Error('Catalog hooks must be a table')
+    for name, data in declared_hooks.items():
+        identifier(name)
+        table(data, {'source', 'agents'}, f'hooks.{name}')
+        if not isinstance(data.get('source'), str) or data['source'] not in sources:
+            raise Error(f'hooks.{name}: source must name a declared source')
+        if not isinstance(data.get('agents'), dict) or not data['agents']:
+            raise Error(f'hooks.{name}: agents must be a nonempty table')
+        from .agents import profile
+        from .personal_hooks import validate_binding
+        for agent, binding in data['agents'].items():
+            validate_binding(binding, profile(agent))
+    names = [set(document.get(kind, {})) for kind in ("skills", "instructions", "settings", "hooks")]
+    collision = set().union(*(a & b for i, a in enumerate(names) for b in names[i + 1:]))
     if collision:
         raise Error(f"Instruction name collides with another source: {sorted(collision)[0]}")
     updates = table(document.get("updates", {}), {"defaults", "policies"}, "updates")
@@ -142,6 +156,10 @@ def normalize(document):
         result["settings"][name] = {field: data["source"], "path": data["path"], "format": data["format"]}
         if "update" in data:
             result["settings"][name]["update"] = _policy_model(data["update"])
+    result['hooks'] = {}
+    for name, data in document.get('hooks', {}).items():
+        field = 'repo' if sources[data['source']]['type'] == 'git' else 'external'
+        result['hooks'][name] = {field: data['source'], 'agents': data['agents']}
     updates = document.get("updates", {})
     result["updates"] = {"defaults": _policy_model(updates.get("defaults", {})),
                          "policies": {name: _policy_model(value) for name, value in updates.get("policies", {}).items()}}

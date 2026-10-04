@@ -24,7 +24,9 @@ def main(argv=None):
     parser.add_argument('--automation', choices=['off', 'policies', 'full'])
     parser.add_argument('--automation-trigger', action='append', choices=['manual', 'shell-start', 'agent-start', 'interval'])
     parser.add_argument('--automation-interval', type=float)
-    parser.add_argument('--automation-timeout', type=float)
+    parser.add_argument('--automation-git-timeout', '--automation-timeout', dest='automation_timeout', type=float)
+    parser.add_argument('--startup-hook-timeout', type=float,
+                        help='agent startup callback duration in seconds (default: 10; omission preserves saved value)')
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args(argv)
     try:
@@ -37,6 +39,8 @@ def main(argv=None):
             number = getattr(args, 'automation_' + field)
             if number is not None and (not math.isfinite(number) or number < 0 or (field == 'timeout' and number == 0)):
                 raise RuntimeError('Automation interval must be nonnegative and timeout positive, both finite')
+        if args.startup_hook_timeout is not None and (not math.isfinite(args.startup_hook_timeout) or args.startup_hook_timeout <= 0):
+            raise RuntimeError('Startup hook timeout must be finite and positive')
         for tool in ('uv', 'git'):
             if not shutil.which(tool):
                 raise RuntimeError(f'{tool} must be installed and available on PATH')
@@ -72,7 +76,7 @@ def main(argv=None):
             command += ['--config', str(args.config.expanduser().absolute())]
         command += ['setup', '--executable', str(executable)]
         removal_only = (args.remove_shell or args.remove_agent) and not (args.shell or args.agent)
-        if removal_only and (args.self_update is not None or args.update_repository is not None or selected_automation is not None
+        if removal_only and (args.startup_hook_timeout is not None or args.self_update is not None or args.update_repository is not None or selected_automation is not None
                             or any(getattr(args, 'automation_' + field) is not None for field in ('trigger', 'interval', 'timeout'))):
             raise RuntimeError('Change self-update settings separately from removal-only setup')
         if not removal_only:
@@ -82,13 +86,15 @@ def main(argv=None):
                 command += ['--update-repository', args.update_repository]
             if mode is not None:
                 command += ['--self-update', mode]
+            if args.startup_hook_timeout is not None:
+                command += ['--startup-hook-timeout', str(args.startup_hook_timeout)]
             if selected_automation is not None:
                 command += ['--automation', selected_automation]
             for trigger in args.automation_trigger or []:
                 command += ['--automation-trigger', trigger]
             for field in ('interval', 'timeout'):
                 if getattr(args, 'automation_' + field) is not None:
-                    command += ['--automation-' + field, str(getattr(args, 'automation_' + field))]
+                    command += ['--automation-' + ('git-timeout' if field == 'timeout' else field), str(getattr(args, 'automation_' + field))]
         for flag, values in (('--shell', args.shell), ('--agent', args.agent),
                              ('--remove-shell', args.remove_shell), ('--remove-agent', args.remove_agent)):
             for value in values:
