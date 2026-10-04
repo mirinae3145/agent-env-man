@@ -334,6 +334,121 @@ class Directories(unittest.TestCase):
         self.assertFalse(failed, report)
         self.assertEqual(report['excluded'], [{'source': 'cases', 'reason': 'detached'}])
 
+    def test_full_mode_receives_new_directory_in_existing_shared_checkout(self):
+        self.document['directories']['cases']['install']['mode'] = 'copy'
+        self.write()
+        self.bootstrap()
+        self.run_cli('apply')
+        (self.repo / 'new-cases').mkdir()
+        (self.repo / 'new-cases/new.md').write_text('New case', encoding='utf-8')
+        (self.repo / 'cases/first.md').write_text('Received case', encoding='utf-8')
+        self.commit(self.repo)
+        self.document['directories']['new'] = {'source': 'store', 'subdir': 'new-cases',
+                                               'install': {'root': 'personal', 'mode': 'copy'}}
+        self.write()
+        report, failed = automation.full_content(self.manager(), 30)
+        self.assertFalse(failed, report)
+        self.assertEqual(report['status'], 'completed')
+        self.assertEqual(self.git(self.checkout, 'rev-parse', 'HEAD'), self.git(self.repo, 'rev-parse', 'HEAD'))
+        self.assertEqual((self.target / 'first.md').read_text(encoding='utf-8'), 'Received case')
+        self.assertEqual((self.destination / 'new/new.md').read_text(encoding='utf-8'), 'New case')
+
+    def test_update_rejects_unselected_directory_replaced_by_file(self):
+        self.document['directories']['cases']['install']['mode'] = 'copy'
+        self.document['directories']['other'] = {'source': 'store', 'subdir': 'skills/report',
+                                                 'install': {'root': 'personal', 'mode': 'copy'}}
+        self.write()
+        self.bootstrap()
+        self.run_cli('apply')
+        previous = self.git(self.checkout, 'rev-parse', 'HEAD')
+        ownership = deepcopy(self.manager().state.data['items'])
+        shutil.rmtree(self.repo / 'cases')
+        (self.repo / 'cases').write_text('Invalid directory', encoding='utf-8')
+        self.commit(self.repo)
+        report = self.run_cli('update', 'other', code=1)
+        self.assertIn('directory must be a tracked Git tree', report[0]['error'])
+        self.assertEqual(self.git(self.checkout, 'rev-parse', 'HEAD'), previous)
+        self.assertEqual(self.manager().state.data['items'], ownership)
+        self.assertEqual((self.target / 'first.md').read_text(encoding='utf-8'), 'First case\n')
+
+    def test_update_rejects_unselected_directory_git_links_and_submodules(self):
+        self.document['directories']['cases']['install']['mode'] = 'copy'
+        self.document['directories']['other'] = {'source': 'store', 'subdir': 'skills/report',
+                                                 'install': {'root': 'personal', 'mode': 'copy'}}
+        self.write()
+        self.bootstrap()
+        self.run_cli('apply')
+        previous = self.git(self.checkout, 'rev-parse', 'HEAD')
+        ownership = deepcopy(self.manager().state.data['items'])
+        blob = self.git(self.repo, 'hash-object', '-w', 'cases/first.md')
+        for mode, object_id in (('120000', blob), ('160000', previous)):
+            with self.subTest(mode=mode):
+                self.git(self.repo, 'update-index', '--add', '--cacheinfo', mode, object_id, 'cases/redirect')
+                self.git(self.repo, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
+                         'commit', '-m', 'Invalid directory entry')
+                report = self.run_cli('update', 'other', code=1)
+                self.assertIn('Git symlink or submodule', report[0]['error'])
+                self.assertEqual(self.git(self.checkout, 'rev-parse', 'HEAD'), previous)
+                self.assertEqual(self.manager().state.data['items'], ownership)
+                self.assertFalse((self.target / 'redirect').exists())
+
+    def test_full_mode_preserves_dirty_directory_source(self):
+        self.document['directories']['cases']['install']['mode'] = 'copy'
+        self.write()
+        self.bootstrap()
+        self.run_cli('apply')
+        previous = self.git(self.checkout, 'rev-parse', 'HEAD')
+        ownership = deepcopy(self.manager().state.data['items'])
+        (self.checkout / 'cases/first.md').write_text('Local edit', encoding='utf-8')
+        (self.repo / 'cases/first.md').write_text('Remote edit', encoding='utf-8')
+        self.commit(self.repo)
+        with patch.object(Git, 'fetch', side_effect=AssertionError('Dirty source fetched')):
+            report, failed = automation.full_content(self.manager(), 30)
+        self.assertTrue(failed, report)
+        self.assertIn('dirty checkout', report['prepare'][0]['error'])
+        self.assertEqual(self.git(self.checkout, 'rev-parse', 'HEAD'), previous)
+        self.assertEqual((self.checkout / 'cases/first.md').read_text(encoding='utf-8'), 'Local edit')
+        self.assertEqual((self.target / 'first.md').read_text(encoding='utf-8'), 'First case\n')
+        self.assertEqual(self.manager().state.data['items'], ownership)
+
+    def test_full_mode_preserves_diverged_directory_history(self):
+        self.document['directories']['cases']['install']['mode'] = 'copy'
+        self.write()
+        self.bootstrap()
+        self.run_cli('apply')
+        ownership = deepcopy(self.manager().state.data['items'])
+        (self.checkout / 'cases/first.md').write_text('Local commit', encoding='utf-8')
+        self.commit(self.checkout)
+        previous = self.git(self.checkout, 'rev-parse', 'HEAD')
+        (self.repo / 'cases/first.md').write_text('Remote commit', encoding='utf-8')
+        self.commit(self.repo)
+        report, failed = automation.full_content(self.manager(), 30)
+        self.assertTrue(failed, report)
+        self.assertIn('diverged', report['update'][0]['error'])
+        self.assertEqual(self.git(self.checkout, 'rev-parse', 'HEAD'), previous)
+        self.assertEqual((self.checkout / 'cases/first.md').read_text(encoding='utf-8'), 'Local commit')
+        self.assertEqual((self.target / 'first.md').read_text(encoding='utf-8'), 'First case\n')
+        self.assertEqual(self.manager().state.data['items'], ownership)
+
+    def test_full_mode_new_directory_preserves_locally_modified_copy(self):
+        self.document['directories']['cases']['install']['mode'] = 'copy'
+        self.write()
+        self.bootstrap()
+        self.run_cli('apply')
+        ownership = deepcopy(self.manager().state.data['items'])
+        (self.target / 'first.md').write_text('Local copy edit', encoding='utf-8')
+        (self.repo / 'new-cases').mkdir()
+        (self.repo / 'new-cases/new.md').write_text('New case', encoding='utf-8')
+        self.commit(self.repo)
+        self.document['directories']['new'] = {'source': 'store', 'subdir': 'new-cases',
+                                               'install': {'root': 'personal', 'mode': 'copy'}}
+        self.write()
+        with self.assertRaisesRegex(Error, 'locally modified copy'):
+            automation.full_content(self.manager(), 30)
+        self.assertEqual((self.target / 'first.md').read_text(encoding='utf-8'), 'Local copy edit')
+        self.assertFalse((self.destination / 'new').exists())
+        self.assertEqual(self.manager().state.data['items'], ownership)
+
     def test_target_overlap_and_mode_change_require_detach(self):
         self.external()
         self.run_cli('apply')
