@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.1] &mdash; 2026-10-04
+
+Git tag `v1.0.1` corresponds to Python package version `1.0.1`; based on `v1.0.0`.
+
 ### Fixed
 
 - Compare physical CRLF and LF newlines consistently in TOML settings without discarding explicit carriage-return escapes, preventing false apply, collection, status, and shared merge differences after target serialization or Git checkout conversion.
