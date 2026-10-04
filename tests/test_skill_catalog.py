@@ -314,6 +314,62 @@ class SkillCatalog(unittest.TestCase):
             self.run_cli('auto', '--trigger', 'agent-start')
         self.assertEqual(budgets, [30, 15])
 
+    def changing_shared_remote(self, *, rewrite=False):
+        self.catalog_sources = {'tools': {'type': 'git', 'repository': str(self.repo)}}
+        self.skills = {
+            name: {'subdir': 'skills/report', 'source': 'tools', 'install': {'mode': 'copy'},
+                   'update': {'timeout': timeout, 'action': action}}
+            for name, timeout, action in (
+                ('first', 30, 'sync' if rewrite else 'check'),
+                ('second', 15, 'check'),
+                ('third', 30, 'sync' if rewrite else 'check'))}
+        self.save_catalog()
+        self.update_policy({'trigger': ['agent-start'], 'min_interval': 0})
+        self.bootstrap()
+        self.run_cli('apply')
+        original_head = self.git(self.repo, 'rev-parse', 'HEAD')
+        if rewrite:
+            self.publish_skill_change()
+        original = Git.run
+        fetches = []
+
+        def change_before_second_fetch(git, path, *args, **kwargs):
+            if args[0] == 'fetch':
+                fetches.append(git.timeout)
+                if len(fetches) == 2:
+                    if rewrite:
+                        self.git(self.repo, 'reset', '--hard', original_head)
+                        (self.repo / 'skills/report/helper.py').write_text(
+                            "print('new remote history')\n", encoding='utf-8')
+                        self.commit(self.repo)
+                    else:
+                        self.publish_skill_change()
+            return original(git, path, *args, **kwargs)
+
+        with patch.object(Git, 'run', change_before_second_fetch):
+            result = self.run_cli('auto', '--trigger', 'agent-start')
+        self.assertEqual(fetches, [30, 15])
+        return result
+
+    def test_cached_check_compares_its_observation_after_another_timeout_fetches(self):
+        result = self.changing_shared_remote()
+        self.assertEqual([entry['status'] for entry in result], ['checked'] * 3)
+        self.assertEqual([entry['remote_relation'] for entry in result],
+                         ['equal-at-last-fetch', 'behind', 'equal-at-last-fetch'])
+        sources = self.run_cli('status')['sources']
+        observations = {entry['source']: entry['observed_revision'] for entry in sources}
+        self.assertEqual(observations['first'], observations['third'])
+        self.assertNotEqual(observations['second'], observations['third'])
+        self.assertNotIn('Published change', (self.destination / 'third/SKILL.md').read_text())
+
+    def test_cached_sync_uses_its_observation_after_another_timeout_fetches_rewritten_history(self):
+        result = self.changing_shared_remote(rewrite=True)
+        self.assertEqual([entry['status'] for entry in result], ['synced', 'checked', 'synced'])
+        self.assertEqual(result[1]['remote_relation'], 'diverged')
+        self.assertEqual(result[0]['revision'], result[2]['revision'])
+        self.assertIn('Published change', (self.destination / 'third/SKILL.md').read_text())
+        self.assertEqual((self.destination / 'third/helper.py').read_text(), "print('test')\n")
+
     def test_auto_shares_network_failure_and_records_each_skill_attempt(self):
         self.shared_auto_fixture()
         original = Git.run
