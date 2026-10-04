@@ -23,6 +23,14 @@ Personal registrations remain excluded from automatic full runs.
 
 - Preserve numeric precision in unrelated hook groups when registering or removing AEM hooks, fixing JSON reserialization loss.
 
+## [1.0.1] &mdash; 2026-10-04
+
+Git tag `v1.0.1` corresponds to Python package version `1.0.1`; based on `v1.0.0`.
+
+### Fixed
+
+- Compare physical CRLF and LF newlines consistently in TOML settings without discarding explicit carriage-return escapes, preventing false apply, collection, status, and shared merge differences after target serialization or Git checkout conversion.
+
 ## [1.0.0] &mdash; 2026-10-03
 
 First stable major release; Git tag `v1.0.0` corresponds to Python package version `1.0.0`.
@@ -240,7 +248,8 @@ Maintenance commands can still inspect, detach, recover, and remove saved integr
 - Linux/WSL and native Windows path handling, with Python 3.11 or later and Git required.
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
-[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.0-rc...v1.0.0
 [1.0.0-rc]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.0-beta...v1.0.0-rc
 [1.0.0-beta]: https://github.com/mirinae3145/agent-env-man/compare/v0.5.3...v1.0.0-beta

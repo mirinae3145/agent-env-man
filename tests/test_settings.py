@@ -169,6 +169,40 @@ class StagedSettings(unittest.TestCase):
         self.assertEqual(tomlkit.parse(self.stage.read_text())['color'], 'green')
         self.call('locate', 'editor', '--source', '--target', code=2)
 
+    def test_multiline_crlf_target_adoption_preserves_bytes(self):
+        text = 'policy = """\nfirst\nsecond\n"""\n'
+        self.stage.write_bytes(text.encode('utf-8'))
+        self.target.parent.mkdir()
+        before = ('# Local\nother = 8 # keep\n' + text).replace('\n', '\r\n').encode('utf-8')
+        self.target.write_bytes(before)
+        self.apply()
+        self.apply()
+        self.assertEqual(self.target.read_bytes(), before)
+        self.assertFalse(self.call('status')['items'][0]['modified_locally'])
+        self.assertEqual(self.call('settings', 'collect', 'editor')['paths'], [])
+
+    def test_multiline_crlf_output_matches_applied_snapshot(self):
+        text = 'policy = """\nfirst\nsecond\n"""\n'
+        self.stage.write_bytes(text.encode('utf-8'))
+        self.target.parent.mkdir()
+        self.target.write_bytes(b'# Local\r\nother = 8 # keep\r\n')
+        self.apply()
+        first = self.target.read_bytes()
+        self.assertIn(b'first\r\nsecond\r\n', first)
+        self.assertIn(b'other = 8 # keep\r\n', first)
+        self.apply()
+        self.assertEqual(self.target.read_bytes(), first)
+        self.assertFalse(self.call('status')['items'][0]['modified_locally'])
+        self.assertEqual(self.call('settings', 'collect', 'editor')['paths'], [])
+        self.stage.write_bytes(text.replace('second', 'updated').encode('utf-8'))
+        self.apply()
+        self.assertIn(b'first\r\nupdated\r\n', self.target.read_bytes())
+        self.target.write_bytes(self.target.read_bytes().replace(b'updated', b'local edit'))
+        self.stage.write_bytes(text.replace('second', 'stage edit').encode('utf-8'))
+        before = self.target.read_bytes()
+        self.apply(code=1)
+        self.assertEqual(self.target.read_bytes(), before)
+
     def test_apply_preserves_nonmanaged_values_comments_and_mode(self):
         self.target.parent.mkdir()
         self.target.write_bytes(b'# Application\r\nother = 8 # keep\r\ncolor = "blue"\r\n')
@@ -395,6 +429,34 @@ class SemanticMerge(unittest.TestCase):
     def bundle(self, text):
         return Bundle.from_snapshot({'config': text, 'management': ''})
 
+    def test_multiline_physical_newlines_compare_equal_in_containers(self):
+        for text in ('value = """\nfirst\nsecond\n"""\n',
+                     'value = ' + chr(39) * 3 + '\nfirst\nsecond\n' + chr(39) * 3 + '\n',
+                     'value = ["""first\nsecond"""]\n',
+                     'value = [{nested = """first\nsecond"""}]\n',
+                     '[[value]]\nnested = """first\nsecond"""\n'):
+            with self.subTest(text=text):
+                lf = self.bundle(text)
+                crlf = self.bundle(text.replace('\n', '\r\n'))
+                _, conflicts = merge(lf, crlf, lf)
+                self.assertFalse(conflicts)
+                for path, value in lf.adapter.fields(lf.document).items():
+                    self.assertEqual(TomlFormat.identity(value),
+                                     TomlFormat.identity(crlf.adapter.fields(crlf.document)[path]))
+                self.assertEqual(crlf.snapshot()['config'], text.replace('\n', '\r\n'))
+
+    def test_explicit_carriage_return_remains_a_distinct_value(self):
+        for text in ('value = "first\\r\\nsecond"\n',
+                     'value = """first\\r\nsecond"""\n',
+                     'value = ["first\\u000D\\nsecond"]\n',
+                     '[[value]]\nnested = "first\\r\\nsecond"\n'):
+            with self.subTest(text=text):
+                escaped = self.bundle(text)
+                plain = self.bundle(text.replace('\\r', '').replace('\\u000D', ''))
+                for path, value in escaped.adapter.fields(escaped.document).items():
+                    self.assertNotEqual(TomlFormat.identity(value),
+                                        TomlFormat.identity(plain.adapter.fields(plain.document)[path]))
+
     def test_scalar_table_transition(self):
         base = self.bundle('[a]\nb=1\n')
         local = deepcopy(base)
@@ -496,6 +558,36 @@ class GitSettings(unittest.TestCase):
         self.upstream('color = [\n')
         self.call('update', 'editor', code=1)
         self.assertEqual(self.git(self.checkout, 'rev-parse', 'HEAD'), head)
+
+    def test_checkout_newlines_do_not_conflict_with_staged_edits(self):
+        text = 'policy = """\nfirst\nsecond\n"""\n'
+        self.upstream(text)
+        self.call('update', 'editor')
+        self.git(self.checkout, 'config', 'core.autocrlf', 'true')
+        self.payload.unlink()
+        self.git(self.checkout, 'checkout', '--', 'editor.toml')
+        self.assertIn(b'\r\n', self.payload.read_bytes())
+        edited = text.replace('second', 'staged')
+        self.stage.write_bytes(edited.encode('utf-8'))
+        self.call('update', 'editor')
+        self.assertIn('staged', Bundle.load(self.stage).document['policy'])
+        self.call('export', 'editor')
+        self.assertIn('staged', Bundle.load(self.payload).document['policy'])
+        self.apply()
+        self.apply()
+        self.assertFalse(self.call('status')['items'][0]['modified_locally'])
+
+    def test_export_merges_stage_edit_after_checkout_conversion(self):
+        text = 'policy = """\nfirst\nsecond\n"""\n'
+        self.upstream(text)
+        self.call('update', 'editor')
+        self.git(self.checkout, 'config', 'core.autocrlf', 'true')
+        self.payload.unlink()
+        self.git(self.checkout, 'checkout', '--', 'editor.toml')
+        self.assertIn(b'\r\n', self.payload.read_bytes())
+        self.stage.write_bytes(text.replace('second', 'staged').encode('utf-8'))
+        self.call('export', 'editor')
+        self.assertIn('staged', Bundle.load(self.payload).document['policy'])
 
     def test_receive_and_apply_are_separate(self):
         self.apply()
