@@ -232,7 +232,8 @@ Maintenance commands can still inspect, detach, recover, and remove saved integr
 - Linux/WSL and native Windows path handling, with Python 3.11 or later and Git required.
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
-[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.0-rc...v1.0.0
 [1.0.0-rc]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.0-beta...v1.0.0-rc
 [1.0.0-beta]: https://github.com/mirinae3145/agent-env-man/compare/v0.5.3...v1.0.0-beta
