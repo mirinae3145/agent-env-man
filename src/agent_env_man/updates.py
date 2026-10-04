@@ -148,7 +148,7 @@ def run_updates(manager, trigger, names=(), *, dry_run=False):
                 git = Git(policy["timeout"], fetch_cache=fetch_cache)
                 revision = git.fetch(source)
                 source_state.update(last_fetch=now(), observed_revision=revision)
-                entry.update(status="checked", remote_relation=git.relation(source))
+                entry.update(status="checked", remote_relation=git.relation(source, revision=revision))
             else:
                 # Keep the first observed HEAD for shared checkouts: an earlier
                 # skill in this invocation may already have advanced the branch.

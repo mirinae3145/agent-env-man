@@ -197,9 +197,11 @@ class Git:
             self.fetch_cache[key] = result
         return result
 
-    def relation(self, source: Source) -> str:
+    def relation(self, source: Source, *, revision: str | None = None) -> str:
+        """Compare HEAD with a pinned observation or the current tracking ref."""
+        reference = revision if revision is not None else "refs/remotes/origin/" + source.branch
         result = self.run(source.path, "rev-list", "--left-right", "--count",
-                          f"HEAD...refs/remotes/origin/{source.branch}", check=False)
+                          f"HEAD...{reference}", check=False)
         if result.returncode:
             return "unknown"
         ahead, behind = map(int, result.stdout.split())
@@ -262,7 +264,7 @@ class Git:
         self.clean(source)
         candidate = self.fetch(source)
         source_state.update(last_fetch=now(), observed_revision=candidate)
-        relation = self.relation(source)
+        relation = self.relation(source, revision=candidate)
         if relation in ("ahead", "diverged", "unknown"):
             raise Error(f"{source.name}: {relation}; reconcile Git history manually")
         self.guard_links(source, candidate, records)

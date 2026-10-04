@@ -18,7 +18,7 @@ Personal registrations remain excluded from automatic full runs.
 ### Fixed
 
 - Emit Codex startup timeouts as unsigned integers, rounding fractional seconds up while retaining Claude precision.
-- Reuse shared-checkout fetch results within automatic skill-policy runs while preserving independent policies, attempts, and installation guards.
+- Reuse shared-checkout fetch results within automatic skill-policy runs while preserving independent policies, attempts, and installation guards, and compare Git history against each reused commit.
 - Wait for short startup contention and allow validated read-only instruction location snapshots during long configuration-lock holds; POSIX CLI readers share the installation lock while update workers remain exclusive.
 
 - Preserve numeric precision in unrelated hook groups when registering or removing AEM hooks, fixing JSON reserialization loss.
