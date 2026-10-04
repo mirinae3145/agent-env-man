@@ -205,7 +205,7 @@ Stop later stages on failure without claiming cross-repository rollback; preserv
 
 ## Ownership and safety
 
-Only declared catalog skills and instruction bundles, and the package-owned official integration skill, may be installed.
+Only declared catalog skills, directories, and instruction bundles, and the package-owned official integration skill, may be installed.
 A content repository update cannot expand the local catalog.
 Catalog skill names identify ownership independently of repository URLs and paths.
 Instruction ownership uses the bundle name and bundle/entry/hook component.
@@ -216,6 +216,11 @@ Repository-root skills are valid and use direct links, not an extra content laye
 Exclude only their top-level `.git` administration entry from content fingerprints, copies, and detach materialization.
 Never duplicate a repository database or worktree pointer into an unmanaged skill.
 Git identity checks still validate the managed checkout's origin and expected branch before applying or updating.
+
+General directories reuse directory payloads, named sources, and per-target ownership without requiring an entry document or agent integration.
+Their single ownership key is `NAME:directory`; agent filters include them as common items.
+Directory policies reuse skill policy composition and clocks, supporting local external checks/sync without Git transport.
+Active directory link guards include orphaned consumers of shared checkouts.
 
 Link and copy have different contracts.
 Never silently fall back from link to copy.

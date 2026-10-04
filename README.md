@@ -1,7 +1,7 @@
 # Agent Environment Manager (AEM)
 
-Install and update AI agent skills and personal instruction bundles from a user-owned TOML catalog, supplied as a local file or delivered through Git.
-Skills stay in their own Git repositories; instructions and staged application settings can come from Git or an existing local folder.
+Install and update AI agent skills, personal instruction bundles, and general directories from a user-owned TOML catalog, supplied as a local file or delivered through Git.
+Skills stay in their own Git repositories; directories, instructions, and staged application settings can come from Git or an existing local folder.
 Upstream repositories need no AEM manifest.
 
 ```text
@@ -206,6 +206,37 @@ AEM does not grant trust or modify Codex `config.toml`.
 The callback supplies source-root and entry-path metadata, never document contents or applicability rules.
 See the [walkthrough](docs/instruction-bundles.md) for trust, lookup failure, and detach behavior.
 
+## Share a general directory
+
+Declare a directory independently of agent skill discovery or instruction hooks:
+
+```toml
+[directories.cases]
+source = "case-store"
+subdir = "."
+
+[directories.cases.install]
+root = "personal"
+destination = "agent-loop"
+```
+
+Declare `sources.case-store` as Git or external, then bind this device's target root:
+
+```bash
+aem bootstrap /absolute/catalog.toml --root personal="$HOME"
+aem apply --item cases --dry-run
+aem apply --item cases
+aem locate cases
+```
+
+This installs `~/agent-loop` as a link to the prepared source directory.
+Record through the link, then use authorized `aem publish cases -m "Record cases"` to share a Git source and `aem update cases` on another device to receive it.
+Local edits and diverged histories retain the ordinary Git refusal rules and require explicit reconciliation.
+For explicit copies, set `install.mode = "copy"`; copy edits are protected but never collected or published.
+External sources need `--external case-store=/absolute/source`; their transport stays with their existing service.
+Directories use the same automatic policies as skills and participate in full mode, preserving empty-trigger exclusions and detach.
+See [directory configuration](docs/configuration.md#directoriesname) and the [example](examples/directories.toml).
+
 ## Daily work
 
 ```bash
@@ -218,7 +249,7 @@ aem status --refresh             # Fetch observations without advancing checkout
 aem locate personal              # Resolve installed instruction paths.
 ```
 
-`bootstrap --item NAME` and `update NAME` select skill, instruction, or setting source names.
+`bootstrap --item NAME` and `update NAME` select skill, directory, instruction, setting, or personal hook source names.
 `apply --item report` selects a skill; `apply --item personal:entry` includes the entry's bundle and hook.
 `sync --item` filters only installation, while its update phase still visits all sources.
 See [Commands](docs/commands.md) for all arguments, previews, callbacks, and exit codes.
@@ -270,7 +301,7 @@ See [Staged settings](docs/settings-management.md) for declarations, conflicts, 
 ## Device automation modes
 
 A new installation defaults to `policies`, with AEM updates off and catalog/skill automation requiring opt-in.
-Choose `full` to queue AEM, catalog, and eligible skill/instruction/settings updates in sequence, including preparation and installation of new declarations.
+Choose `full` to queue AEM, catalog, and eligible skill/directory/instruction/settings updates in sequence, including preparation and installation of new declarations.
 Choose `off` to disable automatic work while retaining explicit commands.
 Settings automation receives and applies changes together; collection, export, and publication remain explicit.
 

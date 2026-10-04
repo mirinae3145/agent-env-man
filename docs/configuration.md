@@ -27,9 +27,9 @@ CLI path arguments have their own resolution rules described in [Commands](comma
 
 ## Catalog
 
-The only top-level fields are `version`, `sources`, `skills`, `instructions`, `settings`, `hooks`, and `updates`.
+The only top-level fields are `version`, `sources`, `skills`, `directories`, `instructions`, `settings`, `hooks`, and `updates`.
 All tables are optional; an instruction-only catalog needs no skills table.
-Skill, instruction, setting and personal hook names share a namespace; source names have a separate namespace.
+Skill, directory, instruction, setting and personal hook names share a namespace; source names have a separate namespace.
 A source declaration is not an installable item by itself.
 
 ```toml
@@ -67,7 +67,7 @@ Git sources accept only `type`, required `repository`, and optional `branch`.
 `repository` is a Git URL, SSH repository location, or absolute local repository path.
 When `branch` is absent, bootstrap discovers and records the remote default branch.
 External sources accept only `type`; their device-local paths belong in machine `external_paths.NAME`.
-External sources support instruction bundles, staged settings and personal hooks; skills still require Git sources.
+External sources support directories, instruction bundles, staged settings and personal hooks; skills still require Git sources.
 AEM neither fetches external folders nor administers the service that synchronizes them.
 
 Items referencing the same source name share its checkout; different names have independent checkouts even with equal URLs.
@@ -99,6 +99,35 @@ Tracked changes and nonignored untracked files still block bootstrap, apply, and
 Fast-forwards refuse incoming paths that would overwrite ignored local files, including file/directory collisions; relocate or reconcile the conflicting files explicitly before retrying.
 Installed copies retain full-tree ownership checks, so a cache created or changed in the installed copy counts as a local edit and blocks automatic replacement.
 
+### `directories.NAME`
+
+General directories use Git or external sources and require no entry document, skill metadata, or agent binding.
+
+| Field | Type | Requirement/default |
+| --- | --- | --- |
+| `source` | String | Required name in `sources`; Git or external. |
+| `subdir` | String | Source directory; defaults to `"."`. |
+| `install` | Table | Required installation settings below. |
+| `update` | Table | Optional policy selection and overrides, using the same rules as skills. |
+
+`directories.NAME.install` accepts `root`, `destination`, and `mode`.
+`root` is a required machine root name; bootstrap binds it with `--root NAME=PATH`.
+`destination` is a literal relative directory path below that root, defaulting to the item name.
+`mode` is `"link"` by default or explicit `"copy"`; machine `modes.NAME` overrides it.
+Each declaration creates one agent-independent target and ownership ID `NAME:directory`; commands also accept the catalog name.
+The target cannot own an entire configured root or overlap sources, other targets, catalog, stages, or manager storage.
+Path and mode changes require detach before reconfiguration.
+
+The selected source must be a directory of regular files and directories.
+Nested symlinks/junctions, special files, and Git submodules are unsupported.
+Git subdirectories must exist as tracked trees; an empty directory requires a tracked placeholder file because Git does not track empty directories.
+An external directory may be empty.
+Source-root copy and detach omit only the top-level `.git` entry; ignored regular files remain part of the payload.
+Existing link/copy conflict, transaction, backup, detach, and recovery contracts apply.
+Copy edits are never collected into the source or published; edit the prepared source and apply after committing for Git sources.
+Links expose writes and source updates immediately.
+External delivery and publication remain outside AEM.
+
 ### `instructions.NAME`
 
 | Field | Type | Requirement/default |
@@ -128,7 +157,7 @@ See the [instruction walkthrough](instruction-bundles.md) and [catalog v2 transi
 
 ### Update policies
 
-Policy tables are `updates.defaults`, `updates.policies.NAME`, and `skills.NAME.update`.
+Policy tables are `updates.defaults`, `updates.policies.NAME`, and `skills.NAME.update`, and `directories.NAME.update`.
 No other fields belong directly under `updates`.
 
 | Field | Type | Built-in default and constraints |
@@ -137,11 +166,11 @@ No other fields belong directly under `updates`.
 | `action` | String | `"sync"` or `"check"`; default `"sync"`. |
 | `min_interval` | Integer or float | `600` seconds; finite and nonnegative. Boolean values are invalid. |
 | `timeout` | Integer or float | `30` seconds per Git phase; finite and positive. Boolean values are invalid. |
-| `policy` | String | Optional name in `updates.policies`; allowed only in `skills.NAME.update`. |
+| `policy` | String | Optional name in `updates.policies`; allowed only in `skills.NAME.update` or `directories.NAME.update`. |
 
-Resolution order is built-ins, catalog defaults, selected named policy, then skill-local fields.
+Resolution order is built-ins, catalog defaults, selected named policy, then item-local fields.
 Only supplied fields override earlier values; trigger arrays replace earlier arrays.
-In full mode, omitted policies participate by default, but an explicit or inherited `[]` excludes the skill.
+In full mode, omitted policies participate by default, but an explicit or inherited `[]` excludes the skill or directory.
 Effective policy JSON retains the existing `["manual"]` representation for disabled automatic execution; machine policy syntax is unchanged.
 Named policies cannot inherit another policy.
 All declarations, including unused named policies, are validated before network access.
@@ -160,9 +189,10 @@ timeout = 5
 ```
 
 `check` fetches references without moving the checkout or installing targets.
-`sync` fast-forwards and applies each successful skill independently.
-Each skill records attempts before network access; failures and successes share its throttle across events.
-A shared checkout update changes all live links immediately, including linked instructions; copy installation still follows selected skills.
+`sync` fast-forwards and applies each successful skill or directory independently.
+For an external directory, `check` validates local source availability without Git transport and reports `external-no-fetch`; `sync` validates and applies the local source.
+Each skill or directory records attempts before network access; failures and successes share its throttle across events.
+A shared checkout update changes all live links immediately, including linked instructions; copy installation still follows selected items.
 Policies do not register hooks or launch a scheduler; use `setup` or arrange external `auto` calls.
 Explicit commands ignore these policies and clocks.
 
@@ -177,7 +207,7 @@ Explicit commands ignore these policies and clocks.
 | `agents` | Table | Agent selections and path bindings, normally written by setup. |
 | `runtimes` | Table of paths | Personal hook interpreter bindings; bootstrap never installs executables. |
 | `external_paths` | Table of paths | Logical external source bindings; every used external must be bound. |
-| `modes` | Table of strings | Catalog skill names mapped to `"link"` or `"copy"`. Unknown skill names fail catalog validation. |
+| `modes` | Table of strings | Catalog skill or directory names mapped to `"link"` or `"copy"`. Unknown names fail catalog validation. |
 | `setup` | Table | Saved startup selections; normally written by setup. |
 | `automation` | Table | Device orchestration mode and full-run schedule; omission preserves individual policy behavior. |
 | `catalog_update` | Table | Device-local automatic policy for a Git catalog; defaults to manual. |
@@ -372,8 +402,8 @@ Boolean numeric values are rejected.
 Its tool stage retains the self-update release permission (`off`, `compatible`, or `breaking`); the copied worker uses the existing 300-second tool subprocess bounds.
 Full mode requires installer-registered runtime paths even when tool updates are off.
 
-In full mode the implicit skill trigger default becomes eligible for the full run, while explicitly declared trigger fields keep the existing precedence.
-A resulting explicit or inherited `[]` excludes a skill; other trigger lists and per-skill actions/intervals are replaced by the full-run schedule and prepare/update/apply behavior.
+In full mode the implicit skill/directory trigger default becomes eligible for the full run, while explicitly declared trigger fields keep the existing precedence.
+A resulting explicit or inherited `[]` excludes a skill or directory; other trigger lists and per-item actions/intervals are replaced by the full-run schedule and prepare/update/apply behavior.
 Instruction groups with detached components are excluded together; remaining bundles participate without introducing instruction-specific policy tables.
 A shared repository can still advance live links of excluded consumers.
 Local or unbound catalogs skip Git delivery and use the existing local declarations.

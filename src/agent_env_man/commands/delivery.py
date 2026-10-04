@@ -130,8 +130,10 @@ def bootstrap(runtime, **options):
     """Prepare catalog content and save machine bindings; never install targets.
 
     Omit CATALOG to reuse the saved binding. --item selects catalog skill,
-    instruction, setting or personal hook names, not installation component IDs. Omit --item
-    to prepare all declared sources. Existing checkouts are not updated.
+    directory, instruction, setting or personal hook names, not installation
+    component IDs. Omit --item to prepare all declared sources. Existing
+    checkouts are not updated. Directories require a named target root;
+    bind it with --root NAME=PATH.
     """
     options["catalog_trigger"] = list(options["catalog_trigger"]) or None
     args = SimpleNamespace(**options)
@@ -156,9 +158,10 @@ def update(runtime, source, timeout):
 def publish(runtime, source, message, dry_run, timeout):
     """Export selected settings and publish whole checkouts by catalog item name.
 
-    NAME selects a catalog skill, instruction, setting or personal hook, not a repository or
-    installation component ID. Settings export their stage before publication;
-    actual application edits are not collected.
+    NAME selects a catalog skill, directory, instruction, setting or personal
+    hook, not a repository or installation component ID. Settings export
+    their stage before publication; actual application edits and installed
+    copy edits are not collected. External publication stays outside AEM.
 
     With --message, commit all nonignored changes in each selected repository.
     Without it, require a clean worktree and push existing commits. --dry-run
