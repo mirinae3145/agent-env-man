@@ -7,18 +7,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.0] &mdash; 2026-10-04
+
+Git tag `v1.1.0` corresponds to Python package version `1.1.0`; based on `v1.0.1`.
+
 ### Added
 
 - General directory management from Git or external sources, with explicit target roots, link/copy installation, existing publication and preservation contracts, and skill-style automatic update policies.
 - Configure the agent startup callback duration through setup and the standalone installer, retaining the ten-second default and preserving instruction hooks.
+Codex rounds fractional seconds up to an unsigned integer while Claude retains precision.
 - Introduce explicit Git timeout option names while retaining the previous CLI names as compatible aliases and preserving saved policy keys.
 - Explicit personal command hook resources for Codex and Claude, with machine-local runtime bindings that preserve virtualenv interpreters, group ownership and existing transaction/recovery protections.
 Saved offline removal uses ownership records without requiring current agent profiles or editable preference stages.
 Personal registrations remain excluded from automatic full runs.
 
+### Changed
+
+- Expand preservation and validation tests for personal hooks and external directory retries, and native Windows coverage for timed lock contention, exception cleanup, and already-exited processes.
+
 ### Fixed
 
-- Emit Codex startup timeouts as unsigned integers, rounding fractional seconds up while retaining Claude precision.
 - Reuse shared-checkout fetch results within automatic skill-policy runs while preserving independent policies, attempts, and installation guards, and compare Git history against each reused commit.
 - Wait for short startup contention and allow validated read-only instruction location snapshots during long configuration-lock holds; POSIX CLI readers share the installation lock while update workers remain exclusive.
 
@@ -249,7 +257,8 @@ Maintenance commands can still inspect, detach, recover, and remove saved integr
 - Linux/WSL and native Windows path handling, with Python 3.11 or later and Git required.
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
-[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.0-rc...v1.0.0
 [1.0.0-rc]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.0-beta...v1.0.0-rc

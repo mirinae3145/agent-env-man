@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-env-man"
-version = "1.0.1"
+version = "1.1.0"
 description = "Deliver user-owned agent configuration and safely manage selected local targets"
 license = "MIT"
 license-files = ["LICENSE.txt"]
