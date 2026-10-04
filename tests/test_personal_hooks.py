@@ -307,6 +307,102 @@ class PersonalHooks(unittest.TestCase):
         self.apply(code=1)
         self.assertFalse(self.target().exists())
 
+    def test_invalid_hook_fields_preserve_registered_files_and_ownership(self):
+        self.bootstrap()
+        self.apply()
+        before = [self.target(a).read_bytes() for a in ('codex', 'claude')]
+        state_path = self.manager().state.path
+        state_before = state_path.read_bytes()
+        original = deepcopy(self.doc)
+        cases = [('timeout', True), ('timeout', 0), ('timeout', 2**32),
+                 ('args', 'literal'), ('args', [1]), ('matcher', 1),
+                 ('matcher', 'nul\0'), ('script', 'observer\0.py'), ('unknown', True)]
+        for field, value in cases:
+            with self.subTest(field=field, value=value):
+                self.doc = deepcopy(original)
+                self.doc['hooks']['observer']['agents']['codex'][field] = value
+                self.save()
+                self.apply(code=1)
+                self.assertEqual(before, [self.target(a).read_bytes() for a in ('codex', 'claude')])
+                self.assertEqual(state_path.read_bytes(), state_before)
+
+    def test_runtime_binding_errors_do_not_save_machine_or_register_hooks(self):
+        before = self.machine.read_bytes()
+        for bindings in (('python',), ('python=relative',),
+                         (f'python={sys.executable}', f'python={sys.executable}'),
+                         (f'python={self.root / "missing executable"}',)):
+            with self.subTest(bindings=bindings):
+                args = ['bootstrap', self.catalog, '--external', f'scripts={self.source}']
+                for value in bindings:
+                    args += ['--runtime', value]
+                self.call(*args, code=1)
+                self.assertEqual(self.machine.read_bytes(), before)
+                self.assertFalse(self.target().exists())
+                self.assertFalse(self.target('claude').exists())
+
+    def test_invalid_saved_runtime_types_preserve_registered_hooks(self):
+        self.bootstrap()
+        self.apply()
+        before = [self.target(a).read_bytes() for a in ('codex', 'claude')]
+        original = tomlkit.parse(self.machine.read_text(encoding='utf-8'))
+        for value in ('python', {'python': 1}, {'python': 'relative'}):
+            with self.subTest(value=value):
+                document = deepcopy(original)
+                document['runtimes'] = value
+                self.machine.write_text(tomlkit.dumps(document), encoding='utf-8')
+                self.apply(code=1)
+                self.assertEqual(before, [self.target(a).read_bytes() for a in ('codex', 'claude')])
+
+    def test_foreign_noncommand_and_invalid_encoded_handlers_are_preserved(self):
+        self.bootstrap()
+        foreign = {'hooks': [{'type': 'prompt', 'prompt': 'User-owned prompt'},
+                            {'type': 'command', 'command': 'powershell.exe -NoProfile -NonInteractive -EncodedCommand invalid!'},
+                            {'type': 'command', 'command': 'powershell.exe -NoProfile -NonInteractive -EncodedCommand /w=='}]}
+        for agent in ('codex', 'claude'):
+            self.write({'hooks': {'SessionEnd': [foreign]}}, agent)
+        self.apply()
+        self.call('hooks', 'remove', 'observer')
+        for agent in ('codex', 'claude'):
+            self.assertEqual(self.document(agent)['hooks']['SessionEnd'], [foreign])
+
+    def test_source_script_redirect_is_refused_without_registering(self):
+        self.bootstrap()
+        foreign = self.root / 'foreign.py'
+        foreign.write_text('Foreign user script\n', encoding='utf-8')
+        self.script.unlink()
+        try:
+            self.script.symlink_to(foreign)
+        except OSError as exc:
+            self.skipTest(f'Symlink creation unavailable: {exc}')
+        before = foreign.read_bytes()
+        self.assertIn('redirects', self.apply(code=1))
+        self.assertFalse(self.target().exists())
+        self.assertFalse(self.target('claude').exists())
+        self.assertEqual(foreign.read_bytes(), before)
+
+    def test_saved_removal_rejects_invalid_ownership_without_changing_targets(self):
+        self.bootstrap()
+        self.apply()
+        state = self.manager().state
+        state.data['items']['observer:hook']['hook_event'] = None
+        state.save()
+        before = [self.target(a).read_bytes() for a in ('codex', 'claude')]
+        state_before = state.path.read_bytes()
+        self.catalog.unlink()
+        self.assertIn('Invalid saved personal hook ownership',
+                      self.call('hooks', 'remove', 'observer', code=1))
+        self.assertEqual(before, [self.target(a).read_bytes() for a in ('codex', 'claude')])
+        self.assertEqual(state.path.read_bytes(), state_before)
+
+    def test_saved_removal_unknown_selection_preserves_registered_groups(self):
+        self.bootstrap()
+        self.apply()
+        before = [self.target(a).read_bytes() for a in ('codex', 'claude')]
+        self.assertIn('No saved personal hook',
+                      self.call('hooks', 'remove', 'observer', 'missing', code=1))
+        self.assertEqual(before, [self.target(a).read_bytes() for a in ('codex', 'claude')])
+        self.assertFalse(self.manager().state.data['items']['observer:hook']['detached'])
+
     def test_same_file_multiple_groups_preflight_together(self):
         self.doc['hooks']['second'] = deepcopy(self.doc['hooks']['observer'])
         self.save()

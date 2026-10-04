@@ -350,6 +350,28 @@ class Directories(unittest.TestCase):
         self.assertFalse(failed, report)
         self.assertEqual(report['excluded'], [{'source': 'cases', 'reason': 'manual'}])
 
+    def test_missing_external_source_failure_is_throttled_and_retry_preserves_copy(self):
+        self.external()
+        self.run_cli('apply', '--item', 'cases')
+        before = (self.target / 'first.md').read_bytes()
+        self.document['directories']['cases']['update'] = {
+            'trigger': ['shell-start'], 'action': 'sync', 'min_interval': 600}
+        self.write()
+        shutil.rmtree(self.external_root)
+        with patch.object(Git, 'run', side_effect=AssertionError('External operation used Git')):
+            report = self.run_cli('auto', '--trigger', 'shell-start', code=1)
+            self.assertEqual(report[0]['status'], 'failed')
+            self.assertIn('External source missing', report[0]['error'])
+            self.assertEqual(self.run_cli('auto', '--trigger', 'shell-start')[0]['status'], 'throttled')
+        self.assertEqual((self.target / 'first.md').read_bytes(), before)
+        self.assertFalse(self.manager().state.data['items']['cases:directory']['detached'])
+        self.external_root.mkdir()
+        (self.external_root / 'first.md').write_text('Recovered source\n', encoding='utf-8')
+        self.document['directories']['cases']['update']['min_interval'] = 0
+        self.write()
+        self.assertEqual(self.run_cli('auto', '--trigger', 'shell-start')[0]['status'], 'synced')
+        self.assertEqual((self.target / 'first.md').read_text(encoding='utf-8'), 'Recovered source\n')
+
     def test_full_mode_default_includes_directory_and_preserves_detach(self):
         self.document['directories']['cases']['install']['mode'] = 'copy'
         self.write()
