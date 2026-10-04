@@ -8,9 +8,10 @@ import time
 
 
 @contextmanager
-def lock(directory: Path, *, timeout: float = 0, error_type=RuntimeError):
+def lock(directory: Path, *, timeout: float = 0, error_type=RuntimeError, shared: bool = False):
     """Serialize managers, optionally waiting up to timeout seconds for contention.
 
+    Shared readers are supported on POSIX; Windows retains exclusive locking.
     OS locks are released even after a crash; the persistent file is not a
     stale lock to delete. Ordinary commands retain immediate failure.
     """
@@ -31,7 +32,7 @@ def lock(directory: Path, *, timeout: float = 0, error_type=RuntimeError):
                 if os.name == "nt":
                     msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
                 else:
-                    fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    fcntl.flock(stream.fileno(), (fcntl.LOCK_SH if shared else fcntl.LOCK_EX) | fcntl.LOCK_NB)
                 break
             except OSError as exc:
                 if exc.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):

@@ -1,6 +1,6 @@
 """Shared execution boundary for Click commands and installed callbacks."""
 
-from contextlib import nullcontext
+from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass
 import json
 import math
@@ -117,14 +117,25 @@ class Runtime:
                 tool_lock = None  # Opaque settings must not block offline maintenance.
             # Both locks share the callback budget so installation contention
             # cannot fail immediately or consume a second five-second wait.
-            deadline = time.monotonic() + 5 if callback == "agent-hook" else None
+            deadline = time.monotonic() + 5 if callback in ("agent-hook", "startup") else None
 
             def remaining():
                 return max(0, deadline - time.monotonic()) if deadline is not None else 0
 
-            with (lock(tool_lock, timeout=remaining()) if tool_lock and not preview else nullcontext()), (
-                    nullcontext() if preview else lock(config.state_dir, timeout=remaining())):
-                # Re-read under the lock; another command may have changed bindings.
+            with (lock(tool_lock, timeout=remaining(), shared=True) if tool_lock and not preview else nullcontext()), ExitStack() as locks:
+                snapshot = None
+                if not preview:
+                    try:
+                        locks.enter_context(lock(config.state_dir, timeout=remaining()))
+                    except Error:
+                        if callback != 'agent-hook' or not maintenance:
+                            raise
+                        # Network delivery can hold this lock for much longer
+                        # than a SessionStart hook. Location metadata is read-only:
+                        # accept only an unchanged, recovery-free saved snapshot.
+                        snapshot = {path: path.read_bytes() if path.exists() else None
+                                    for path in (self.config_path, config.state_dir / 'state.json')}
+                # Re-read after acquiring the lock or capturing the snapshot.
                 saved_error = None
                 if maintenance:
                     config = MachineFile(self.config_path, missing_ok=missing_ok)
@@ -140,6 +151,11 @@ class Runtime:
                         state = State(config.state_dir, maintenance=True)
                         saved_error = exc
                 report, failed = operation(Session(Manager(config, state), saved_error))
+                if snapshot is not None:
+                    state.ready()
+                    if any((path.read_bytes() if path.exists() else None) != data
+                           for path, data in snapshot.items()):
+                        raise Error('Saved instruction locations changed during lookup; retry after the active command')
                 if output is None:
                     self.emit(report, machine=callback is not None)
                 else:

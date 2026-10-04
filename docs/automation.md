@@ -198,3 +198,12 @@ Personal hook registrations are always excluded from policies and full mode.
 Explicit `apply --item NAME` is required. A skill sharing a source checkout can
 still update a live script; registration definitions and trust remain unchanged.
 See [Personal hooks](personal-hooks.md).
+
+## Startup contention and shared fetches
+
+Startup callbacks wait up to five seconds for short lock contention. On Linux/WSL, instruction callbacks can return validated saved location metadata while a content update holds the configuration lock. They still refuse package-replacement contention, pending recovery, replaced links, or a saved configuration/state change during lookup. Native Windows retains exclusive installation locking.
+
+In one automatic skill-policy run, skills sharing a prepared checkout, remote, branch, and Git timeout reuse the same fetch observation, including a network failure. Different timeout budgets fetch separately. Each skill retains its own selection, attempt clock, outcome, local-file checks, and application. Later events fetch again when due; manual commands remain unthrottled.
+Checks and sync guards compare HEAD with their fetched or reused commit, even if a different timeout's fetch updates the shared remote-tracking ref during the run.
+
+Policy updates remain synchronous and must fit the configured outer startup hook duration. Reusing fetches reduces network work but does not impose a total run deadline or queue policy runs in the background.

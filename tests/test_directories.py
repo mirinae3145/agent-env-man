@@ -214,6 +214,35 @@ class Directories(unittest.TestCase):
         self.assertEqual((self.target / 'first.md').read_text(encoding='utf-8'), 'Remote case')
         self.assertEqual((self.destination / 'other/first.md').read_text(encoding='utf-8'), 'First case\n')
 
+    def test_skill_check_and_directory_sync_share_fetch_within_each_event(self):
+        self.document['skills'] = {'observe': {'source': 'store', 'subdir': 'skills/report',
+            'install': {'root': 'personal', 'mode': 'copy'}, 'update': {'action': 'check'}}}
+        self.document['directories']['cases']['install']['mode'] = 'copy'
+        self.document['updates'] = {'defaults': {'trigger': ['agent-start'], 'min_interval': 0}}
+        self.write()
+        self.bootstrap()
+        self.run_cli('apply')
+        original_skill = (self.destination / 'observe/SKILL.md').read_bytes()
+        (self.repo / 'cases/first.md').write_text('Shared fetch', encoding='utf-8')
+        (self.repo / 'skills/report/SKILL.md').write_text('# Received skill\n', encoding='utf-8')
+        self.commit(self.repo)
+        original_run = Git.run
+        fetches = []
+
+        def record(git, path, *args, **kwargs):
+            if args[0] == 'fetch':
+                fetches.append(path)
+            return original_run(git, path, *args, **kwargs)
+
+        with patch.object(Git, 'run', record):
+            report = self.run_cli('auto', '--trigger', 'agent-start')
+            self.assertEqual([entry['status'] for entry in report], ['checked', 'synced'])
+            self.assertEqual(fetches, [self.checkout])
+            self.run_cli('auto', '--trigger', 'agent-start')
+            self.assertEqual(fetches, [self.checkout, self.checkout])
+        self.assertEqual((self.target / 'first.md').read_text(encoding='utf-8'), 'Shared fetch')
+        self.assertEqual((self.destination / 'observe/SKILL.md').read_bytes(), original_skill)
+
     def test_root_link_update_rejects_git_link_and_preserves_checkout(self):
         self.require_links()
         self.document['directories']['cases']['subdir'] = '.'

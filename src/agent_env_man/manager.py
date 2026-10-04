@@ -972,7 +972,7 @@ class Manager:
                 self.state.save()
         return results, failed
 
-    def update(self, names=(), *, timeout=30, prepare_settings=False):
+    def update(self, names=(), *, timeout=30, prepare_settings=False, fetch_cache=None):
         self.state.ready()
         if set(names) - self.config.sources.keys():
             raise Error("Unknown source selection")
@@ -988,7 +988,8 @@ class Manager:
             source_state = self.state.data["sources"].setdefault(name, {})
             try:
                 if source.git:
-                    Git(timeout).update(self.delivery_source(source), self.state.data["items"], source_state,
+                    git = Git(timeout) if fetch_cache is None else Git(timeout, fetch_cache=fetch_cache)
+                    git.update(self.delivery_source(source), self.state.data["items"], source_state,
                         validate_candidate=lambda git, src, rev: self.validate_consumers_revision(git, src, rev, members))
                     status = "updated"
                 else:

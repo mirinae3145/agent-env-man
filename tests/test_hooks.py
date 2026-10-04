@@ -13,7 +13,7 @@ from unittest.mock import patch
 from agent_env_man import hooks
 from agent_env_man.agents import profile
 from agent_env_man.manager import Manager
-from agent_env_man.model import Config
+from agent_env_man.model import Config, Error
 from agent_env_man.storage import State, lock
 from test_instructions import InstructionFixture
 
@@ -189,7 +189,7 @@ class HookInstallation(InstructionFixture):
         self.assertEqual([call.kwargs["timeout"] for call in acquire.call_args_list], [5, 1])
         self.assertEqual(json.loads(result["hookSpecificOutput"]["additionalContext"].split("\n")[1])["root"], str(self.bundle))
 
-    def test_instruction_callbacks_stop_when_contention_outlasts_wait_budget(self):
+    def test_instruction_callbacks_read_stable_metadata_when_contention_outlasts_wait_budget(self):
         self.configure()
         self.run_cli("apply")
         directory = Config(self.config).state_dir
@@ -200,9 +200,63 @@ class HookInstallation(InstructionFixture):
                         patch("agent_env_man.process_lock.time.sleep") as retry:
                     result = self.run_cli(*command, "personal")
                 retry.assert_called_once()
-                self.assertIs(result["continue"], False)
-                self.assertIn("holds this config's lock", result["stopReason"])
+                self.assertIn("hookSpecificOutput", result)
         self.assertEqual((directory / "state.json").read_bytes(), before)
+
+    def test_contended_snapshot_refuses_pending_recovery_and_changed_state(self):
+        self.configure()
+        self.run_cli("apply")
+        directory = Config(self.config).state_dir
+        state = State(directory)
+        for pending in (True, False):
+            state.data['pending'] = {'example': 'pending'} if pending else None
+            state.save()
+            original = Manager.hook_context
+
+            def changing_lookup(manager, *args):
+                result = original(manager, *args)
+                state.data['snapshot_changed'] = True
+                state.save()
+                return result
+
+            with lock(directory), patch('agent_env_man.cli_runtime.lock', side_effect=Error('contended')), \
+                    patch.object(Manager, 'hook_context', changing_lookup):
+                result = self.run_cli('agent-hook', 'personal', '--agent', 'codex')
+            self.assertIs(result['continue'], False)
+            self.assertIn('recover' if pending else 'changed during lookup', result['stopReason'])
+
+    def test_contended_snapshot_refuses_changed_machine_file_and_replaced_links(self):
+        self.configure()
+        self.run_cli('apply')
+        original = Manager.hook_context
+
+        def changing_lookup(manager, *args):
+            result = original(manager, *args)
+            self.config.write_text(self.config.read_text() + '\n# concurrent setup edit\n')
+            return result
+
+        with patch('agent_env_man.cli_runtime.lock', side_effect=Error('contended')), \
+                patch.object(Manager, 'hook_context', changing_lookup):
+            result = self.run_cli('agent-hook', 'personal', '--agent', 'codex')
+        self.assertIs(result['continue'], False)
+        self.assertIn('changed during lookup', result['stopReason'])
+        target = self.agent / 'AGENTS.md'
+        target.unlink()
+        target.write_text('# Unmanaged replacement\n')
+        with patch('agent_env_man.cli_runtime.lock', side_effect=Error('contended')):
+            result = self.run_cli('agent-hook', 'personal', '--agent', 'codex')
+        self.assertIs(result['continue'], False)
+        self.assertIn('replaced', result['stopReason'])
+
+    def test_startup_waits_for_short_instruction_lock_contention(self):
+        self.configure()
+        self.run_cli('apply')
+        with ExitStack() as holder:
+            holder.enter_context(lock(Config(self.config).state_dir))
+            with patch('agent_env_man.process_lock.time.sleep', side_effect=lambda _: holder.close()) as retry:
+                self.run_cli('startup', '--trigger', 'agent-start', '--agent', 'codex')
+            retry.assert_called_once()
+        self.assertIn('startup', State(Config(self.config).state_dir).data)
 
     def test_hook_transaction_failure_restores_existing_hooks_and_can_retry(self):
         self.configure()

@@ -89,6 +89,9 @@ Arrays, including arrays of tables, and empty tables are managed as complete val
 Ordinary tables expose individual leaves.
 Quoted keys containing dots remain distinct from nested keys.
 TOML types remain distinct during comparison, including integer versus float and boolean, dates, times, and special float values.
+Physical LF and CRLF newlines in TOML multiline strings compare equally across shared sources, stages, actual settings, and saved comparison snapshots, including strings inside arrays and tables.
+Explicit carriage-return escapes such as `\r` and `\u000D` remain meaningful string content and are not normalized.
+Comparison does not rewrite the original TOML tokens or snapshot formatting.
 
 For a JSON setting, declare the application's file using the same catalog and target binding workflow:
 

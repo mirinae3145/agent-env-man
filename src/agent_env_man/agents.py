@@ -5,6 +5,7 @@ The registry is intentionally internal, not a user-loadable plugin mechanism.
 """
 from dataclasses import dataclass
 import os
+import math
 from pathlib import Path
 
 from . import hooks
@@ -41,11 +42,14 @@ class Codex:
                 'skills': str(Path.home() / '.agents/skills')}
 
     def definition(self, config, name, *, startup=False, startup_timeout=10):
+        timeout = math.ceil(startup_timeout) if startup else 10
+        if not 0 < timeout < 2**64:
+            raise Error('Codex hook timeout must fit an unsigned 64-bit integer')
         identity = f'{self.name}:startup' if startup else f'{self.name}:{name}'
         args = ['startup', '--trigger', 'agent-start', '--agent', self.name] if startup else ['agent-hook', name, '--agent', self.name]
         marker = hooks.marker(config, identity, 'startup' if startup else 'instruction roots')
         return marker, {'matcher': '^(startup|resume|clear|compact)$', 'hooks': [
-            {'type': 'command', 'command': hooks.command(config, args), 'timeout': startup_timeout if startup else 10,
+            {'type': 'command', 'command': hooks.command(config, args), 'timeout': timeout,
              'statusMessage': marker, 'additionalContextLimit': 1000}]}
 
     def render(self, path, marker, group, old, **options):

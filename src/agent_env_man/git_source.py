@@ -15,7 +15,9 @@ def now() -> str:
 
 
 class Git:
-    def __init__(self, timeout: float = 30):
+    def __init__(self, timeout: float = 30, *, fetch_cache=None):
+        self.fetch_cache = fetch_cache
+        self.timeout = timeout
         self.deadline = time.monotonic() + timeout
 
     def run(self, path: Path | None, *args: str, check: bool = True, strict_utf8: bool = False) -> subprocess.CompletedProcess:
@@ -176,14 +178,30 @@ class Git:
     def fetch(self, source: Source) -> str:
         self.validate(source)
         self.run(source.path, "check-ref-format", "refs/heads/" + source.branch)
-        # A forced remote-tracking update is observational; HEAD is never reset.
-        self.run(source.path, "fetch", "--no-tags", "origin",
-                 f"+refs/heads/{source.branch}:refs/remotes/origin/{source.branch}")
-        return self.run(source.path, "rev-parse", "refs/remotes/origin/" + source.branch).stdout
+        key = (source.path, source.git, source.branch, self.timeout)
+        if self.fetch_cache is not None and key in self.fetch_cache:
+            result = self.fetch_cache[key]
+            if isinstance(result, Exception):
+                raise Error(str(result))
+            return result
+        try:
+            # A forced remote-tracking update is observational; HEAD is never reset.
+            self.run(source.path, "fetch", "--no-tags", "origin",
+                     f"+refs/heads/{source.branch}:refs/remotes/origin/{source.branch}")
+            result = self.run(source.path, "rev-parse", "refs/remotes/origin/" + source.branch).stdout
+        except (Error, OSError, ValueError) as exc:
+            if self.fetch_cache is not None:
+                self.fetch_cache[key] = exc
+            raise
+        if self.fetch_cache is not None:
+            self.fetch_cache[key] = result
+        return result
 
-    def relation(self, source: Source) -> str:
+    def relation(self, source: Source, *, revision: str | None = None) -> str:
+        """Compare HEAD with a pinned observation or the current tracking ref."""
+        reference = revision if revision is not None else "refs/remotes/origin/" + source.branch
         result = self.run(source.path, "rev-list", "--left-right", "--count",
-                          f"HEAD...refs/remotes/origin/{source.branch}", check=False)
+                          f"HEAD...{reference}", check=False)
         if result.returncode:
             return "unknown"
         ahead, behind = map(int, result.stdout.split())
@@ -259,7 +277,7 @@ class Git:
         self.clean(source)
         candidate = self.fetch(source)
         source_state.update(last_fetch=now(), observed_revision=candidate)
-        relation = self.relation(source)
+        relation = self.relation(source, revision=candidate)
         if relation in ("ahead", "diverged", "unknown"):
             raise Error(f"{source.name}: {relation}; reconcile Git history manually")
         self.guard_links(source, candidate, records)
