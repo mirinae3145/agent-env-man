@@ -19,6 +19,56 @@ from test_instructions import InstructionFixture
 
 @unittest.skipUnless(os.name == "nt", "Native Windows process APIs")
 class NativeProcesses(unittest.TestCase):
+    def test_waiting_lock_acquires_after_native_owner_releases(self):
+        with tempfile.TemporaryDirectory(prefix="aem-native-wait-") as folder:
+            path = Path(folder)
+            program = ("import sys; sys.path.insert(0,sys.argv[2]); from pathlib import Path; "
+                       "from agent_env_man.process_lock import lock; "
+                       "guard=lock(Path(sys.argv[1])); guard.__enter__(); "
+                       "print('locked', flush=True); sys.stdin.read(1); "
+                       "guard.__exit__(None,None,None)")
+            child = subprocess.Popen([sys._base_executable, "-c", program, str(path),
+                                      str(Path(process_lock.__file__).parents[1])],
+                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE, text=True)
+            import concurrent.futures
+            try:
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    self.assertEqual(executor.submit(child.stdout.readline).result(timeout=10), "locked\n")
+                    with self.assertRaisesRegex(Error, "holds this config's lock"):
+                        with process_lock.lock(path, timeout=0.1, error_type=Error, shared=True):
+                            self.fail("Windows shared readers must still exclude another owner")
+                    acquired = executor.submit(self._acquire_native_lock, path)
+                    child.stdin.write("x")
+                    child.stdin.flush()
+                    self.assertTrue(acquired.result(timeout=10))
+                self.assertEqual(child.wait(timeout=10), 0)
+                self.assertEqual((path / "lock").read_bytes(), b"0")
+            finally:
+                if child.poll() is None:
+                    child.kill()
+                child.communicate(timeout=10)
+
+    @staticmethod
+    def _acquire_native_lock(path):
+        with process_lock.lock(path, timeout=5):
+            return True
+
+    def test_exception_releases_native_lock_and_preserves_persistent_file(self):
+        with tempfile.TemporaryDirectory(prefix="aem-native-unwind-") as folder:
+            path = Path(folder)
+            with self.assertRaisesRegex(ValueError, "operation failed"):
+                with process_lock.lock(path):
+                    raise ValueError("operation failed")
+            with process_lock.lock(path):
+                self.assertTrue((path / "lock").exists())
+            self.assertEqual((path / "lock").read_bytes(), b"0")
+
+    def test_wait_for_already_exited_native_process(self):
+        child = subprocess.Popen([sys._base_executable, "-c", "pass"])
+        self.assertEqual(child.wait(timeout=10), 0)
+        self.assertTrue(self_update.wait_for_parent(child.pid))
+
     def test_detached_worker_children_have_no_console_and_preserve_results(self):
         # Match the queued worker's console-less parent, rather than inheriting
         # the test runner's console and accidentally masking console allocation.
