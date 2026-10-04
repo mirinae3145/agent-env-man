@@ -58,3 +58,22 @@ class WindowsLock(unittest.TestCase):
                     with process_lock.lock(self.root):
                         self.fail("Entered without acquiring the lock")
                 self.api.locking.assert_called_once()
+
+
+@unittest.skipIf(os.name == 'nt', 'POSIX shared installation locks')
+class SharedInstallationLock(unittest.TestCase):
+    def test_readers_coexist_and_replacement_waits_for_all_readers(self):
+        with tempfile.TemporaryDirectory(prefix='aem-shared-lock-') as directory:
+            root = Path(directory)
+            with process_lock.lock(root, shared=True):
+                with process_lock.lock(root, shared=True):
+                    with self.assertRaises(RuntimeError):
+                        with process_lock.lock(root):
+                            self.fail('Replacement entered while CLI readers were active')
+                with self.assertRaises(RuntimeError):
+                    with process_lock.lock(root):
+                        self.fail('Replacement entered before the last reader exited')
+            with process_lock.lock(root):
+                with self.assertRaises(RuntimeError):
+                    with process_lock.lock(root, shared=True):
+                        self.fail('CLI reader entered during package replacement')
