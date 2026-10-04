@@ -126,7 +126,7 @@ def full_content(manager, timeout):
     if not sources:
         return {**report, 'status': 'skipped'}, False
     manager.selected(items)  # Ownership preflight before cloning content.
-    report['prepare'], failed = manager.prepare_skills(sources, timeout=timeout, defer_settings=True)
+    report['prepare'], failed = manager.prepare_skills(sources, timeout=timeout, defer_payloads=True)
     if failed:
         return {**report, 'status': 'failed'}, True
     report['update'], failed = manager.update(sources, timeout=timeout, prepare_settings=True)

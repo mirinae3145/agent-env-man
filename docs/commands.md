@@ -325,6 +325,7 @@ aem update [NAME ...] [--git-timeout TIMEOUT]
 
 Select skill, directory, instruction, setting, or personal hook source names, or omit names for all sources.
 Shared checkouts advance once and guard every active link, including orphaned declarations.
+Incoming revisions must also contain valid trees for every declared directory in a shared checkout, including unselected copies; validation failure preserves the current checkout.
 Links change immediately; copies are refreshed by apply.
 External sources only receive an existence check (`external-no-fetch`).
 Dirty, divergent, local-ahead, detached, misidentified, or unsupported incoming checkouts are refused.

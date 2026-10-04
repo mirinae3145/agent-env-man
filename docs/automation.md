@@ -41,6 +41,8 @@ Detached skills, directories, and instruction groups remain excluded.
 Shared checkout updates can still change linked consumers excluded from installation, including manual skills; this is the existing shared-source contract.
 It never adopts conflicts, replaces user edits, reattaches detached content, removes undeclared targets, or grants agent hook trust.
 New valid catalog declarations can be prepared and installed in full mode.
+For existing shared Git checkouts, directory paths introduced by new declarations are validated against the incoming revision before fast-forwarding, so they need not exist in the current revision.
+Dirty sources and divergent histories require explicit reconciliation; automation never merges or stashes them.
 A failed stage stops later stages; successful earlier work remains and normal per-target recovery rules apply.
 
 The installer must register an external Python, uv, and the installation directories before full mode can be enabled, even when tool updates are off.

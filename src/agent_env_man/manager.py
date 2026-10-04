@@ -40,14 +40,14 @@ class Manager:
             return replace(source, branch=branch)
         return source
 
-    def prepare_skills(self, names=(), *, timeout=30, defer_settings=False):
+    def prepare_skills(self, names=(), *, timeout=30, defer_payloads=False):
         """Clone listed repositories, validating consumers before publishing a checkout.
 
         Clone success does not install anything. Existing checkouts are checked
         in place and never reset or pulled by bootstrap.
-        Full automation may defer existing settings payload/stage preparation
-        until validated delivery succeeds, so new declarations can refer to
-        files that arrive in the incoming revision.
+        Full automation may defer directory, settings, and personal-hook
+        payload validation in existing checkouts until validated delivery
+        succeeds, so new declarations can refer to incoming paths.
         """
         self.state.ready()
         sources = self.config.sources
@@ -92,9 +92,11 @@ class Manager:
                     if item.kind == "skill":
                         git.skill_descriptor(prepared, item.relative)
                     elif item.kind == "directory":
+                        if defer_payloads and not created:
+                            continue
                         git.directory_descriptor(prepared, item.relative)
                     elif item.kind == "setting":
-                        if defer_settings and not created:
+                        if defer_payloads and not created:
                             continue
                         from .settings import Bundle, metadata_path
                         git.tracked_payload(prepared, item.relative)
@@ -103,7 +105,7 @@ class Manager:
                         if metadata_path(local_path / item.relative).exists():
                             git.tracked_payload(prepared, item.relative + ".aem.toml")
                     elif item.kind == 'personal-hook':
-                        if defer_settings and not created:
+                        if defer_payloads and not created:
                             continue
                         from .personal_hooks import source_script
                         for member_item in self.config.declarations(skill_source):
@@ -156,7 +158,7 @@ class Manager:
         ready_names = {entry.get("skill", entry.get("source")) for entry in report
                        if entry.get("status") in ("cloned", "already-prepared", "external-ready")}
         for name, source in sources.items():
-            if not defer_settings and name in self.config._settings and name in ready_names and (not names or name in names):
+            if not defer_payloads and name in self.config._settings and name in ready_names and (not names or name in names):
                 try:
                     report.append(Settings(self).prepare(self.config.declarations(source)[0]))
                 except (Error, OSError, ValueError) as exc:
@@ -987,7 +989,7 @@ class Manager:
             try:
                 if source.git:
                     Git(timeout).update(self.delivery_source(source), self.state.data["items"], source_state,
-                        validate_candidate=lambda git, src, rev: self.validate_settings_revision(git, src, rev, members))
+                        validate_candidate=lambda git, src, rev: self.validate_consumers_revision(git, src, rev, members))
                     status = "updated"
                 else:
                     if not source.path.is_dir():
@@ -1025,8 +1027,8 @@ class Manager:
             self.state.save()
         return results, failed
 
-    def validate_settings_revision(self, git, source, revision, members):
-        """Reject invalid incoming settings before advancing a shared checkout."""
+    def validate_consumers_revision(self, git, source, revision, members):
+        """Validate declared consumers before advancing their shared checkout."""
         from .settings import Bundle
         from .personal_hooks import guard_revision
         paths = {item.relative for name, member in members if name in self.config._hooks
@@ -1035,7 +1037,10 @@ class Manager:
                      if record.get('kind') == 'personal-hook' and not record.get('detached')
                      and str(source.path / record.get('relative', '')) == record.get('source'))
         guard_revision(git, source, revision, paths)
-        for name, _ in members:
+        for name, member in members:
+            if name in self.config._directories:
+                for item in self.config.declarations(member):
+                    git.directory_descriptor(source, item.relative, revision)
             if name not in self.config._settings:
                 continue
             path = self.config._settings[name]["path"]
