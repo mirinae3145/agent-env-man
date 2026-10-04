@@ -62,11 +62,21 @@ class TomlFormat:
 
     @staticmethod
     def identity(value):
-        value = value.unwrap() if hasattr(value, "unwrap") else value
+        if isinstance(value, tomlkit.items.String):
+            # Normalize physical newlines in the original TOML token, before
+            # decoding escapes. Unwrapped strings cannot distinguish a file's
+            # CRLF from an intentional \\r\\n or \\u000D escape sequence.
+            token = value.as_string()
+            normalized = (tomlkit.parse("value = " + token.replace("\r\n", "\n"))["value"].unwrap()
+                          if "\r\n" in token else value.unwrap())
+            return ("str", normalized)
+        # Recurse before unwrapping containers so nested strings retain their
+        # original tokens. Documents and snapshots themselves remain untouched.
         if isinstance(value, dict):
             return ("table", tuple(sorted((k, TomlFormat.identity(v)) for k, v in value.items())))
         if isinstance(value, list):
             return ("array", tuple(TomlFormat.identity(v) for v in value))
+        value = value.unwrap() if hasattr(value, "unwrap") else value
         if isinstance(value, float):
             return ("float", "nan" if math.isnan(value) else value.hex())
         return (type(value).__name__, value)
