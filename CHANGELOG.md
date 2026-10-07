@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `locate NAME --repo` selects the prepared source Git checkout root for skills, directories, instructions, settings, and personal hooks; combine with `--cd` to enter the repository through existing shell integration.
 - Catalog source names in `locate --source`, `locate --repo`, and `update`, with explicit `source:NAME` selectors to disambiguate names while preserving existing item selection.
 Updating a named source selects all its consumers, including shared settings reception into their stages.
+Prepared named sources retain their branch binding for explicit lookup and update after their last consumer is removed.
 
 ## [1.1.0] &mdash; 2026-10-04
 

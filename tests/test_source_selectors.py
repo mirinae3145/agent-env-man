@@ -134,6 +134,47 @@ class SourceSelectors(unittest.TestCase):
                 self.cli(*args, code=1)
                 self.assertEqual(state.read_bytes(), before)
 
+    def test_unconsumed_source_rejects_stale_checkout_or_repository_binding(self):
+        del self.document['skills']
+        del self.document['instructions']
+        self.save()
+        state = self.root / 'machine.toml.state/state.json'
+        original = json.loads(state.read_text())
+        for field, value in (('checkout', str(self.root / 'different-checkout')),
+                             ('repository', str(self.root / 'different.git'))):
+            data = json.loads(json.dumps(original))
+            data['sources']['source:shared'][field] = value
+            state.write_text(json.dumps(data), encoding='utf-8')
+            before = state.read_bytes()
+            with self.subTest(field=field), patch.object(Git, 'fetch', side_effect=AssertionError('invalid binding fetched')):
+                self.assertIn('branch record', self.cli('locate', 'source:shared', '--repo', code=1))
+                self.assertIn('branch record', self.cli('update', 'source:shared', code=1))
+                self.assertEqual(state.read_bytes(), before)
+
+    def test_legacy_consumer_records_remain_usable_and_bootstrap_saves_source_binding(self):
+        state = self.root / 'machine.toml.state/state.json'
+        data = json.loads(state.read_text())
+        del data['sources']['source:shared']
+        state.write_text(json.dumps(data), encoding='utf-8')
+        before = state.read_bytes()
+        self.assertEqual(self.cli('locate', 'source:shared', '--repo')['root'], str(self.checkout))
+        self.assertEqual(state.read_bytes(), before)
+        self.cli('bootstrap')
+        del self.document['skills']
+        del self.document['instructions']
+        self.save()
+        self.assertEqual(self.cli('locate', 'source:shared', '--repo')['root'], str(self.checkout))
+
+    def test_saved_default_branch_is_not_replaced_by_current_checkout_branch(self):
+        del self.document['skills']
+        del self.document['instructions']
+        self.save()
+        self.git(self.checkout, 'checkout', '-b', 'other')
+        with patch.object(Git, 'fetch', side_effect=AssertionError('wrong branch fetched')):
+            self.assertIn('expected attached branch main', self.cli('locate', 'source:shared', '--repo', code=1))
+            report = self.cli('update', 'source:shared', code=1)[0]
+        self.assertIn('expected attached branch main', report['error'])
+
 
 class ExternalSourceSelectors(unittest.TestCase):
     setUp = settings_tests.StagedSettings.setUp

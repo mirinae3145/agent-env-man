@@ -55,6 +55,7 @@ Preserve machine policy syntax, effective policy JSON, per-skill attempt records
 Do not require upstream skill repositories to add manager manifests or aggregate their content in this repository.
 The catalog owns repository URLs, requested branches, and declarative skill automatic update policies; machine configuration owns its catalog binding, checkout storage, target roots, and explicit mode overrides.
 Bootstrap clones missing repositories directly from the catalog, discovers and records their default branches when unspecified, and validates SKILL.md before publishing a checkout.
+Retain each prepared named source's branch binding with its repository and checkout path independently of consumer membership, while preserving per-item delivery and automatic-policy records.
 Installation consumes these prepared local checkouts without fetching.
 Share a checkout only when skills explicitly reference the same named repository; equal URLs under different source names do not imply shared ownership.
 Preserve named-source checkout paths; do not migrate or remove old direct-declaration checkouts automatically.

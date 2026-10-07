@@ -133,6 +133,12 @@ class Manager:
                     member_state.update(repository=source.git, branch=branch, revision=revision, error=None)
                     if created:
                         member_state.update(last_fetch=now(), observed_revision=revision)
+                # Keep checkout identity independently of consumer membership.
+                # Catalog v2 Git checkouts use the named source as their basename.
+                named = self.config.named_source(source.path.name)
+                if named is not None and named.path == source.path and named.git == source.git:
+                    self.state.data['sources'].setdefault(named.name, {}).update(
+                        repository=source.git, checkout=str(source.path), branch=branch)
                 for skill_name, _ in selected:
                     report.append({"directory" if skill_name in self.config._directories else "skill": skill_name,
                                    "status": "cloned" if created else "already-prepared", "checkout": str(source.path)})
@@ -417,12 +423,19 @@ class Manager:
             return None
         members = sorted(n for n, s in consumers.items() if s.path == selected.path)
         if selected.git and selected.branch is None:
-            branches = {self.state.data['sources'].get(n, {}).get('branch') for n in members}
+            records = self.state.data['sources']
+            branches = {record.get('branch') for n in members
+                        if (record := records.get(n, {})).get('repository') == selected.git}
+            binding = records.get(selected.name, {})
+            if binding.get('repository') == selected.git and binding.get('checkout') == str(selected.path):
+                branches.add(binding.get('branch'))
             branches.discard(None)
             if len(branches) > 1:
                 raise Error(f"{name}: conflicting recorded source branches; run bootstrap")
-            if branches:
-                selected = replace(selected, branch=branches.pop())
+            if not branches:
+                raise Error(f"{name}: no matching prepared branch record; run bootstrap with a consumer "
+                            f"or set sources.{key}.branch explicitly")
+            selected = replace(selected, branch=branches.pop())
         return selected, members
 
     def locate_source_root(self, selected, members, *, repo=False):

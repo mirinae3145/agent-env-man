@@ -506,7 +506,9 @@ Use `--repo` to locate the current catalog item's prepared source Git checkout r
 It can be combined with `--source`, but not `--target`; external folder sources are rejected even if the folder happens to be in a Git repository.
 Repository lookup returns `root`, `entry`, and `checkout` all identifying the checkout directory, plus `repository`, `members`, `location: "source"`, `installed_root: null`, and `detached: false`.
 It requires valid current configuration and a prepared checkout matching the registered Git URL and branch, permits uncommitted edits, and does not clone or fetch.
-When a named Git source omits its branch, lookup uses the default branch recorded for its consumers during bootstrap; missing or conflicting records require bootstrap before lookup.
+When a named Git source omits its branch, lookup uses the prepared branch recorded by bootstrap for that source's repository and checkout path, even after its last consumer is removed.
+Older consumer-only records remain usable while their consumers are declared; rerun bootstrap before removing the last consumer to retain the source binding.
+Missing or conflicting records require bootstrap with a consumer, or an explicit `sources.NAME.branch` when none remain; lookup never adopts the checkout's current branch or fetches to discover one.
 The item's payload may be missing: repository lookup validates the checkout rather than its content entry.
 For named-source lookup with `--source`, the same root-level report is returned, with `checkout` and `repository` set to null for an external source.
 
