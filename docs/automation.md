@@ -33,6 +33,9 @@ aem setup --automation off
 1. Invoke the installed AEM afresh and validate/fast-forward the Git catalog; local or unbound catalogs skip delivery.
 1. Prepare and update eligible skill/directory/instruction/settings sources, receiving settings into their stages, then apply after all selected delivery succeeds.
 
+For a newly declared skill in an existing shared checkout, full mode validates the skill against the fetched revision before advancing the checkout, rather than requiring its path in the older local revision.
+Missing checkouts are still cloned and validated during preparation; standalone `bootstrap` never updates existing checkouts.
+
 Full mode uses one shared trigger list and attempt interval, including failed attempts.
 Its defaults are shell/agent startup, 3600 seconds between attempts, and 30 seconds per content/catalog Git phase.
 It replaces individual automatic triggers, intervals, and check/sync actions for this run.

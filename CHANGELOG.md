@@ -23,6 +23,15 @@ Bootstrap records the user's home directory when the binding is absent, preserve
 Git publication retains whole-checkout commit/push behavior; external completion confirms local source handoff only.
 Collection preserves affected active links' required paths and file kinds, including orphaned ownership, without restricting content wording.
 
+## [1.1.1] &mdash; 2026-10-07
+
+Git tag `v1.1.1` corresponds to Python package version `1.1.1`; based on `v1.1.0`.
+
+### Fixed
+
+- Full automation can receive a newly declared skill from an existing stale shared checkout, including when existing consumers are detached or excluded.
+Validate all declared skills against incoming revisions before advancing shared checkouts, and report the affected skill with a supported update/bootstrap recovery sequence when standalone bootstrap finds an invalid local skill.
+
 ## [1.1.0] &mdash; 2026-10-04
 
 Git tag `v1.1.0` corresponds to Python package version `1.1.0`; based on `v1.0.1`.
@@ -273,7 +282,8 @@ Maintenance commands can still inspect, detach, recover, and remove saved integr
 - Linux/WSL and native Windows path handling, with Python 3.11 or later and Git required.
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
-[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.0-rc...v1.0.0

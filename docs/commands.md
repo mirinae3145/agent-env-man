@@ -248,6 +248,8 @@ Repeated `--external` binds declared external names; duplicate names in one invo
 `--item` selects catalog skill, directory, instruction, setting or personal hook names for preparation, not ownership IDs or repository names.
 No selection prepares all declared sources.
 Missing repositories are cloned and validated; existing checkouts are validated without pulling or resetting.
+If a newly declared skill is missing from an existing checkout but available upstream, run `aem update NAME`, then `aem bootstrap --item NAME`, `aem apply --item NAME --dry-run`, and `aem apply --item NAME`.
+Update validates the incoming skill before advancing the shared checkout and refuses dirty or divergent history; it does not reinstall detached consumers.
 A failed content download leaves the machine binding saved so bootstrap can be retried.
 Content installation and updates require catalog `version = 2`; see the [syntax reference](configuration.md#catalog) and [manual transition](removed-interfaces.md#catalog-v2-transition).
 Saved-state maintenance stays available with an old catalog.
@@ -336,7 +338,7 @@ Omit names to retain the existing all-consumer selection; sources without consum
 For a source without consumers, the update report identifies it as `source:NAME`.
 Lookup of an unknown selector fails before any source is updated.
 Shared checkouts advance once and guard every active link, including orphaned declarations.
-Incoming revisions must also contain valid trees for every declared directory in a shared checkout, including unselected copies; validation failure preserves the current checkout.
+Incoming revisions must also contain valid trees for every declared skill and directory in a shared checkout, including unselected copies; validation failure preserves the current checkout.
 Links change immediately; copies are refreshed by apply.
 External sources only receive an existence check (`external-no-fetch`).
 Selected external settings also receive their shared contents into their stages.

@@ -34,6 +34,7 @@ Copy and detach preserve their target text, so relative referents may change aft
 Bootstrap prepares sources without updating existing checkouts or installing targets; apply installs from local prepared paths without fetching.
 
 To install newly declared content, use `aem bootstrap --item NAME`, then preview and apply the corresponding installation item with `aem apply --item ID --dry-run` and `aem apply --item ID`.
+If a new skill is missing from an already prepared shared checkout but exists upstream, run `aem update NAME` before retrying bootstrap; this also works when existing consumers are detached or excluded from automation.
 Skill, directory and setting IDs are their catalog names; an instruction entry uses `NAME:entry`, which also selects its bundle and hook.
 Omitting selectors prepares all declared sources and applies eligible items except
 personal hooks: register those only with explicit `apply --item NAME`. Bind a

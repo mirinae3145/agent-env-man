@@ -67,6 +67,8 @@ Installation consumes these prepared local checkouts without fetching.
 Share a checkout only when skills explicitly reference the same named repository; equal URLs under different source names do not imply shared ownership.
 Preserve named-source checkout paths; do not migrate or remove old direct-declaration checkouts automatically.
 Validate every skill in a shared checkout before publishing it, and guard all active links from that checkout before advancing it.
+Full automation may defer skill payload checks in an existing checkout until delivery validates every declared skill against the incoming revision before fast-forwarding.
+Standalone bootstrap continues to validate local HEAD without updating existing checkouts.
 Keep installation ownership and automatic policies per skill, even when delivery is shared.
 Do not introduce a provider framework without a demonstrated need.
 Content rendering and arbitrary shell evaluation are not part of path substitution.
