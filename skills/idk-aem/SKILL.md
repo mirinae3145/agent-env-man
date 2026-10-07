@@ -52,6 +52,8 @@ aem apply --item ID
 ```
 
 Update accepts catalog skill, directory, instruction, setting or personal hook names.
+It also accepts catalog source names; use `source:NAME` when an item has the same name.
+A source selection includes every consumer and receives all its shared settings into their stages.
 Live links change immediately during update; copies need apply, and settings receive into their stage before apply changes the actual file.
 For a complete source update followed by installation, use `aem sync`.
 `sync --item ID` filters only installation: its update phase still visits all sources and must succeed before application starts.
@@ -64,6 +66,8 @@ Catalog updates, content updates, and AEM self-updates are separate operations.
 
 For a skill, directory or instruction edit, locate its prepared source first and use the returned path as the explicit working directory for editing tools.
 For inspection of the installed content instead, omit `--source`.
+To locate an entire catalog source root, use `locate source:NAME --source`; `--repo` requires a Git source and locates its checkout root.
+Source selectors are supported only by `locate --source`, `locate --repo`, and `update`; other commands retain item selection.
 
 ```bash
 aem --json locate NAME --source

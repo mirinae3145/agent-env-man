@@ -323,11 +323,19 @@ Bootstrap validates an existing catalog checkout without pulling it.
 aem update [NAME ...] [--git-timeout TIMEOUT]
 ```
 
-Select skill, directory, instruction, setting, or personal hook source names, or omit names for all sources.
+Select catalog skill, directory, instruction, setting, personal hook, or source names.
+Bare names prefer catalog items when an item and a source have the same name; use `source:NAME` to select that source explicitly.
+A source selects all its consumer items, including receiving shared settings into their editable stages without applying their application files.
+An item selection retains its individual settings-reception scope, although updating its shared checkout affects every live link.
+Mixed item/source selectors are deduplicated, and each shared checkout is updated once.
+Omit names to retain the existing all-consumer selection; sources without consumers are visited only when explicitly selected.
+For a source without consumers, the update report identifies it as `source:NAME`.
+Lookup of an unknown selector fails before any source is updated.
 Shared checkouts advance once and guard every active link, including orphaned declarations.
 Incoming revisions must also contain valid trees for every declared directory in a shared checkout, including unselected copies; validation failure preserves the current checkout.
 Links change immediately; copies are refreshed by apply.
 External sources only receive an existence check (`external-no-fetch`).
+Selected external settings also receive their shared contents into their stages.
 Dirty, divergent, local-ahead, detached, misidentified, or unsupported incoming checkouts are refused.
 
 ## publish
@@ -475,6 +483,10 @@ Lookup failures leave the shell directory unchanged; help still prints normally.
 Existing shell registrations need setup run again to install this function.
 
 The agent defaults to `codex`; NAME is a catalog skill, directory, instruction bundle, setting, or personal hook name; directory and setting locations do not depend on an agent.
+With `--source` or `--repo`, NAME may also be a catalog source name; `source:NAME` explicitly selects a source when names collide.
+Bare names prefer existing catalog item names, preserving their content-subdirectory lookup.
+Source-name lookup selects the source root, is agent-independent, and does not require consumer payloads; `--source` accepts Git and external sources, while `--repo` requires Git.
+Basic installed lookup and `--target` do not accept source selectors.
 By default, returns `root`, `entry`, `installed_root`, and `detached` from the selected agent's saved installation when one exists.
 For skills, `entry` is SKILL.md, and `location` distinguishes a linked source from a copy.
 For directories, both `root` and `entry` identify the directory; no entry file is required.
@@ -494,7 +506,17 @@ Use `--repo` to locate the current catalog item's prepared source Git checkout r
 It can be combined with `--source`, but not `--target`; external folder sources are rejected even if the folder happens to be in a Git repository.
 Repository lookup returns `root`, `entry`, and `checkout` all identifying the checkout directory, plus `repository`, `members`, `location: "source"`, `installed_root: null`, and `detached: false`.
 It requires valid current configuration and a prepared checkout matching the registered Git URL and branch, permits uncommitted edits, and does not clone or fetch.
+When a named Git source omits its branch, lookup uses the default branch recorded for its consumers during bootstrap; missing or conflicting records require bootstrap before lookup.
 The item's payload may be missing: repository lookup validates the checkout rather than its content entry.
+For named-source lookup with `--source`, the same root-level report is returned, with `checkout` and `repository` set to null for an external source.
+
+```bash
+aem locate source:tools --source --cd  # Enter the entire source root.
+aem locate source:tools --repo --cd    # Require a Git source and enter its root.
+aem update source:tools               # Update the source and receive all its settings stages.
+```
+
+Source selectors are limited to `locate --source`, `locate --repo`, and `update`; installation, ownership, publication, and individual settings commands continue to select items.
 
 ```bash
 aem locate report --source

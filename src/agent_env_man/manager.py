@@ -284,11 +284,15 @@ class Manager:
         the catalog; instruction callbacks retain their saved-only lookup.
         """
         self.state.ready()
-        identifier(name)
         if repo:
             if target:
                 raise Error("--repo and --target are mutually exclusive")
             return self.locate_repository(name)
+        if source:
+            selected = self.named_source_selection(name)
+            if selected is not None:
+                return self.locate_source_root(*selected)
+        identifier(name)
         from .settings import Settings
         if f"{name}:settings" in self.state.data["items"]:
             if source:
@@ -386,19 +390,52 @@ class Manager:
 
     def locate_repository(self, name):
         """Locate a current source checkout offline without requiring its payload."""
+        selected = self.named_source_selection(name)
+        if selected is not None:
+            return self.locate_source_root(*selected, repo=True)
+        identifier(name)
         sources = Config(self.config.path).sources
         if name not in sources:
             raise Error(f"{name}: unknown catalog skill, directory, instruction bundle, setting or personal hook")
         selected = sources[name]
-        if not selected.git:
-            raise Error(f"{name}: external folder source has no registered Git checkout")
+        members = sorted(n for n, s in sources.items() if s.path == selected.path)
+        return self.locate_source_root(selected, members, repo=True)
+
+    def named_source_selection(self, name, *, config=None):
+        """Resolve explicit source selectors and bare names that are not items."""
+        explicit = name.startswith('source:')
+        key = name.removeprefix('source:') if explicit else name
+        identifier(key)
+        config = config if config is not None else Config(self.config.path)
+        consumers = config.sources
+        if not explicit and key in consumers:
+            return None
+        selected = config.named_source(key)
+        if selected is None:
+            if explicit:
+                raise Error(f"Unknown catalog source: {key}")
+            return None
+        members = sorted(n for n, s in consumers.items() if s.path == selected.path)
+        if selected.git and selected.branch is None:
+            branches = {self.state.data['sources'].get(n, {}).get('branch') for n in members}
+            branches.discard(None)
+            if len(branches) > 1:
+                raise Error(f"{name}: conflicting recorded source branches; run bootstrap")
+            if branches:
+                selected = replace(selected, branch=branches.pop())
+        return selected, members
+
+    def locate_source_root(self, selected, members, *, repo=False):
+        """Validate a named source root without requiring consumer payloads."""
+        if repo and not selected.git:
+            raise Error(f"{selected.name}: external folder source has no registered Git checkout")
         if not selected.path.is_dir():
-            raise Error(f"{name}: source is missing; run bootstrap to prepare the checkout")
-        Git().validate(self.delivery_source(selected))
+            raise Error(f"{selected.name}: source is missing; run bootstrap or restore the external folder")
+        if selected.git:
+            Git().validate(self.delivery_source(selected))
         return {"root": str(selected.path), "entry": str(selected.path), "installed_root": None,
                 "detached": False, "location": "source", "repository": selected.git,
-                "checkout": str(selected.path),
-                "members": sorted(n for n, s in sources.items() if s.path == selected.path)}
+                "checkout": str(selected.path) if selected.git else None, "members": members}
 
     @staticmethod
     def locate_entry(root, entry):
@@ -994,14 +1031,26 @@ class Manager:
 
     def update(self, names=(), *, timeout=30, prepare_settings=False, fetch_cache=None):
         self.state.ready()
-        if set(names) - self.config.sources.keys():
-            raise Error("Unknown source selection")
+        sources = self.config.sources
+        selected_names = set()
+        for name in names:
+            selected = self.named_source_selection(name, config=self.config)
+            if selected is None:
+                if name not in sources:
+                    raise Error("Unknown source selection")
+                selected_names.add(name)
+            else:
+                source, members = selected
+                selected_names.update(members)
+                if not members:
+                    sources[source.name] = source
+                    selected_names.add(source.name)
         results, failed = [], False
         groups = {}
-        for name, source in self.config.sources.items():
+        for name, source in sources.items():
             groups.setdefault(source.path, []).append((name, source))
         for members in groups.values():
-            selected = [(name, source) for name, source in members if not names or name in names]
+            selected = [(name, source) for name, source in members if not names or name in selected_names]
             if not selected:
                 continue
             name, source = members[0]

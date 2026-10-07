@@ -118,6 +118,9 @@ def locate(runtime, name, agent, source, repo, target, cd):
     selects shared content and --target selects the actual application file.
     --repo selects the current source Git checkout root for any agent, with or
     without --source. External folder sources have no registered Git checkout.
+    --source and --repo also accept catalog source names and source:NAME.
+    Bare names prefer items when both exist; a source name selects its root.
+    --repo cannot be combined with --target.
 
     --cd requires setup --shell and a reloaded profile to change the calling
     shell's directory; rerun setup for older shell registrations. Otherwise it

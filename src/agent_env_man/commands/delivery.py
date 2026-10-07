@@ -145,7 +145,14 @@ def bootstrap(runtime, **options):
 @timeout_option
 @pass_runtime
 def update(runtime, source, timeout):
-    """Fetch and fast-forward prepared sources; live links change immediately."""
+    """Fetch and fast-forward prepared sources; live links change immediately.
+
+    NAME selects a catalog item or source; source:NAME explicitly selects a
+    source when names collide. Bare names prefer items. A source selects all
+    its consumers, including receiving shared settings into their stages.
+    Omit names to update all consumer sources. Copies need apply afterwards;
+    external sources are checked without fetching.
+    """
     return runtime.run(lambda session: session.manager.update(source, timeout=timeout))
 
 

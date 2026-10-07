@@ -131,7 +131,7 @@ class Locate(unittest.TestCase):
         executable.write_text('#!/bin/sh\nexec ' + shlex.join([sys.executable, '-m', 'agent_env_man']) + ' "$@"\n')
         executable.chmod(0o755)
         block = shell_block('bash', self.config, executable, executable.parent)[2]
-        script = block + '\n' + shlex.join(['aem', '--config', str(self.config), 'locate', 'one', '--source', '--repo', '--cd'])
+        script = block + '\n' + shlex.join(['aem', '--config', str(self.config), 'locate', 'source:shared', '--source', '--repo', '--cd'])
         script += '\npwd\n' + shlex.join(['aem', '--config', str(self.config), 'locate', 'missing', '--repo', '--cd'])
         script += '\nstatus=$?; pwd; test "$status" = 1 || exit 9\n'
         result = subprocess.run(['bash', '-c', script], capture_output=True, text=True)
