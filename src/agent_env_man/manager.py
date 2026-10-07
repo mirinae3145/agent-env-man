@@ -650,6 +650,10 @@ class Manager:
         pending = self.state.data.get("pending")
         if pending is None:
             return
+        if pending.get('operation') == 'copy-collection':
+            from .copy_publication import recover
+            recover(self.state)
+            return
         if pending.get("operation") == "settings-group":
             from .settings import recover_group
             recover_group(self.state)
@@ -907,11 +911,11 @@ class Manager:
             self.state.save()
         return [{"item": key, "action": "detach"} for key in keys]
 
-    def publish(self, names, *, message=None, dry_run=False, timeout=30):
+    def publish(self, names, *, message=None, from_copy=False, dry_run=False, timeout=30):
         """Publish each selected checkout once, reporting every catalog consumer.
 
-        Names select sources, not file scopes. Installation records and automatic
-        update clocks are independent of publication and remain untouched.
+        Names select sources, not Git file scopes. Explicit copy collection
+        advances only matching copy baselines; automatic clocks are untouched.
         """
         self.state.ready()
         sources = self.config.sources
@@ -933,11 +937,37 @@ class Manager:
                       "status": "planned"}
             results.append(report)
             try:
+                self.state.ready()
+                collection = None
+                if from_copy:
+                    from .copy_publication import plan, selected_writes, collect
+                    self.check_destinations(self.items())
+                    collection = plan(self, selected)
+                    report['collection'] = [p.report for p in collection]
+                    if any(p.report['conflict'] for p in collection):
+                        raise Error('Copy and source changed since the common baseline; reconcile the reported paths and retry')
+                    selected_writes(collection)
                 if not source.git:
+                    if collection is not None:
+                        report['transport_complete'] = False
+                        if not dry_run:
+                            report['collection_backup'] = collect(self, source, collection)
+                            report.update(status='published', collection_complete=True)
+                        continue
                     raise Error(f"{source.name}: external source publication is managed outside AEM")
                 source = self.delivery_source(source)
                 git = Git(timeout)
                 report.update(git.publication(source))
+                if collection is not None:
+                    if not dry_run:
+                        observed = git.publication_preflight(source)
+                        if observed is not None and git.relation(source) not in ('ahead', 'equal-at-last-fetch'):
+                            raise Error('Reconcile Git history before copy collection/publication')
+                        if message is None and (any(p.report['changed'] for p in collection) or report['changes']):
+                            raise Error('Copy changes require --message for publication')
+                        report['collection_backup'] = collect(self, source, collection)
+                        report['collection_complete'] = True
+                        report.update(git.publication(source))
                 from .settings import Settings, changed, Bundle
                 settings = Settings(self)
                 setting_names = [n for n in selected if n in self.config._settings]

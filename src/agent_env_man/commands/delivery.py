@@ -152,20 +152,24 @@ def update(runtime, source, timeout):
 @click.command()
 @click.argument("source", nargs=-1, required=True, metavar="NAME...")
 @click.option("-m", "--message", help="Commit all nonignored checkout changes with this message.")
+@click.option("--from-copy", is_flag=True, help="Collect selected managed skill/directory copies before publication; conflicts stop the source group.")
 @preview_option
 @timeout_option
 @pass_runtime
-def publish(runtime, source, message, dry_run, timeout):
+def publish(runtime, source, message, from_copy, dry_run, timeout):
     """Export selected settings and publish whole checkouts by catalog item name.
 
     NAME selects a catalog skill, directory, instruction, setting or personal
     hook, not a repository or installation component ID. Settings export
-    their stage before publication; actual application edits and installed
-    copy edits are not collected. External publication stays outside AEM.
+    their stage before publication; actual application edits are not collected.
+    --from-copy requires installed skill/directory copies for each selected
+    name and compares their saved baseline before writing the source. External
+    copies publish into their local source folder; transport stays outside AEM.
+    Without --from-copy, installed copy edits are not collected.
 
     With --message, commit all nonignored changes in each selected repository.
     Without it, require a clean worktree and push existing commits. --dry-run
     is offline and does not verify remote state. First publication requires a
     successfully verified empty remote; remote errors stop publication.
     """
-    return runtime.run(lambda session: session.manager.publish(source, message=message, dry_run=dry_run, timeout=timeout))
+    return runtime.run(lambda session: session.manager.publish(source, message=message, from_copy=from_copy, dry_run=dry_run, timeout=timeout))

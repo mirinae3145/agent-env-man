@@ -95,7 +95,7 @@ Saved location lookup must remain offline, avoid updating ownership records, wor
 User-facing `locate` also supports saved skills and current catalog source lookup for uninstalled content or explicit `--source` requests.
 Keep callbacks on saved instruction lookup only; never fall back from a broken saved installation to a different source.
 Source lookup validates paths and Git identity without requiring a clean checkout, fetching, or installing content.
-Keep copy/detached locations distinct from source editing paths so publication never implies collecting installed-copy edits.
+Keep copy/detached locations distinct from source editing paths; ordinary publication never implies collecting installed-copy edits, and reverse collection requires explicit `--from-copy`.
 Use an absolute interpreter for hook execution, quote POSIX arguments, and explicitly encode a PowerShell command on Windows without evaluating user paths.
 Instruction callbacks emit only path metadata, never document contents.
 Codex uses `additionalContext` and a structured stop; Claude uses plain stdout and stderr with exit 2 on failure, which does not stop SessionStart.
@@ -152,13 +152,22 @@ Report all catalog consumers of each selected checkout.
 Do not infer per-skill file ownership for publication: commit and push operate on the whole repository, including changes outside catalog subdirectories.
 A supplied message authorizes staging all nonignored changes; without it, require a clean worktree and publish existing commits only.
 Keep preview offline and preserve the index, HEAD, installation records, and automatic-policy attempt clocks.
-Verify all advertised remote refs before staging or settings export.
+Verify all advertised remote refs before staging, settings export, or explicit copy collection.
 Only a successful empty listing permits initial publication without a remote branch; a populated remote must contain the registered branch and be fetched before staging.
 Never reinterpret authentication, transport, listing, or fetch failures as an empty remote.
 Refuse behind/diverged histories without rewriting or merging them.
 Push only the registered branch to the registered origin, without force or implicit additional refs.
 Preserve staged changes and commits after failures, report each repository's outcome independently, and never claim atomicity across repositories.
-External synchronization, fork/PR workflows, and collecting installed-copy edits are outside this command's scope.
+External synchronization and fork/PR workflows remain outside this command's scope.
+Ordinary publication never collects installed-copy edits.
+Explicit `--from-copy` requires owned, non-detached skill or directory copies for every selected name and collects only their payloads; Git publication still selects whole checkouts.
+Use the existing ownership hash as the last common baseline, updating it after successful collection or agreement; source observation/update alone never advances it.
+Source-only changes leave stale copies untouched; competing source/copy changes or differing overlapping exports stop the group before writing.
+Root collection excludes only top-level `.git`, retaining ignored regular payloads and executable bits without copying Git administration.
+Journal source replacements before mutation, retain backups outside the source root, and validate all recovery observations before restoring; never claim tree-wide visibility atomicity to external readers.
+Collected content and baselines survive later commit/push failures, separately reported from Git publication success.
+External copy publication confirms local handoff without contacting its service; external links remain unsupported.
+Text and JSON report the same conflict paths and comparison arguments without launching tools, merging, or force-overwriting.
 
 Self publication is a separate prepared-release contract: require a clean AEM checkout and an existing version tag resolving to HEAD, and never generate commits, tags, or version edits.
 Resolve its default checkout from local installation provenance or the running module's own development tree, never by searching the current directory or user homes; invalid recorded paths require explicit correction.

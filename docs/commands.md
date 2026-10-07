@@ -35,7 +35,7 @@ Read-only commands and dry runs may create the lock directory/file; `setup --dry
 | `bootstrap` | Bind a catalog and prepare sources. | Clone missing Git repositories. |
 | `catalog` | Inspect, update, or publish the catalog itself. | Update/publish only; publication dry run is offline. |
 | `update` | Fetch and fast-forward prepared sources. | Yes for Git. |
-| `publish` | Commit local changes and push selected checkouts. | Inspect remote refs, fetch when populated, and push; none in dry run. |
+| `publish` | Publish selected checkouts, optionally collecting managed copies first. | Git remote inspection/fetch/push only; external collection and dry run are offline. |
 | `apply` | Install from local prepared sources. | None. |
 | `sync` | Update all sources, then apply if every update succeeds. | Yes for Git. |
 | `auto` | Run due skill/directory policies for an event. | Due Git items only; none in dry run. |
@@ -334,7 +334,7 @@ Dirty, divergent, local-ahead, detached, misidentified, or unsupported incoming 
 
 ```text
 aem publish NAME [NAME ...] [-m MESSAGE | --message MESSAGE]
-            [--dry-run] [--git-timeout TIMEOUT]
+            [--from-copy] [--dry-run] [--git-timeout TIMEOUT]
 ```
 
 Edit the prepared checkout directly, or edit through an installed link pointing to it.
@@ -377,8 +377,46 @@ When an empty remote is confirmed, results include `initial_publish: true`; `rem
 `last_fetch` records successful remote inspection even when an empty remote does not require fetching; `observed_revision` is populated after a successful first push.
 A failed commit may leave staged changes, and a failed push retains the local commit; inspect the reported error and retry after resolving it.
 Publication does not install content or update automatic-policy attempt clocks.
-For copy installations, edit the checkout and run apply after committing; changes made only in an installed copy or detached copy are not collected into the source.
-External sources are reported as unsupported for publication; their synchronization remains outside AEM.
+Without `--from-copy`, copy edits are not collected and external publication remains unsupported.
+Detached content is never collected.
+
+Use `--from-copy` to collect selected installed, managed skill or directory copies into their source before publication:
+
+```bash
+aem publish report --from-copy --dry-run
+aem publish report --from-copy -m "Share copy edits"
+aem --json publish external-files --from-copy
+```
+
+Every selected name must identify skill or directory copies, including all of its agent destinations; settings retain their separate collect/export workflow.
+Collection is explicit, never automatic, and introduces no editable stage.
+It compares the saved last common hash, current source, and current copy.
+Copy-only changes are collected, including additions, deletions, empty directories and executable bits; source-only changes leave the copy and its baseline untouched and report `stale = true`.
+If both sides changed differently, collection fails before source writes.
+Identical content refreshes the common baseline without rewriting the source.
+Identical overlapping collections are grouped; differing collections into overlapping source content fail before any write in that source group.
+Unselected copies are not collected or given a new baseline.
+Root payloads omit only their top-level `.git`; ignored regular contents remain included.
+
+Git remote history is checked before collection; behind/diverged histories and remote inspection failures preserve the source and copies.
+Actual Git collection requires `--message` when collection or existing checkout changes need a commit.
+Git still commits all nonignored checkout changes, including unselected source files, under the ordinary publication contract.
+External collection does not require a message or invoke Git; completion means only that content was handed to the local source, with no confirmation of other devices receiving it.
+External links remain unsupported.
+
+Changed source children are staged temporarily and replaced under a recovery journal; backups are retained beside the source root, outside its payload and Git checkout.
+Live links and external synchronizers may observe source writes immediately; collection is not a tree-wide atomic activation.
+After interruption, use `aem recover`; later edits to source, stages or backups stop recovery instead of being discarded.
+After collection succeeds, commit/push failure retains collected content, the new common baseline and any created commit for retry.
+Source groups have independent outcomes, with no cross-source transaction.
+
+Copy publication uses existing `planned`, `published` and `failed` result values.
+Additional `collection` entries contain `item`, `source`, `copy`, `baseline_hash`, `source_hash`, `copy_hash`, boolean `changed`, `stale`, `conflict`, and relative `changes` (including `.` for root permission changes).
+`compare` contains argument-list data for `git difftool --no-index -- SOURCE COPY`; `compare_command` is a POSIX-shell command, or a PowerShell command on native Windows, for manual inspection.
+Neither text nor JSON output launches an editor or comparison tool, and conflict exits `1`.
+Successful collection adds `collection_complete = true` and `collection_backup` (null when no source writes were needed); the backup directory includes a recovery manifest.
+External results add `transport_complete = false`, including when `status = "published"`; they never assert synchronization completion.
+Dry run reads copy differences offline without collecting, staging Git changes, changing baselines, or creating transaction artifacts.
 
 ## apply
 

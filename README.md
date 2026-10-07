@@ -232,7 +232,7 @@ aem locate cases
 This installs `~/agent-loop` as a link to the prepared source directory.
 Record through the link, then use authorized `aem publish cases -m "Record cases"` to share a Git source and `aem update cases` on another device to receive it.
 Local edits and diverged histories retain the ordinary Git refusal rules and require explicit reconciliation.
-For explicit copies, set `install.mode = "copy"`; copy edits are protected but never collected or published.
+For explicit copies, set `install.mode = "copy"`; copy edits are protected and can be shared with explicit `publish --from-copy`.
 External sources need `--external case-store=/absolute/source`; their transport stays with their existing service.
 Directories use the same automatic policies as skills and participate in full mode, preserving empty-trigger exclusions and detach.
 See [directory configuration](docs/configuration.md#directoriesname) and the [example](examples/directories.toml).
@@ -271,6 +271,16 @@ Selection covers the whole repository, including files outside declared skills.
 The optional dry run is offline; publication fetches first and leaves behind/diverged histories for explicit reconciliation.
 A failed push retains the local commit for retry.
 For copy installations, edit the checkout and apply after committing; installed-copy edits are not collected automatically.
+To share edits made in a managed skill or directory copy, use:
+
+```bash
+aem publish report --from-copy --dry-run
+aem publish report --from-copy -m "Share copy edits"
+```
+
+Collection compares the last common baseline and stops when both the source and copy changed differently.
+It retains source backups and reports paths for manual or agent resolution without launching tools.
+For an external directory copy, omit the message: completion means local source handoff, leaving device-to-device synchronization to its service.
 External-folder synchronization stays with its existing service.
 AEM also supports the first push to a registered empty remote after successfully confirming that it advertises no refs, including tags.
 A populated remote with a missing registered branch, or an authentication/network/fetch failure, stops publication before committing.

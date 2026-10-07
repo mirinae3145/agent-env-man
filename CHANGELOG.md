@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Explicit `publish --from-copy` for managed skill and directory copies, comparing their saved common baseline before collecting into Git or external sources, with offline previews, conflict diagnostics, retained backups, and recovery after interrupted source writes.
+Git publication retains whole-checkout commit/push behavior; external completion confirms local source handoff only.
+
 ## [1.1.0] &mdash; 2026-10-04
 
 Git tag `v1.1.0` corresponds to Python package version `1.1.0`; based on `v1.0.1`.

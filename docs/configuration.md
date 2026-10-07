@@ -124,9 +124,10 @@ Git subdirectories must exist as tracked trees; an empty directory requires a tr
 An external directory may be empty.
 Source-root copy and detach omit only the top-level `.git` entry; ignored regular files remain part of the payload.
 Existing link/copy conflict, transaction, backup, detach, and recovery contracts apply.
-Copy edits are never collected into the source or published; edit the prepared source and apply after committing for Git sources.
+Ordinary publication does not collect copy edits; use explicit `publish NAME --from-copy` to collect an installed, managed directory copy.
+Collection compares the last common baseline, preserves conflicting source edits, and retains backups; see [publication](commands.md#publish).
 Links expose writes and source updates immediately.
-External delivery and publication remain outside AEM.
+External transport remains outside AEM; copy publication only hands content to the local external source.
 
 ### `instructions.NAME`
 
