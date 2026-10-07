@@ -236,6 +236,8 @@ Record through the link, then use authorized `aem publish cases -m "Record cases
 Local edits and diverged histories retain the ordinary Git refusal rules and require explicit reconciliation.
 For explicit copies, set `install.mode = "copy"`; copy edits are protected and can be shared with explicit `publish --from-copy`.
 External sources need `--external case-store=/absolute/source`; their transport stays with their existing service.
+On POSIX, `directories.cases.preserve_symlinks = true` preserves nested symbolic links without copying their targets.
+Relative links must stay within the source root; copy and detach preserve link text but may change what it resolves to.
 Directories use the same automatic policies as skills and participate in full mode, preserving empty-trigger exclusions and detach.
 See [directory configuration](docs/configuration.md#directoriesname) and the [example](examples/directories.toml).
 

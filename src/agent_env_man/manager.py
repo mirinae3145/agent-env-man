@@ -12,6 +12,7 @@ import uuid
 from .agents import profile, suffix
 from .git_source import Git, now
 from .model import Config, MachineFile, Error, Item, identifier, overlaps, relative
+from .payload_links import options as payload_options, replace as replace_link_entry, remove as remove_link_entry
 from .storage import State, copy_payload, exists, fingerprint, is_reparse, observation, remove, saved_path, link_matches
 
 
@@ -94,7 +95,7 @@ class Manager:
                     elif item.kind == "directory":
                         if defer_payloads and not created:
                             continue
-                        git.directory_descriptor(prepared, item.relative)
+                        git.directory_descriptor(prepared, item.relative, preserve_symlinks=item.preserve_symlinks)
                     elif item.kind == "setting":
                         if defer_payloads and not created:
                             continue
@@ -121,7 +122,7 @@ class Manager:
                         if cursor.is_symlink() or is_reparse(cursor):
                             raise Error(f"Skill source contains a symlink/junction: {cursor}")
                         cursor = cursor.parent
-                    fingerprint(payload, exclude_git=item.relative == ".")
+                    fingerprint(payload, exclude_git=item.relative == ".", **payload_options(item))
                 revision = git.run(local_path, "rev-parse", "HEAD").stdout
                 if temporary:
                     if exists(source.path):
@@ -280,7 +281,7 @@ class Manager:
                 raise Error(f"{item.key}: instruction bundle needs a regular entry document: {item.entry}")
         if item.kind == "instruction-entry" and not item.source.is_file():
             raise Error(f"{item.key}: instruction entry must be a regular file")
-        return fingerprint(item.source, exclude_git=item.kind in ("skill", "directory", "instruction", "instruction-hook") and item.relative == ".")
+        return fingerprint(item.source, exclude_git=item.kind in ("skill", "directory", "instruction", "instruction-hook") and item.relative == ".", **payload_options(item))
 
     def locate(self, name, agent="codex", *, source=False, target=False, repo=False):
         """Locate saved content by default, or current catalog source content explicitly.
@@ -545,7 +546,7 @@ class Manager:
 
     def plan(self, item, *, adopt=False, replace=False, reattach=False):
         payload_hash = self.payload(item)
-        before = observation(item.target)
+        before = observation(item.target, **payload_options(item))
         old = self.state.data["items"].get(item.key)
         if old and old.get("detached"):
             if not reattach:
@@ -559,6 +560,7 @@ class Manager:
                   "exclude_git": item.kind in ("skill", "directory", "instruction", "instruction-hook") and item.relative == ".",
                   "entry": item.entry, "agent": item.agent, "agents": list(item.agents or (item.agent,))}
         if item.kind == "directory":
+            record["preserve_symlinks"] = item.preserve_symlinks
             record.pop("agent")
             record.pop("agents")
         present = before["kind"] != "missing"
@@ -598,9 +600,10 @@ class Manager:
 
     def install(self, plan):
         item = plan.item
+        policy = payload_options(plan.record)
         if item.target.parent.resolve() / item.target.name != item.target:
             raise Error(f"{item.key}: target ancestry changed after preflight")
-        if observation(item.target) != plan.before:
+        if observation(item.target, **policy) != plan.before:
             raise Error(f"{item.key}: target changed after preflight")
         if plan.record.get('official_skill') and (plan.change or not plan.record.get('detached')):
             from .official_skills import signature
@@ -637,8 +640,8 @@ class Manager:
         try:
             if plan.materialize is not None:
                 exclude_git = plan.record.get("exclude_git", False)
-                copy_payload(plan.materialize, stage, exclude_git=exclude_git)
-                if fingerprint(stage) != plan.record["hash"] or fingerprint(plan.materialize, exclude_git=exclude_git) != plan.record["hash"]:
+                copy_payload(plan.materialize, stage, exclude_git=exclude_git, **policy)
+                if fingerprint(stage, **policy) != plan.record["hash"] or fingerprint(plan.materialize, exclude_git=exclude_git, **policy) != plan.record["hash"]:
                     raise Error(f"{item.key}: linked contents changed during detach")
             elif plan.delete:
                 pass  # Removal stages absence; the backup and journal allow rollback.
@@ -649,8 +652,8 @@ class Manager:
                     raise Error("Cannot create a symbolic link; enable Windows Developer Mode/link privileges "
                                 "or explicitly configure this item as copy") from exc
             elif item.mode == "copy":
-                copy_payload(item.source, stage, exclude_git=plan.record.get("exclude_git", False))
-                if fingerprint(stage) != plan.record["hash"] or self.payload(item) != plan.record["hash"]:
+                copy_payload(item.source, stage, exclude_git=plan.record.get("exclude_git", False), **policy)
+                if fingerprint(stage, **policy) != plan.record["hash"] or self.payload(item) != plan.record["hash"]:
                     raise Error(f"{item.key}: source changed while copying")
             else:
                 fd = os.open(stage, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -659,13 +662,13 @@ class Manager:
                     stream.flush()
                     os.fsync(stream.fileno())
                 os.chmod(stage, stat.S_IMODE(item.target.stat().st_mode) if exists(item.target) else 0o600)
-            if observation(item.target) != plan.before:
+            if observation(item.target, **policy) != plan.before:
                 raise Error(f"{item.key}: target changed during staging")
             if plan.record.get('official_skill') and (not plan.delete or item.source.exists()):
                 from .official_skills import signature
                 if signature(item.source) != plan.record['official_hash']:
                     raise Error(f'{item.key}: official skill source changed during staging')
-            after = observation(stage)
+            after = observation(stage, **policy)
             if isolated_skill and exists(item.target):
                 # Copy before journaling/removal so cross-filesystem backups are
                 # complete and verified while the original is still usable.
@@ -673,30 +676,32 @@ class Manager:
                     backup.symlink_to(os.readlink(item.target), target_is_directory=True)
                 else:
                     copy_payload(item.target, backup)
-                if observation(backup) != plan.before or observation(item.target) != plan.before:
+                if observation(backup, **policy) != plan.before or observation(item.target, **policy) != plan.before:
                     raise Error(f'{item.key}: target changed during backup')
             # Persist recovery paths before moving the old target. No journal is
             # needed for pure ownership adoption, which only writes state once.
             self.state.data["pending"] = {"key": item.key, "target": str(item.target), "stage": str(stage),
                                           "backup": str(backup), "before": plan.before, "after": after}
+            if policy:
+                self.state.data["pending"].update(preserve_symlinks=True, relative=plan.record["relative"])
             if isolated_skill:
                 self.state.data["pending"]["operation"] = "skill-replacement"
             self.state.save()
             if exists(item.target):
                 if isolated_skill:
-                    remove(item.target)
+                    (remove_link_entry if policy else remove)(item.target)
                 elif plan.delete:
                     # Copy link identity, not its payload: state and skills may
                     # live on different filesystems, where rename cannot work.
                     backup.symlink_to(os.readlink(item.target), target_is_directory=True)
-                    if observation(item.target) != plan.before or observation(backup) != plan.before:
+                    if observation(item.target, **policy) != plan.before or observation(backup, **policy) != plan.before:
                         raise Error(f'{item.key}: link changed during removal')
                     item.target.unlink()
                 else:
-                    os.replace(item.target, backup)
+                    (replace_link_entry if policy else os.replace)(item.target, backup)
             if not plan.delete:
-                os.replace(stage, item.target)
-            if observation(item.target) != after:
+                (replace_link_entry if policy else os.replace)(stage, item.target)
+            if observation(item.target, **policy) != after:
                 raise Error(f"{item.key}: installed target changed before commit")
             old_records = dict(self.state.data["items"])
             self.state.data["items"].update({item.key: plan.record, **plan.records})
@@ -714,7 +719,7 @@ class Manager:
             raise
         finally:
             if exists(stage) and not self.state.data.get("pending"):
-                remove(stage)
+                (remove_link_entry if policy else remove)(stage)
 
     def recover(self):
         pending = self.state.data.get("pending")
@@ -730,6 +735,7 @@ class Manager:
             return
         if not all(k in pending for k in ("target", "backup", "stage", "before", "after")):
             raise Error("Incomplete recovery journal; cannot safely recover")
+        policy = payload_options(pending)
         target, backup, stage = (saved_path(pending[k]) for k in ("target", "backup", "stage"))
         if len({target, backup, stage}) != 3 or stage.parent != target.parent:
             raise Error("Recovery paths must be distinct siblings")
@@ -755,16 +761,16 @@ class Manager:
             raise Error('Invalid skill backup recovery paths')
         if backup.parent != target.parent and not official_removal and not isolated_skill:
             raise Error('Recovery paths must be distinct siblings')
-        current = observation(target)
+        current = observation(target, **policy)
         before, after = pending["before"], pending["after"]
-        if exists(stage) and observation(stage) != after:
+        if exists(stage) and observation(stage, **policy) != after:
             raise Error("Recovery stopped: staged content changed")
         if exists(backup):
             if isolated_skill:
                 allowed = (before, after, {'kind': 'missing'})
             else:
                 allowed = (before, after) if official_removal else (after, {'kind': 'missing'})
-            if observation(backup) != before or current not in allowed:
+            if observation(backup, **policy) != before or current not in allowed:
                 raise Error("Recovery stopped: target or backup changed; preserve both and resolve manually")
             if isolated_skill:
                 if current != before:
@@ -776,31 +782,31 @@ class Manager:
                             restore.symlink_to(os.readlink(backup), target_is_directory=True)
                         else:
                             copy_payload(backup, restore)
-                        if observation(restore) != before or observation(target) != current:
+                        if observation(restore, **policy) != before or observation(target, **policy) != current:
                             raise Error('Recovery stopped: contents changed during restoration')
                         if exists(target):
-                            remove(target)
-                        os.replace(restore, target)
+                            (remove_link_entry if policy else remove)(target)
+                        (replace_link_entry if policy else os.replace)(restore, target)
                     finally:
                         if exists(restore):
-                            remove(restore)
+                            (remove_link_entry if policy else remove)(restore)
             elif official_removal:
                 if current != before:
                     target.symlink_to(os.readlink(backup), target_is_directory=True)
             else:
                 if exists(target):
-                    remove(target)
-                os.replace(backup, target)
+                    (remove_link_entry if policy else remove)(target)
+                (replace_link_entry if policy else os.replace)(backup, target)
         elif current == before:
             pass  # Crash before the first rename, or recovery already restored it.
         elif before == {"kind": "missing"} and current == after:
-            remove(target)
+            (remove_link_entry if policy else remove)(target)
         else:
             raise Error("Recovery stopped: cannot safely restore the recorded target")
         if exists(stage):
-            if observation(stage) != after:
+            if observation(stage, **policy) != after:
                 raise Error("Recovery stopped: staged content changed")
-            remove(stage)
+            (remove_link_entry if policy else remove)(stage)
         self.state.data["pending"] = None
         self.state.save()
 
@@ -827,7 +833,7 @@ class Manager:
                     if item.kind == "skill":
                         git.skill_descriptor(source, item.relative)
                     elif item.kind == "directory":
-                        git.directory_descriptor(source, item.relative)
+                        git.directory_descriptor(source, item.relative, preserve_symlinks=item.preserve_symlinks)
                     elif item.kind in ("instruction", "instruction-hook"):
                         git.instruction_descriptor(source, item.relative, item.entry)
                     else:
@@ -963,7 +969,7 @@ class Manager:
                 exclude_git = old.get("exclude_git", False)
                 if not isinstance(exclude_git, bool):
                     raise Error(f"{key}: invalid saved copy exclusion")
-                record["hash"] = fingerprint(content, exclude_git=exclude_git)
+                record["hash"] = fingerprint(content, exclude_git=exclude_git, **payload_options(old))
                 # Use the saved key as an opaque transaction identity. No old
                 # source declaration or install-mode interpreter is needed.
                 item = Item("", key, ".", content, target, "link", "skill")
@@ -971,7 +977,7 @@ class Manager:
             else:
                 # Preserve regular contents for any recorded mode, including
                 # opaque partial ownership. Never release unreadable payloads.
-                fingerprint(target)
+                fingerprint(target, **payload_options(old))
                 untouched.append((key, record))
         if not dry_run:
             for plan in plans:
@@ -1111,6 +1117,9 @@ class Manager:
                         if member_name in self.config._hooks:
                             for item in self.config.declarations(member):
                                 self.payload(item)
+                        if member_name in self.config._directories:
+                            for item in self.config.declarations(member):
+                                self.check_directory_policy(item)
                     status = "external-no-fetch"
                     source_state["error"] = None
                 for skill_name, _ in members:
@@ -1140,6 +1149,14 @@ class Manager:
             self.state.save()
         return results, failed
 
+    def check_directory_policy(self, item):
+        """Do not drop an installed link policy while either payload still needs it."""
+        old = self.state.data['items'].get(item.key, {})
+        if old.get('preserve_symlinks') and not item.preserve_symlinks and not old.get('detached'):
+            fingerprint(item.source, exclude_git=item.relative == '.')
+            if old.get('mode') == 'copy' and exists(item.target):
+                fingerprint(item.target)
+
     def validate_consumers_revision(self, git, source, revision, members):
         """Validate declared consumers before advancing their shared checkout."""
         from .settings import Bundle
@@ -1153,7 +1170,8 @@ class Manager:
         for name, member in members:
             if name in self.config._directories:
                 for item in self.config.declarations(member):
-                    git.directory_descriptor(source, item.relative, revision)
+                    git.directory_descriptor(source, item.relative, revision, preserve_symlinks=item.preserve_symlinks)
+                    self.check_directory_policy(item)
             if name not in self.config._settings:
                 continue
             path = self.config._settings[name]["path"]
@@ -1172,7 +1190,7 @@ class Manager:
         if old and old.get("detached"):
             return "detached", None
         desired = self.payload(item)
-        current = observation(item.target)
+        current = observation(item.target, **payload_options(item))
         if old is None:
             return "unmanaged-existing" if current["kind"] != "missing" else "not-installed", None
         if old["target"] != str(item.target) or old["mode"] != item.mode or old["source"] != str(item.source):
@@ -1292,7 +1310,7 @@ class Manager:
                     "status": "detached" if record.get("detached") else "recorded"}
             try:
                 target = saved_path(record.get("target"))
-                item["observation"] = observation(target)
+                item["observation"] = observation(target, **payload_options(record))
                 if record.get("kind") == "personal-hook":
                     item["installation"] = self.installed_status(record)
                     item["hook_event"] = record.get("hook_event")
@@ -1307,7 +1325,7 @@ class Manager:
         """Inspect the last installed target even when its source is unavailable."""
         try:
             target = Path(record["target"])
-            actual = observation(target)
+            actual = observation(target, **payload_options(record))
             if record.get("detached"):
                 return "unmanaged"
             if actual["kind"] == "missing":

@@ -29,6 +29,8 @@ For an external source, add `--external NAME=/absolute/source` to bootstrap.
 General directories are independent of agent integrations and default to links under the saved `home` root.
 Bootstrap records the user's home directory when that binding is absent; use `--root home=/absolute/parent` to choose another initial path, or bind another catalog root with `--root NAME=/absolute/parent`.
 Use a link when writes at the installed path should reach the publish source; copy edits reach it only through explicit `publish --from-copy`.
+General directories can opt into nested symbolic links on POSIX; consult the directory configuration reference before enabling them.
+Copy and detach preserve their target text, so relative referents may change after relocation; they do not produce dependency-free copies.
 Bootstrap prepares sources without updating existing checkouts or installing targets; apply installs from local prepared paths without fetching.
 
 To install newly declared content, use `aem bootstrap --item NAME`, then preview and apply the corresponding installation item with `aem apply --item ID --dry-run` and `aem apply --item ID`.

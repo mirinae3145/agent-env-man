@@ -37,12 +37,16 @@ def atomic_write(path: Path, data: bytes, mode: int = 0o600):
             os.unlink(temporary)
 
 
-def fingerprint(path: Path, *, exclude_git: bool = False) -> str:
+def fingerprint(path: Path, *, exclude_git: bool = False, preserve_symlinks=False, source_relative=".") -> str:
     """Hash regular payloads, including empty directories and executable bits.
 
-    Nested links and special files are excluded so copy and detach never leave
-    hidden dependencies on source paths or traverse an external tree.
+    The default rejects nested links and special files. Opted-in POSIX directory
+    links retain opaque identity under a separately supplied logical location;
+    ordinary node hashes remain compatible with existing ownership.
     """
+    if preserve_symlinks:
+        from .payload_links import scan
+        return scan(path, source_relative=source_relative, exclude_git=exclude_git)[0]
     digest = hashlib.sha256()
 
     def visit(current, relative):
@@ -75,15 +79,19 @@ def link_matches(observed: dict, source: str) -> bool:
     return observed.get("kind") == "link" and same_destination(observed.get("to"), source)
 
 
-def observation(path: Path) -> dict:
+def observation(path: Path, **policy) -> dict:
     if path.is_symlink():
         return {"kind": "link", "to": os.readlink(path)}
     if not exists(path):
         return {"kind": "missing"}
-    return {"kind": "directory" if path.is_dir() else "file", "hash": fingerprint(path)}
+    return {"kind": "directory" if path.is_dir() else "file", "hash": fingerprint(path, **policy)}
 
 
-def copy_payload(source: Path, destination: Path, *, exclude_git: bool = False):
+def copy_payload(source: Path, destination: Path, *, exclude_git: bool = False, **policy):
+    if policy.get("preserve_symlinks"):
+        from .payload_links import scan
+        scan(source, destination=destination, exclude_git=exclude_git, **{k: v for k, v in policy.items() if k != "preserve_symlinks"})
+        return
     fingerprint(source, exclude_git=exclude_git)
     if source.is_dir():
         # A repository-root skill can be installed directly, but detaching or

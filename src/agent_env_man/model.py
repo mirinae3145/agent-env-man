@@ -67,6 +67,7 @@ class Item:
     entry: str | None = None
     agent: str = "codex"
     agents: tuple[str, ...] = ()
+    preserve_symlinks: bool = False
 
     @property
     def key(self) -> str:
@@ -416,7 +417,8 @@ class Config(MachineFile):
             subdir = data.get("subdir", ".")
             return [Item(source.name, "directory", subdir, source.path / subdir,
                          self.target(data["root"], relative(data.get("destination", source.name))),
-                         self.modes.get(source.name, data.get("mode", "link")), "directory")]
+                         self.modes.get(source.name, data.get("mode", "link")), "directory",
+                         preserve_symlinks=data.get("preserve_symlinks", False))]
         if source.name in self._hooks:
             result = []
             data = self._hooks[source.name]

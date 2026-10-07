@@ -66,7 +66,14 @@ def validate(document):
             raise Error(f"Catalog {kind} must be a TOML table")
         for name, data in entries.items():
             identifier(name)
-            table(data, INSTRUCTION_FIELDS if kind == "instructions" else SKILL_FIELDS, f"{kind}.{name}")
+            table(data, INSTRUCTION_FIELDS if kind == "instructions" else SKILL_FIELDS | ({"preserve_symlinks"} if kind == "directories" else set()), f"{kind}.{name}")
+            if kind == "directories":
+                enabled = data.get("preserve_symlinks", False)
+                if not isinstance(enabled, bool):
+                    raise Error(f"{kind}.{name}.preserve_symlinks: expected Boolean")
+                if enabled:
+                    from .payload_links import require_posix
+                    require_posix()
             source = data.get("source")
             if not isinstance(source, str) or source not in sources:
                 raise Error(f"{kind}.{name}: source must name a declared source")
@@ -146,6 +153,7 @@ def normalize(document):
                 entry.update(install)
                 if kind == "directories":
                     entry.setdefault("root", "home")
+                    entry["preserve_symlinks"] = data.get("preserve_symlinks", False)
                 if "update" in data:
                     entry["update"] = _policy_model(data["update"])
             else:

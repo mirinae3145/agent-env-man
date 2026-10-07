@@ -403,7 +403,7 @@ aem --json publish external-files --from-copy
 Every selected name must identify skill or directory copies, including all of its agent destinations; settings retain their separate collect/export workflow.
 Collection is explicit, never automatic, and introduces no editable stage.
 It compares the saved last common hash, current source, and current copy.
-Copy-only changes are collected, including additions, deletions, empty directories and executable bits; source-only changes leave the copy and its baseline untouched and report `stale = true`.
+Copy-only changes are collected, including additions, deletions, empty directories, executable bits, and opted-in directory symbolic links; source-only changes leave the copy and its baseline untouched and report `stale = true`.
 If both sides changed differently, collection fails before source writes.
 Identical content refreshes the common baseline without rewriting the source.
 Identical overlapping collections are grouped; differing collections into overlapping source content fail before any write in that source group.
@@ -418,7 +418,8 @@ Git remote history is checked before collection; behind/diverged histories and r
 Actual Git collection requires `--message` when collection or existing checkout changes need a commit.
 Git still commits all nonignored checkout changes, including unselected source files, under the ordinary publication contract.
 External collection does not require a message or invoke Git; completion means only that content was handed to the local source, with no confirmation of other devices receiving it.
-External links remain unsupported.
+Installed outer links cannot be collected; nested symbolic links in opted-in general directory copies are preserved as links.
+Collection validates their relative targets at the final source location before writing, including effects on other active consumers.
 
 Changed source children are staged temporarily and replaced under a recovery journal; backups are retained beside the source root, outside its payload and Git checkout.
 Live links and external synchronizers may observe source writes immediately; collection is not a tree-wide atomic activation.
@@ -452,6 +453,7 @@ Both require explicit `--item` selections, as does `--reattach` for detached ite
 An implicitly selected bundle does not gain replacement permission.
 Dry run validates and shows planned actions without changing targets or ownership.
 Prepared checkouts must be clean even though this command does not fetch.
+General directories may opt into POSIX nested symbolic links through [directory configuration](configuration.md#directoriesname); apply preserves raw link text and never copies referent contents.
 
 ## sync
 
@@ -513,6 +515,9 @@ Dry run leaves targets and ownership unchanged.
 Detach does not require valid installation fields or source declarations; it accepts state versions 1 and 2 without changing the version.
 It materializes an actual symbolic link regardless of an obsolete saved mode, and checks regular contents are readable before releasing ownership.
 Unknown fields and unselected records are preserved; no legacy config-merge parser is needed.
+
+Opted-in directory links retain their raw target strings during detach; relative referents may change when the payload moves.
+Saved ownership retains this capability after the catalog disables the option or becomes unavailable.
 
 ## locate
 
