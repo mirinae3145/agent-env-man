@@ -1,4 +1,5 @@
-# Bind personal with bootstrap --root personal=/absolute/parent.
+# Bootstrap defaults home to the user home directory when unbound.
+# Override the initial binding with --root home=/absolute/parent.
 # Targets are independent of agent skill and instruction locations.
 version = 2
 
@@ -11,7 +12,6 @@ source = "case-store"
 subdir = "."
 
 [directories.cases.install]
-root = "personal"
 destination = "agent-loop"
 mode = "link"
 

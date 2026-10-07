@@ -7,6 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `locate NAME --repo` selects the prepared source Git checkout root for skills, directories, instructions, settings, and personal hooks; combine with `--cd` to enter the repository through existing shell integration.
+- Catalog source names in `locate --source`, `locate --repo`, and `update`, with explicit `source:NAME` selectors to disambiguate names while preserving existing item selection.
+Updating a named source selects all its consumers, including shared settings reception into their stages.
+Prepared named sources retain their branch binding for explicit lookup and update after their last consumer is removed.
+- Default general directory installation to the saved `home` root when `install.root` is omitted, allowing the entire installation table to be omitted.
+Bootstrap records the user's home directory when the binding is absent, preserves existing bindings, and supports explicit `--root home=PATH` selection.
+- Explicit `publish --from-copy` for managed skill and directory copies, comparing their saved common baseline before collecting into Git or external sources, with offline previews, conflict diagnostics, retained backups, and recovery after interrupted source writes.
+Git publication retains whole-checkout commit/push behavior; external completion confirms local source handoff only.
+Collection preserves affected active links' required paths and file kinds, including orphaned ownership, without restricting content wording.
+
 ## [1.1.0] &mdash; 2026-10-04
 
 Git tag `v1.1.0` corresponds to Python package version `1.1.0`; based on `v1.0.1`.

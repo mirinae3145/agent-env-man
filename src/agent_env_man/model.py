@@ -353,6 +353,24 @@ class Config(MachineFile):
                        **policy_fields(data.get("update", {}), f"settings.{name}.update")}
                 for name, data in self._settings.items()}
 
+    def named_source(self, name: str) -> Source | None:
+        """Resolve one catalog source root independently of its consumer items."""
+        self.catalog()
+        if name in self._repositories:
+            data = self._repositories[name]
+            repository = data['repository']
+            if Path(repository).expanduser().is_absolute():
+                repository = str(absolute(repository))
+            path = self.checkout_root / '.aem-repositories' / name
+            if path.resolve() != path:
+                raise Error(f"Managed checkout path must not redirect through a symlink: {path}")
+            return Source('source:' + name, path, repository, data.get('branch'))
+        if name in self._external_names:
+            if name not in self._external_paths:
+                raise Error(f"Source {name}: missing machine external_paths.{name}")
+            return Source('source:' + name, self._external_paths[name], None, None)
+        return None
+
     @property
     def sources(self) -> dict[str, Source]:
         """Derive checkout paths; the inventory never needs device-local bindings."""

@@ -60,6 +60,7 @@ def bootstrap_skills(config, state, args):
     defaults = next(iter(config.agents.values())) if config.agents else profile("codex").defaults()
     roots.setdefault("skills", defaults["skills"])
     roots.setdefault("agent", defaults["root"])
+    roots.setdefault("home", str(Path.home()))
     external_names = set()
     for value in args.external:
         key, separator, location = value.partition("=")
@@ -132,8 +133,9 @@ def bootstrap(runtime, **options):
     Omit CATALOG to reuse the saved binding. --item selects catalog skill,
     directory, instruction, setting or personal hook names, not installation
     component IDs. Omit --item to prepare all declared sources. Existing
-    checkouts are not updated. Directories require a named target root;
-    bind it with --root NAME=PATH.
+    checkouts are not updated. Directories default to the home root; bootstrap
+    records the user home when unbound. Override it with --root home=PATH or
+    bind another declared root with --root NAME=PATH. Saved roots are retained.
     """
     options["catalog_trigger"] = list(options["catalog_trigger"]) or None
     args = SimpleNamespace(**options)
@@ -145,27 +147,40 @@ def bootstrap(runtime, **options):
 @timeout_option
 @pass_runtime
 def update(runtime, source, timeout):
-    """Fetch and fast-forward prepared sources; live links change immediately."""
+    """Fetch and fast-forward prepared sources; live links change immediately.
+
+    NAME selects a catalog item or source; source:NAME explicitly selects a
+    source when names collide. Bare names prefer items. A source selects all
+    its consumers, including receiving shared settings into their stages.
+    Omit names to update all consumer sources. Copies need apply afterwards;
+    external sources are checked without fetching.
+    """
     return runtime.run(lambda session: session.manager.update(source, timeout=timeout))
 
 
 @click.command()
 @click.argument("source", nargs=-1, required=True, metavar="NAME...")
 @click.option("-m", "--message", help="Commit all nonignored checkout changes with this message.")
+@click.option("--from-copy", is_flag=True, help="Collect selected managed skill/directory copies before publication; conflicts stop the source group.")
 @preview_option
 @timeout_option
 @pass_runtime
-def publish(runtime, source, message, dry_run, timeout):
+def publish(runtime, source, message, from_copy, dry_run, timeout):
     """Export selected settings and publish whole checkouts by catalog item name.
 
     NAME selects a catalog skill, directory, instruction, setting or personal
     hook, not a repository or installation component ID. Settings export
-    their stage before publication; actual application edits and installed
-    copy edits are not collected. External publication stays outside AEM.
+    their stage before publication; actual application edits are not collected.
+    --from-copy requires installed skill/directory copies for each selected
+    name and compares their saved baseline before writing the source. External
+    copies publish into their local source folder; transport stays outside AEM.
+    Collection preserves affected active links' required paths and file kinds;
+    reconcile the copy or detach affected items before removing those paths.
+    Without --from-copy, installed copy edits are not collected.
 
     With --message, commit all nonignored changes in each selected repository.
     Without it, require a clean worktree and push existing commits. --dry-run
     is offline and does not verify remote state. First publication requires a
     successfully verified empty remote; remote errors stop publication.
     """
-    return runtime.run(lambda session: session.manager.publish(source, message=message, dry_run=dry_run, timeout=timeout))
+    return runtime.run(lambda session: session.manager.publish(source, message=message, from_copy=from_copy, dry_run=dry_run, timeout=timeout))

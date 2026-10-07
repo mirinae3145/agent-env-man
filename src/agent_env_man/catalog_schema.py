@@ -144,6 +144,8 @@ def normalize(document):
             install = data.get("install", {})
             if kind in ("skills", "directories"):
                 entry.update(install)
+                if kind == "directories":
+                    entry.setdefault("root", "home")
                 if "update" in data:
                     entry["update"] = _policy_model(data["update"])
             else:

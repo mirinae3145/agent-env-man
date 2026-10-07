@@ -26,8 +26,9 @@ Codex and Claude use their own saved paths and hook formats; preserve unrelated 
 Setup includes this official skill but does not install user catalog content or grant hook trust.
 For a Git catalog, replace the bootstrap example with `aem bootstrap --catalog-repository URL --catalog-path catalogs/personal.toml`.
 For an external source, add `--external NAME=/absolute/source` to bootstrap.
-General directories use a required named target root bound with `--root NAME=/absolute/parent`; they are independent of agent integrations and default to links.
-Use a link when writes at the installed path should reach the publish source; installed-copy edits are never collected.
+General directories are independent of agent integrations and default to links under the saved `home` root.
+Bootstrap records the user's home directory when that binding is absent; use `--root home=/absolute/parent` to choose another initial path, or bind another catalog root with `--root NAME=/absolute/parent`.
+Use a link when writes at the installed path should reach the publish source; copy edits reach it only through explicit `publish --from-copy`.
 Bootstrap prepares sources without updating existing checkouts or installing targets; apply installs from local prepared paths without fetching.
 
 To install newly declared content, use `aem bootstrap --item NAME`, then preview and apply the corresponding installation item with `aem apply --item ID --dry-run` and `aem apply --item ID`.
@@ -52,6 +53,8 @@ aem apply --item ID
 ```
 
 Update accepts catalog skill, directory, instruction, setting or personal hook names.
+It also accepts catalog source names; use `source:NAME` when an item has the same name.
+A source selection includes every consumer and receives all its shared settings into their stages.
 Live links change immediately during update; copies need apply, and settings receive into their stage before apply changes the actual file.
 For a complete source update followed by installation, use `aem sync`.
 `sync --item ID` filters only installation: its update phase still visits all sources and must succeed before application starts.
@@ -64,6 +67,8 @@ Catalog updates, content updates, and AEM self-updates are separate operations.
 
 For a skill, directory or instruction edit, locate its prepared source first and use the returned path as the explicit working directory for editing tools.
 For inspection of the installed content instead, omit `--source`.
+To locate an entire catalog source root, use `locate source:NAME --source`; `--repo` requires a Git source and locates its checkout root.
+Source selectors are supported only by `locate --source`, `locate --repo`, and `update`; other commands retain item selection.
 
 ```bash
 aem --json locate NAME --source
@@ -72,9 +77,13 @@ aem --json locate NAME --source
 Before editing managed content, inspect the located source directory and each parent directory up to and including the reported repository checkout root for applicable contribution and writing guidance.
 Read relevant guidance and follow its referenced documents according to their stated scope and the user's instruction hierarchy; directory placement alone does not establish precedence.
 
-Installed copies and detached contents can differ from the source; publishing does not collect their edits.
+Installed copies and detached contents can differ from the source; ordinary publishing does not collect their edits.
 Editing through an active link changes the source immediately.
 For copies, edit the source and apply after committing to refresh the installation.
+To share edits made in an installed, managed skill or directory copy, use `aem publish NAME --from-copy --dry-run`, then authorized `aem publish NAME --from-copy -m "Share copy edits"` for Git, or omit the message for an external source.
+Collection refuses differing changes on both sides and reports source/copy paths and Git comparison arguments; inspect and reconcile them rather than replacing content to bypass the conflict.
+It also preserves affected active links' required paths and file kinds, including saved links removed from the catalog; reconcile the copy or explicitly detach the affected item before intentional removal.
+External completion confirms local source handoff only; detached content, instruction bundles, hooks, and actual settings are not collected by this option.
 `locate --cd` requires registered shell integration and a reloaded profile; do not assume shell navigation persists between tool subprocesses.
 
 When publication is requested, inspect all changes in the reported repository, then review and publish:

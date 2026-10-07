@@ -107,13 +107,17 @@ General directories use Git or external sources and require no entry document, s
 | --- | --- | --- |
 | `source` | String | Required name in `sources`; Git or external. |
 | `subdir` | String | Source directory; defaults to `"."`. |
-| `install` | Table | Required installation settings below. |
+| `install` | Table | Optional installation settings below. |
 | `update` | Table | Optional policy selection and overrides, using the same rules as skills. |
 
 `directories.NAME.install` accepts `root`, `destination`, and `mode`.
-`root` is a required machine root name; bootstrap binds it with `--root NAME=PATH`.
+`root` is a machine root name, defaulting to `"home"` when omitted.
+Bootstrap preserves a saved `roots.home`, or records the current user's absolute home directory when the binding is absent.
+Use `--root home=PATH` for an explicit initial binding, or `--root NAME=PATH` to bind another declared root.
+An explicitly named root without a machine binding is an error; it never falls back to `home`.
 `destination` is a literal relative directory path below that root, defaulting to the item name.
 `mode` is `"link"` by default or explicit `"copy"`; machine `modes.NAME` overrides it.
+The entire `install` table may be omitted to use these defaults.
 Each declaration creates one agent-independent target and ownership ID `NAME:directory`; commands also accept the catalog name.
 The target cannot own an entire configured root or overlap sources, other targets, catalog, stages, or manager storage.
 Path and mode changes require detach before reconfiguration.
@@ -124,9 +128,10 @@ Git subdirectories must exist as tracked trees; an empty directory requires a tr
 An external directory may be empty.
 Source-root copy and detach omit only the top-level `.git` entry; ignored regular files remain part of the payload.
 Existing link/copy conflict, transaction, backup, detach, and recovery contracts apply.
-Copy edits are never collected into the source or published; edit the prepared source and apply after committing for Git sources.
+Ordinary publication does not collect copy edits; use explicit `publish NAME --from-copy` to collect an installed, managed directory copy.
+Collection compares the last common baseline, preserves conflicting source edits, and retains backups; see [publication](commands.md#publish).
 Links expose writes and source updates immediately.
-External delivery and publication remain outside AEM.
+External transport remains outside AEM; copy publication only hands content to the local external source.
 
 ### `instructions.NAME`
 
@@ -203,7 +208,7 @@ Explicit commands ignore these policies and clocks.
 | `version` | Integer | Required, exactly `1`. |
 | `catalog` | String or table | Optional local catalog path or Git binding described below; required for bootstrap/content preparation. One binding per machine file. |
 | `checkout_root` | String | Managed Git storage; defaults to sibling `<machine-file>.checkouts`. |
-| `roots` | Table of paths | User-named installation roots; bootstrap defaults missing `skills` and `agent`. |
+| `roots` | Table of paths | User-named installation roots; bootstrap defaults missing `skills`, `agent`, and `home`. |
 | `agents` | Table | Agent selections and path bindings, normally written by setup. |
 | `runtimes` | Table of paths | Personal hook interpreter bindings; bootstrap never installs executables. |
 | `external_paths` | Table of paths | Logical external source bindings; every used external must be bound. |
@@ -220,6 +225,7 @@ catalog = "catalog.toml"
 [roots]
 skills = "/home/me/.agents/skills"
 agent = "/home/me/.codex"
+home = "/home/me"
 
 [agents.codex]
 root = "/home/me/.codex"

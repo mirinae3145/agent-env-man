@@ -133,6 +133,12 @@ class Manager:
                     member_state.update(repository=source.git, branch=branch, revision=revision, error=None)
                     if created:
                         member_state.update(last_fetch=now(), observed_revision=revision)
+                # Keep checkout identity independently of consumer membership.
+                # Catalog v2 Git checkouts use the named source as their basename.
+                named = self.config.named_source(source.path.name)
+                if named is not None and named.path == source.path and named.git == source.git:
+                    self.state.data['sources'].setdefault(named.name, {}).update(
+                        repository=source.git, checkout=str(source.path), branch=branch)
                 for skill_name, _ in selected:
                     report.append({"directory" if skill_name in self.config._directories else "skill": skill_name,
                                    "status": "cloned" if created else "already-prepared", "checkout": str(source.path)})
@@ -276,7 +282,7 @@ class Manager:
             raise Error(f"{item.key}: instruction entry must be a regular file")
         return fingerprint(item.source, exclude_git=item.kind in ("skill", "directory", "instruction", "instruction-hook") and item.relative == ".")
 
-    def locate(self, name, agent="codex", *, source=False, target=False):
+    def locate(self, name, agent="codex", *, source=False, target=False, repo=False):
         """Locate saved content by default, or current catalog source content explicitly.
 
         Saved locations take precedence even when broken: never silently redirect
@@ -284,6 +290,14 @@ class Manager:
         the catalog; instruction callbacks retain their saved-only lookup.
         """
         self.state.ready()
+        if repo:
+            if target:
+                raise Error("--repo and --target are mutually exclusive")
+            return self.locate_repository(name)
+        if source:
+            selected = self.named_source_selection(name)
+            if selected is not None:
+                return self.locate_source_root(*selected)
         identifier(name)
         from .settings import Settings
         if f"{name}:settings" in self.state.data["items"]:
@@ -379,6 +393,62 @@ class Manager:
                 "detached": False, "location": "source", "repository": selected.git,
                 "checkout": str(selected.path) if selected.git else None,
                 "members": sorted(n for n, s in sources.items() if s.path == selected.path)}
+
+    def locate_repository(self, name):
+        """Locate a current source checkout offline without requiring its payload."""
+        selected = self.named_source_selection(name)
+        if selected is not None:
+            return self.locate_source_root(*selected, repo=True)
+        identifier(name)
+        sources = Config(self.config.path).sources
+        if name not in sources:
+            raise Error(f"{name}: unknown catalog skill, directory, instruction bundle, setting or personal hook")
+        selected = sources[name]
+        members = sorted(n for n, s in sources.items() if s.path == selected.path)
+        return self.locate_source_root(selected, members, repo=True)
+
+    def named_source_selection(self, name, *, config=None):
+        """Resolve explicit source selectors and bare names that are not items."""
+        explicit = name.startswith('source:')
+        key = name.removeprefix('source:') if explicit else name
+        identifier(key)
+        config = config if config is not None else Config(self.config.path)
+        consumers = config.sources
+        if not explicit and key in consumers:
+            return None
+        selected = config.named_source(key)
+        if selected is None:
+            if explicit:
+                raise Error(f"Unknown catalog source: {key}")
+            return None
+        members = sorted(n for n, s in consumers.items() if s.path == selected.path)
+        if selected.git and selected.branch is None:
+            records = self.state.data['sources']
+            branches = {record.get('branch') for n in members
+                        if (record := records.get(n, {})).get('repository') == selected.git}
+            binding = records.get(selected.name, {})
+            if binding.get('repository') == selected.git and binding.get('checkout') == str(selected.path):
+                branches.add(binding.get('branch'))
+            branches.discard(None)
+            if len(branches) > 1:
+                raise Error(f"{name}: conflicting recorded source branches; run bootstrap")
+            if not branches:
+                raise Error(f"{name}: no matching prepared branch record; run bootstrap with a consumer "
+                            f"or set sources.{key}.branch explicitly")
+            selected = replace(selected, branch=branches.pop())
+        return selected, members
+
+    def locate_source_root(self, selected, members, *, repo=False):
+        """Validate a named source root without requiring consumer payloads."""
+        if repo and not selected.git:
+            raise Error(f"{selected.name}: external folder source has no registered Git checkout")
+        if not selected.path.is_dir():
+            raise Error(f"{selected.name}: source is missing; run bootstrap or restore the external folder")
+        if selected.git:
+            Git().validate(self.delivery_source(selected))
+        return {"root": str(selected.path), "entry": str(selected.path), "installed_root": None,
+                "detached": False, "location": "source", "repository": selected.git,
+                "checkout": str(selected.path) if selected.git else None, "members": members}
 
     @staticmethod
     def locate_entry(root, entry):
@@ -650,6 +720,10 @@ class Manager:
         pending = self.state.data.get("pending")
         if pending is None:
             return
+        if pending.get('operation') == 'copy-collection':
+            from .copy_publication import recover
+            recover(self.state)
+            return
         if pending.get("operation") == "settings-group":
             from .settings import recover_group
             recover_group(self.state)
@@ -907,11 +981,11 @@ class Manager:
             self.state.save()
         return [{"item": key, "action": "detach"} for key in keys]
 
-    def publish(self, names, *, message=None, dry_run=False, timeout=30):
+    def publish(self, names, *, message=None, from_copy=False, dry_run=False, timeout=30):
         """Publish each selected checkout once, reporting every catalog consumer.
 
-        Names select sources, not file scopes. Installation records and automatic
-        update clocks are independent of publication and remain untouched.
+        Names select sources, not Git file scopes. Explicit copy collection
+        advances only matching copy baselines; automatic clocks are untouched.
         """
         self.state.ready()
         sources = self.config.sources
@@ -933,11 +1007,37 @@ class Manager:
                       "status": "planned"}
             results.append(report)
             try:
+                self.state.ready()
+                collection = None
+                if from_copy:
+                    from .copy_publication import plan, selected_writes, guard_links, collect
+                    self.check_destinations(self.items())
+                    collection = plan(self, selected)
+                    report['collection'] = [p.report for p in collection]
+                    if any(p.report['conflict'] for p in collection):
+                        raise Error('Copy and source changed since the common baseline; reconcile the reported paths and retry')
+                    guard_links(selected_writes(collection), self.state.data['items'])
                 if not source.git:
+                    if collection is not None:
+                        report['transport_complete'] = False
+                        if not dry_run:
+                            report['collection_backup'] = collect(self, source, collection)
+                            report.update(status='published', collection_complete=True)
+                        continue
                     raise Error(f"{source.name}: external source publication is managed outside AEM")
                 source = self.delivery_source(source)
                 git = Git(timeout)
                 report.update(git.publication(source))
+                if collection is not None:
+                    if not dry_run:
+                        observed = git.publication_preflight(source)
+                        if observed is not None and git.relation(source) not in ('ahead', 'equal-at-last-fetch'):
+                            raise Error('Reconcile Git history before copy collection/publication')
+                        if message is None and (any(p.report['changed'] for p in collection) or report['changes']):
+                            raise Error('Copy changes require --message for publication')
+                        report['collection_backup'] = collect(self, source, collection)
+                        report['collection_complete'] = True
+                        report.update(git.publication(source))
                 from .settings import Settings, changed, Bundle
                 settings = Settings(self)
                 setting_names = [n for n in selected if n in self.config._settings]
@@ -974,14 +1074,26 @@ class Manager:
 
     def update(self, names=(), *, timeout=30, prepare_settings=False, fetch_cache=None):
         self.state.ready()
-        if set(names) - self.config.sources.keys():
-            raise Error("Unknown source selection")
+        sources = self.config.sources
+        selected_names = set()
+        for name in names:
+            selected = self.named_source_selection(name, config=self.config)
+            if selected is None:
+                if name not in sources:
+                    raise Error("Unknown source selection")
+                selected_names.add(name)
+            else:
+                source, members = selected
+                selected_names.update(members)
+                if not members:
+                    sources[source.name] = source
+                    selected_names.add(source.name)
         results, failed = [], False
         groups = {}
-        for name, source in self.config.sources.items():
+        for name, source in sources.items():
             groups.setdefault(source.path, []).append((name, source))
         for members in groups.values():
-            selected = [(name, source) for name, source in members if not names or name in names]
+            selected = [(name, source) for name, source in members if not names or name in selected_names]
             if not selected:
                 continue
             name, source = members[0]

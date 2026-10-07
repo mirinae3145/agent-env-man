@@ -55,6 +55,7 @@ Preserve machine policy syntax, effective policy JSON, per-skill attempt records
 Do not require upstream skill repositories to add manager manifests or aggregate their content in this repository.
 The catalog owns repository URLs, requested branches, and declarative skill automatic update policies; machine configuration owns its catalog binding, checkout storage, target roots, and explicit mode overrides.
 Bootstrap clones missing repositories directly from the catalog, discovers and records their default branches when unspecified, and validates SKILL.md before publishing a checkout.
+Retain each prepared named source's branch binding with its repository and checkout path independently of consumer membership, while preserving per-item delivery and automatic-policy records.
 Installation consumes these prepared local checkouts without fetching.
 Share a checkout only when skills explicitly reference the same named repository; equal URLs under different source names do not imply shared ownership.
 Preserve named-source checkout paths; do not migrate or remove old direct-declaration checkouts automatically.
@@ -78,7 +79,7 @@ Instruction bundles select a named Git repository or a logical external source w
 Keep external path bindings in machine configuration and shared source/root/entry selections in the catalog.
 Bootstrap accepts a positional catalog and optional repeated `--external NAME=PATH` bindings.
 Persist them in the selected or default machine file, and reuse saved bindings when omitted.
-Default agent and skills roots only when absent; validate declarations and existing ownership before saving bindings or contacting content repositories.
+Default agent, skills, and home roots only when absent; validate declarations and existing ownership before saving bindings or contacting content repositories.
 Support explicit `--config`, `--catalog`, and root and storage overrides.
 Do not parse document policy, applicability, or reading order.
 A Codex instruction bundle owns a directory link, a link directly to the original entry, and one `SessionStart` group in the entry root's `hooks.json`.
@@ -95,7 +96,7 @@ Saved location lookup must remain offline, avoid updating ownership records, wor
 User-facing `locate` also supports saved skills and current catalog source lookup for uninstalled content or explicit `--source` requests.
 Keep callbacks on saved instruction lookup only; never fall back from a broken saved installation to a different source.
 Source lookup validates paths and Git identity without requiring a clean checkout, fetching, or installing content.
-Keep copy/detached locations distinct from source editing paths so publication never implies collecting installed-copy edits.
+Keep copy/detached locations distinct from source editing paths; ordinary publication never implies collecting installed-copy edits, and reverse collection requires explicit `--from-copy`.
 Use an absolute interpreter for hook execution, quote POSIX arguments, and explicitly encode a PowerShell command on Windows without evaluating user paths.
 Instruction callbacks emit only path metadata, never document contents.
 Codex uses `additionalContext` and a structured stop; Claude uses plain stdout and stderr with exit 2 on failure, which does not stop SessionStart.
@@ -152,13 +153,24 @@ Report all catalog consumers of each selected checkout.
 Do not infer per-skill file ownership for publication: commit and push operate on the whole repository, including changes outside catalog subdirectories.
 A supplied message authorizes staging all nonignored changes; without it, require a clean worktree and publish existing commits only.
 Keep preview offline and preserve the index, HEAD, installation records, and automatic-policy attempt clocks.
-Verify all advertised remote refs before staging or settings export.
+Verify all advertised remote refs before staging, settings export, or explicit copy collection.
 Only a successful empty listing permits initial publication without a remote branch; a populated remote must contain the registered branch and be fetched before staging.
 Never reinterpret authentication, transport, listing, or fetch failures as an empty remote.
 Refuse behind/diverged histories without rewriting or merging them.
 Push only the registered branch to the registered origin, without force or implicit additional refs.
 Preserve staged changes and commits after failures, report each repository's outcome independently, and never claim atomicity across repositories.
-External synchronization, fork/PR workflows, and collecting installed-copy edits are outside this command's scope.
+External synchronization and fork/PR workflows remain outside this command's scope.
+Ordinary publication never collects installed-copy edits.
+Explicit `--from-copy` requires owned, non-detached skill or directory copies for every selected name and collects only their payloads; Git publication still selects whole checkouts.
+Use the existing ownership hash as the last common baseline, updating it after successful collection or agreement; source observation/update alone never advances it.
+Source-only changes leave stale copies untouched; competing source/copy changes or differing overlapping exports stop the group before writing.
+Root collection excludes only top-level `.git`, retaining ignored regular payloads and executable bits without copying Git administration.
+Before source mutation, project collected copies onto affected saved active link sources and preserve their file/directory kinds and required skill/instruction entries, including orphaned ownership.
+Apply the same checks to previews and recheck before committing source writes; detached links impose no requirements, and content wording remains outside AEM's validation.
+Journal source replacements before mutation, retain backups outside the source root, and validate all recovery observations before restoring; never claim tree-wide visibility atomicity to external readers.
+Collected content and baselines survive later commit/push failures, separately reported from Git publication success.
+External copy publication confirms local handoff without contacting its service; external links remain unsupported.
+Text and JSON report the same conflict paths and comparison arguments without launching tools, merging, or force-overwriting.
 
 Self publication is a separate prepared-release contract: require a clean AEM checkout and an existing version tag resolving to HEAD, and never generate commits, tags, or version edits.
 Resolve its default checkout from local installation provenance or the running module's own development tree, never by searching the current directory or user homes; invalid recorded paths require explicit correction.
@@ -218,6 +230,7 @@ Never duplicate a repository database or worktree pointer into an unmanaged skil
 Git identity checks still validate the managed checkout's origin and expected branch before applying or updating.
 
 General directories reuse directory payloads, named sources, and per-target ownership without requiring an entry document or agent integration.
+Omitted directory installation roots normalize to `home`; bootstrap records the user's home path only when that binding is absent, preserving explicit roots and saved paths.
 Their single ownership key is `NAME:directory`; agent filters include them as common items.
 Directory policies reuse skill policy composition and clocks, supporting local external checks/sync without Git transport.
 Active directory link guards include orphaned consumers of shared checkouts.

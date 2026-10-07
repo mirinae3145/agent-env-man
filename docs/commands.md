@@ -35,7 +35,7 @@ Read-only commands and dry runs may create the lock directory/file; `setup --dry
 | `bootstrap` | Bind a catalog and prepare sources. | Clone missing Git repositories. |
 | `catalog` | Inspect, update, or publish the catalog itself. | Update/publish only; publication dry run is offline. |
 | `update` | Fetch and fast-forward prepared sources. | Yes for Git. |
-| `publish` | Commit local changes and push selected checkouts. | Inspect remote refs, fetch when populated, and push; none in dry run. |
+| `publish` | Publish selected checkouts, optionally collecting managed copies first. | Git remote inspection/fetch/push only; external collection and dry run are offline. |
 | `apply` | Install from local prepared sources. | None. |
 | `sync` | Update all sources, then apply if every update succeeds. | Yes for Git. |
 | `auto` | Run due skill/directory policies for an event. | Due Git items only; none in dry run. |
@@ -240,6 +240,10 @@ Repository syntax matches catalog repository declarations: a URL, SSH location, 
 The default branch is discovered and written to the machine binding; repeating registration for the same repository without `--catalog-branch` retains the recorded branch.
 Catalog, checkout-root, and external CLI paths resolve relative to the working directory and are saved as absolute paths.
 Root paths must be absolute or begin with `~/`.
+Bootstrap fills missing `skills`, `agent`, and `home` root bindings, preserving saved values and explicit `--root` bindings.
+An unbound `home` is saved as the current user's absolute home directory; use `--root home=PATH` to choose another initial path.
+Directories without `install.root` use this saved `home` root.
+Apply and status use saved bindings without inferring a missing home path.
 Repeated `--external` binds declared external names; duplicate names in one invocation are invalid, and omitted saved bindings remain.
 `--item` selects catalog skill, directory, instruction, setting or personal hook names for preparation, not ownership IDs or repository names.
 No selection prepares all declared sources.
@@ -323,18 +327,26 @@ Bootstrap validates an existing catalog checkout without pulling it.
 aem update [NAME ...] [--git-timeout TIMEOUT]
 ```
 
-Select skill, directory, instruction, setting, or personal hook source names, or omit names for all sources.
+Select catalog skill, directory, instruction, setting, personal hook, or source names.
+Bare names prefer catalog items when an item and a source have the same name; use `source:NAME` to select that source explicitly.
+A source selects all its consumer items, including receiving shared settings into their editable stages without applying their application files.
+An item selection retains its individual settings-reception scope, although updating its shared checkout affects every live link.
+Mixed item/source selectors are deduplicated, and each shared checkout is updated once.
+Omit names to retain the existing all-consumer selection; sources without consumers are visited only when explicitly selected.
+For a source without consumers, the update report identifies it as `source:NAME`.
+Lookup of an unknown selector fails before any source is updated.
 Shared checkouts advance once and guard every active link, including orphaned declarations.
 Incoming revisions must also contain valid trees for every declared directory in a shared checkout, including unselected copies; validation failure preserves the current checkout.
 Links change immediately; copies are refreshed by apply.
 External sources only receive an existence check (`external-no-fetch`).
+Selected external settings also receive their shared contents into their stages.
 Dirty, divergent, local-ahead, detached, misidentified, or unsupported incoming checkouts are refused.
 
 ## publish
 
 ```text
 aem publish NAME [NAME ...] [-m MESSAGE | --message MESSAGE]
-            [--dry-run] [--git-timeout TIMEOUT]
+            [--from-copy] [--dry-run] [--git-timeout TIMEOUT]
 ```
 
 Edit the prepared checkout directly, or edit through an installed link pointing to it.
@@ -377,8 +389,50 @@ When an empty remote is confirmed, results include `initial_publish: true`; `rem
 `last_fetch` records successful remote inspection even when an empty remote does not require fetching; `observed_revision` is populated after a successful first push.
 A failed commit may leave staged changes, and a failed push retains the local commit; inspect the reported error and retry after resolving it.
 Publication does not install content or update automatic-policy attempt clocks.
-For copy installations, edit the checkout and run apply after committing; changes made only in an installed copy or detached copy are not collected into the source.
-External sources are reported as unsupported for publication; their synchronization remains outside AEM.
+Without `--from-copy`, copy edits are not collected and external publication remains unsupported.
+Detached content is never collected.
+
+Use `--from-copy` to collect selected installed, managed skill or directory copies into their source before publication:
+
+```bash
+aem publish report --from-copy --dry-run
+aem publish report --from-copy -m "Share copy edits"
+aem --json publish external-files --from-copy
+```
+
+Every selected name must identify skill or directory copies, including all of its agent destinations; settings retain their separate collect/export workflow.
+Collection is explicit, never automatic, and introduces no editable stage.
+It compares the saved last common hash, current source, and current copy.
+Copy-only changes are collected, including additions, deletions, empty directories and executable bits; source-only changes leave the copy and its baseline untouched and report `stale = true`.
+If both sides changed differently, collection fails before source writes.
+Identical content refreshes the common baseline without rewriting the source.
+Identical overlapping collections are grouped; differing collections into overlapping source content fail before any write in that source group.
+Unselected copies are not collected or given a new baseline.
+Root payloads omit only their top-level `.git`; ignored regular contents remain included.
+Collection and dry run check affected active links using saved ownership, including items removed from the catalog.
+The resulting source must retain each linked file or directory's kind, each linked skill's regular `SKILL.md`, and each linked instruction bundle's regular entry file.
+Violations stop the source group before source writes, baseline changes, or Git remote inspection; reconcile the copy or detach the affected item before retrying.
+These checks enforce AEM's structural requirements, not document wording or meaning; ordinary content edits and removal of nonessential files remain allowed.
+
+Git remote history is checked before collection; behind/diverged histories and remote inspection failures preserve the source and copies.
+Actual Git collection requires `--message` when collection or existing checkout changes need a commit.
+Git still commits all nonignored checkout changes, including unselected source files, under the ordinary publication contract.
+External collection does not require a message or invoke Git; completion means only that content was handed to the local source, with no confirmation of other devices receiving it.
+External links remain unsupported.
+
+Changed source children are staged temporarily and replaced under a recovery journal; backups are retained beside the source root, outside its payload and Git checkout.
+Live links and external synchronizers may observe source writes immediately; collection is not a tree-wide atomic activation.
+After interruption, use `aem recover`; later edits to source, stages or backups stop recovery instead of being discarded.
+After collection succeeds, commit/push failure retains collected content, the new common baseline and any created commit for retry.
+Source groups have independent outcomes, with no cross-source transaction.
+
+Copy publication uses existing `planned`, `published` and `failed` result values.
+Additional `collection` entries contain `item`, `source`, `copy`, `baseline_hash`, `source_hash`, `copy_hash`, boolean `changed`, `stale`, `conflict`, and relative `changes` (including `.` for root permission changes).
+`compare` contains argument-list data for `git difftool --no-index -- SOURCE COPY`; `compare_command` is a POSIX-shell command, or a PowerShell command on native Windows, for manual inspection.
+Neither text nor JSON output launches an editor or comparison tool, and conflict exits `1`.
+Successful collection adds `collection_complete = true` and `collection_backup` (null when no source writes were needed); the backup directory includes a recovery manifest.
+External results add `transport_complete = false`, including when `status = "published"`; they never assert synchronization completion.
+Dry run reads copy differences offline without collecting, staging Git changes, changing baselines, or creating transaction artifacts.
 
 ## apply
 
@@ -463,17 +517,22 @@ Unknown fields and unselected records are preserved; no legacy config-merge pars
 ## locate
 
 ```text
-aem locate NAME [--agent AGENT] [--source] [--cd]
+aem locate NAME [--agent AGENT] [--source | --target] [--repo] [--cd]
 ```
 
 Use `--cd` to change the current shell directory after registering the shell integration with `aem setup --shell bash`, `--shell zsh`, or `--shell powershell` and reloading the profile.
 It moves to the selected content root; `--source --cd` moves to the prepared source, while `catalog locate --cd` moves to the directory containing the catalog entry.
+Use `--repo --cd` to move to the source Git checkout root rather than the item's content subdirectory.
 Without the shell integration, `--cd` prints only the absolute directory path, so Bash/Zsh can also use `cd -- "$(aem locate NAME --cd)"`.
 The option cannot be combined with `--json`.
 Lookup failures leave the shell directory unchanged; help still prints normally.
 Existing shell registrations need setup run again to install this function.
 
 The agent defaults to `codex`; NAME is a catalog skill, directory, instruction bundle, setting, or personal hook name; directory and setting locations do not depend on an agent.
+With `--source` or `--repo`, NAME may also be a catalog source name; `source:NAME` explicitly selects a source when names collide.
+Bare names prefer existing catalog item names, preserving their content-subdirectory lookup.
+Source-name lookup selects the source root, is agent-independent, and does not require consumer payloads; `--source` accepts Git and external sources, while `--repo` requires Git.
+Basic installed lookup and `--target` do not accept source selectors.
 By default, returns `root`, `entry`, `installed_root`, and `detached` from the selected agent's saved installation when one exists.
 For skills, `entry` is SKILL.md, and `location` distinguishes a linked source from a copy.
 For directories, both `root` and `entry` identify the directory; no entry file is required.
@@ -488,6 +547,24 @@ It sets `installed_root` to null and `detached` to false because it describes th
 It requires a valid current machine/catalog configuration and existing source content; it does not clone or fetch.
 Git source lookup validates the registered repository and branch but allows uncommitted edits.
 Use the returned root/entry to edit, then `publish NAME` for Git content; external synchronization stays outside AEM.
+
+Use `--repo` to locate the current catalog item's prepared source Git checkout root, independently of installed copies, detached contents, and the selected agent.
+It can be combined with `--source`, but not `--target`; external folder sources are rejected even if the folder happens to be in a Git repository.
+Repository lookup returns `root`, `entry`, and `checkout` all identifying the checkout directory, plus `repository`, `members`, `location: "source"`, `installed_root: null`, and `detached: false`.
+It requires valid current configuration and a prepared checkout matching the registered Git URL and branch, permits uncommitted edits, and does not clone or fetch.
+When a named Git source omits its branch, lookup uses the prepared branch recorded by bootstrap for that source's repository and checkout path, even after its last consumer is removed.
+Older consumer-only records remain usable while their consumers are declared; rerun bootstrap before removing the last consumer to retain the source binding.
+Missing or conflicting records require bootstrap with a consumer, or an explicit `sources.NAME.branch` when none remain; lookup never adopts the checkout's current branch or fetches to discover one.
+The item's payload may be missing: repository lookup validates the checkout rather than its content entry.
+For named-source lookup with `--source`, the same root-level report is returned, with `checkout` and `repository` set to null for an external source.
+
+```bash
+aem locate source:tools --source --cd  # Enter the entire source root.
+aem locate source:tools --repo --cd    # Require a Git source and enter its root.
+aem update source:tools               # Update the source and receive all its settings stages.
+```
+
+Source selectors are limited to `locate --source`, `locate --repo`, and `update`; installation, ownership, publication, and individual settings commands continue to select items.
 
 ```bash
 aem locate report --source
@@ -592,7 +669,7 @@ See [Staged settings](settings-management.md) for schedules, exclusions, and con
 
 | Command | Behavior |
 | --- | --- |
-| `locate NAME [--source \| --target]` | Stage by default, shared source or actual target explicitly; `--cd` returns its directory. |
+| `locate NAME [--source \| --target] [--repo]` | Stage by default, shared source or actual target explicitly; `--repo` selects the source Git checkout root and cannot accompany `--target`; `--cd` returns the selected directory. |
 | `export NAME... [--dry-run]` | Merge stages into Git/external sources without network access. |
 | `settings prepare NAME [--dry-run]` | Initialize from a prepared source, preserving existing stage edits. |
 | `settings collect NAME [--path JSON_ARRAY]... [--dry-run]` | Collect managed actual edits; explicitly select new fields. |
