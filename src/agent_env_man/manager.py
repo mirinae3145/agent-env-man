@@ -45,7 +45,7 @@ class Manager:
 
         Clone success does not install anything. Existing checkouts are checked
         in place and never reset or pulled by bootstrap.
-        Full automation may defer directory, settings, and personal-hook
+        Full automation may defer skill, directory, settings, and personal-hook
         payload validation in existing checkouts until validated delivery
         succeeds, so new declarations can refer to incoming paths.
         """
@@ -90,7 +90,15 @@ class Manager:
                 for skill_name, skill_source in members:
                     item = self.config.declarations(skill_source)[0]
                     if item.kind == "skill":
-                        git.skill_descriptor(prepared, item.relative)
+                        if defer_payloads and not created:
+                            continue
+                        try:
+                            git.skill_descriptor(replace(prepared, name=skill_name), item.relative)
+                        except Error as exc:
+                            if created:
+                                raise
+                            raise Error(f"{exc}; bootstrap does not update existing checkouts; "
+                                        f"run aem update {skill_name}, then aem bootstrap --item {skill_name}") from exc
                     elif item.kind == "directory":
                         if defer_payloads and not created:
                             continue
@@ -1039,6 +1047,11 @@ class Manager:
                      and str(source.path / record.get('relative', '')) == record.get('source'))
         guard_revision(git, source, revision, paths)
         for name, member in members:
+            # Deferred skills must be valid before a fast-forward changes live
+            # links, even if the skill is new or installed as a detached copy.
+            for item in self.config.declarations(member):
+                if item.kind == "skill":
+                    git.skill_descriptor(replace(source, name=name), item.relative, revision)
             if name in self.config._directories:
                 for item in self.config.declarations(member):
                     git.directory_descriptor(source, item.relative, revision)
