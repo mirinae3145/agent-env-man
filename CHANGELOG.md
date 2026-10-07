@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.1] &mdash; 2026-10-07
+
+Git tag `v1.1.1` corresponds to Python package version `1.1.1`; based on `v1.1.0`.
+
 ### Fixed
 
 - Full automation can receive a newly declared skill from an existing stale shared checkout, including when existing consumers are detached or excluded.
