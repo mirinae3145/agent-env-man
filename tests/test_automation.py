@@ -232,6 +232,9 @@ class FullGitCatalog(unittest.TestCase):
     def test_real_cli_worker_refreshes_catalog_then_prepares_new_declarations(self):
         config = self.register()
         self.document['skills']['new'] = dict(self.document['skills']['tool'])
+        self.document['skills']['new']['subdir'] = 'new-skill'
+        (self.seed / 'new-skill').mkdir()
+        (self.seed / 'new-skill/SKILL.md').write_text('# New skill\n', encoding='utf-8')
         (self.seed / 'editor.toml').write_text('color = "blue"\n', encoding='utf-8')
         self.document['settings'] = {'editor': {'source': 'tool', 'path': 'editor.toml', 'format': 'toml'}}
         setting_target = self.root / 'app.toml'
@@ -262,6 +265,129 @@ class FullGitCatalog(unittest.TestCase):
         self.assertNotIn('settings_automation', json.loads(self.state())['sources']['editor'])
         self.assertNotIn('catalog_automation', json.loads(self.state()))
         self.assertNotIn('automation', json.loads(self.state())['sources']['tool'])
+
+    def add_shared_skill(self, *, present=True):
+        self.document['skills']['new'] = {
+            'source': 'tool', 'subdir': 'new-skill', 'install': {'mode': 'copy'}}
+        if present:
+            (self.seed / 'new-skill').mkdir()
+            (self.seed / 'new-skill/SKILL.md').write_text('# New skill\n', encoding='utf-8')
+        self.save_remote()
+
+    def continue_full(self, config, *, code=0):
+        self_update.write_json(automation.result_path(config), {
+            'status': 'continuing', 'time': time.time(), 'token': 'test',
+            'binding': self_update.full_binding(config.doc), 'stages': {'tool': {'status': 'disabled'}}})
+        return self.cli('_full-run', '--token', 'test', code=code)
+
+    def test_new_shared_skill_with_eligible_detached_and_manual_consumers(self):
+        cases = ((policy, mode) for policy in ('eligible', 'detached', 'manual')
+                 for mode in ('copy', 'link'))
+        for policy, mode in cases:
+            with self.subTest(policy=policy, mode=mode):
+                self.setUp()
+                if mode == 'link':
+                    probe = self.root / 'link-probe'
+                    try:
+                        probe.symlink_to(self.seed, target_is_directory=True)
+                    except OSError:
+                        self.skipTest('Symbolic link capability unavailable')
+                    probe.unlink()
+                    self.document['skills']['tool']['install']['mode'] = 'link'
+                    self.save_remote()
+                config = self.register()
+                self.cli('apply', '--item', 'tool')
+                if policy == 'detached':
+                    self.cli('detach', 'tool')
+                if policy == 'manual':
+                    self.document['skills']['tool']['update'] = {'trigger': []}
+                self.add_shared_skill()
+                (self.seed / 'skill/SKILL.md').write_text('# Updated existing\n', encoding='utf-8')
+                self.save_remote()
+                result = self.continue_full(config)
+                content = result['stages']['content']
+                self.assertEqual(result['status'], 'completed', result)
+                self.assertEqual(result['stages']['catalog']['status'], 'updated')
+                self.assertEqual(content['sources'], ['tool', 'new'] if policy == 'eligible' else ['new'])
+                self.assertEqual(self.git(self.content, 'rev-parse', 'HEAD'), self.git(self.seed, 'rev-parse', 'HEAD'))
+                self.assertEqual((self.root / 'installed/new/SKILL.md').read_text(), '# New skill\n')
+                preserved = policy == 'detached' or (policy == 'manual' and mode == 'copy')
+                expected = '# Initial\n' if preserved else '# Updated existing\n'
+                self.assertEqual((self.target / 'SKILL.md').read_text(), expected)
+                if policy == 'detached':
+                    self.assertTrue(json.loads(self.state())['items']['tool']['detached'])
+                    self.assertFalse(self.target.is_symlink())
+                else:
+                    self.assertEqual(self.target.is_symlink(), mode == 'link')
+
+    def test_full_refuses_dirty_diverged_and_invalid_incoming_shared_skills(self):
+        for invalid in ('dirty', 'diverged', 'absent', 'symlink'):
+            with self.subTest(invalid=invalid):
+                self.setUp()
+                config = self.register()
+                self.cli('apply', '--item', 'tool')
+                installed = (self.target / 'SKILL.md').read_bytes()
+                self.add_shared_skill(present=invalid != 'absent')
+                if invalid == 'dirty':
+                    (self.content / 'skill/SKILL.md').write_text('local edits', encoding='utf-8')
+                elif invalid == 'diverged':
+                    (self.content / 'local.txt').write_text('local commit', encoding='utf-8')
+                    self.commit(self.content)
+                elif invalid == 'symlink':
+                    # Git mode validation also works where checkout symlinks are unavailable.
+                    blob = self.git(self.seed, 'hash-object', '-w', 'skill/SKILL.md')
+                    self.git(self.seed, 'update-index', '--add', '--cacheinfo', f'120000,{blob},new-skill/redirect')
+                    self.git(self.seed, 'commit', '-m', 'Invalid skill tree')
+                    self.git(self.seed, 'push', 'origin', 'main')
+                head = self.git(self.content, 'rev-parse', 'HEAD')
+                result = self.continue_full(config, code=1)
+                content = result['stages']['content']
+                self.assertEqual(result['stages']['catalog']['status'], 'updated')
+                self.assertEqual(content['status'], 'failed')
+                stage_name = 'prepare' if invalid == 'dirty' else 'update'
+                self.assertIn(stage_name, content, content)
+                stage = content[stage_name]
+                errors = ' '.join(entry.get('error', '') for entry in stage)
+                expected = {'dirty': 'dirty checkout', 'diverged': 'diverged',
+                            'absent': 'new: skill needs a tracked regular', 'symlink': 'new: skill contains a Git symlink'}
+                self.assertIn(expected[invalid], errors)
+                self.assertNotIn('apply', content)
+                self.assertEqual(self.git(self.content, 'rev-parse', 'HEAD'), head)
+                self.assertEqual((self.target / 'SKILL.md').read_bytes(), installed)
+                self.assertFalse((self.root / 'installed/new').exists())
+                if invalid == 'dirty':
+                    self.assertEqual((self.content / 'skill/SKILL.md').read_text(), 'local edits')
+
+    def test_bootstrap_stale_skill_diagnostic_and_supported_recovery(self):
+        self.register()
+        self.cli('apply', '--item', 'tool')
+        self.cli('detach', 'tool')
+        self.add_shared_skill()
+        self.cli('catalog', 'update')
+        head = self.git(self.content, 'rev-parse', 'HEAD')
+        result = self.cli('bootstrap', '--item', 'new', code=1)
+        error = result['skills'][0]['error']
+        self.assertIn('new: skill needs a tracked regular new-skill/SKILL.md at HEAD', error)
+        self.assertIn('aem update new', error)
+        self.assertIn('aem bootstrap --item new', error)
+        self.assertEqual(self.git(self.content, 'rev-parse', 'HEAD'), head)
+        self.cli('update', 'new')
+        self.cli('bootstrap', '--item', 'new')
+        self.cli('apply', '--item', 'new', '--dry-run')
+        self.assertFalse((self.root / 'installed/new').exists())
+        self.cli('apply', '--item', 'new')
+        self.assertEqual((self.root / 'installed/new/SKILL.md').read_text(), '# New skill\n')
+        self.assertEqual((self.target / 'SKILL.md').read_text(), '# Initial\n')
+        self.assertTrue(json.loads(self.state())['items']['tool']['detached'])
+
+    def test_explicit_update_refuses_missing_incoming_new_skill(self):
+        self.register()
+        self.add_shared_skill(present=False)
+        self.cli('catalog', 'update')
+        head = self.git(self.content, 'rev-parse', 'HEAD')
+        result = self.cli('update', 'new', code=1)
+        self.assertIn('new: skill needs a tracked regular', result[0]['error'])
+        self.assertEqual(self.git(self.content, 'rev-parse', 'HEAD'), head)
 
     def test_invalid_catalog_blocks_full_content_and_retains_old_revision(self):
         config = self.register()
