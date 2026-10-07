@@ -26,7 +26,8 @@ Codex and Claude use their own saved paths and hook formats; preserve unrelated 
 Setup includes this official skill but does not install user catalog content or grant hook trust.
 For a Git catalog, replace the bootstrap example with `aem bootstrap --catalog-repository URL --catalog-path catalogs/personal.toml`.
 For an external source, add `--external NAME=/absolute/source` to bootstrap.
-General directories use a required named target root bound with `--root NAME=/absolute/parent`; they are independent of agent integrations and default to links.
+General directories are independent of agent integrations and default to links under the saved `home` root.
+Bootstrap records the user's home directory when that binding is absent; use `--root home=/absolute/parent` to choose another initial path, or bind another catalog root with `--root NAME=/absolute/parent`.
 Use a link when writes at the installed path should reach the publish source; installed-copy edits are never collected.
 Bootstrap prepares sources without updating existing checkouts or installing targets; apply installs from local prepared paths without fetching.
 

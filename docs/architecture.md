@@ -78,7 +78,7 @@ Instruction bundles select a named Git repository or a logical external source w
 Keep external path bindings in machine configuration and shared source/root/entry selections in the catalog.
 Bootstrap accepts a positional catalog and optional repeated `--external NAME=PATH` bindings.
 Persist them in the selected or default machine file, and reuse saved bindings when omitted.
-Default agent and skills roots only when absent; validate declarations and existing ownership before saving bindings or contacting content repositories.
+Default agent, skills, and home roots only when absent; validate declarations and existing ownership before saving bindings or contacting content repositories.
 Support explicit `--config`, `--catalog`, and root and storage overrides.
 Do not parse document policy, applicability, or reading order.
 A Codex instruction bundle owns a directory link, a link directly to the original entry, and one `SessionStart` group in the entry root's `hooks.json`.
@@ -218,6 +218,7 @@ Never duplicate a repository database or worktree pointer into an unmanaged skil
 Git identity checks still validate the managed checkout's origin and expected branch before applying or updating.
 
 General directories reuse directory payloads, named sources, and per-target ownership without requiring an entry document or agent integration.
+Omitted directory installation roots normalize to `home`; bootstrap records the user's home path only when that binding is absent, preserving explicit roots and saved paths.
 Their single ownership key is `NAME:directory`; agent filters include them as common items.
 Directory policies reuse skill policy composition and clocks, supporting local external checks/sync without Git transport.
 Active directory link guards include orphaned consumers of shared checkouts.

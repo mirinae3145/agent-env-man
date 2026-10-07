@@ -50,6 +50,7 @@ class BootstrapArguments(InstructionFixture):
         saved = tomlkit.parse(self.config.read_text(encoding='utf-8'))
         self.assertEqual(saved['external_paths']['personal'], str(self.external))
         self.assertEqual(saved['roots']['agent'], str(self.agent))
+        self.assertEqual(saved['roots']['home'], str(self.home))
         with patch.dict(os.environ, {'CODEX_HOME': str(self.home / 'different')}):
             self.cli('bootstrap')
             self.cli('apply')

@@ -80,9 +80,102 @@ class Directories(unittest.TestCase):
         with self.assertRaisesRegex(Error, 'collides'):
             Config(self.config).catalog()
 
+    def test_omitted_install_uses_saved_home_and_item_name(self):
+        self.require_links()
+        del self.document['directories']['cases']['install']
+        self.write()
+        catalog_before = self.catalog.read_bytes()
+        home = self.root / 'home with spaces'
+        with patch.object(Path, 'home', return_value=home):
+            self.run_cli('bootstrap', self.catalog, '--checkout-root', self.checkouts)
+        saved = tomlkit.parse(self.config.read_text(encoding='utf-8'))
+        self.assertEqual(saved['roots']['home'], str(home))
+        self.assertNotIn('agents', saved)
+        self.assertEqual(self.catalog.read_bytes(), catalog_before)
+        target = home / 'cases'
+        self.assertFalse(target.exists())
+        with patch.object(Path, 'home', return_value=self.root / 'different home'):
+            self.run_cli('bootstrap')
+            self.run_cli('apply', '--item', 'cases', '--dry-run')
+            self.assertFalse(target.exists())
+            self.run_cli('apply', '--item', 'cases')
+            self.assertEqual(self.run_cli('status')['items'][0]['target'], str(target))
+        self.assertTrue(target.is_symlink())
+        self.assertEqual((target / 'first.md').read_text(encoding='utf-8'), 'First case\n')
+        self.assertEqual(tomlkit.parse(self.config.read_text(encoding='utf-8'))['roots'], saved['roots'])
+        self.document['directories']['cases']['install'] = {}
+        self.write()
+        self.run_cli('bootstrap')
+        self.run_cli('apply', '--item', 'cases')
+        self.assertEqual(self.run_cli('status')['items'][0]['target'], str(target))
+
+    def test_home_override_keeps_destination_and_copy_mode_and_refuses_rebinding(self):
+        install = self.document['directories']['cases']['install']
+        del install['root']
+        install['mode'] = 'copy'
+        self.write()
+        with patch.object(Path, 'home', return_value=self.root / 'unused home'):
+            self.run_cli('bootstrap', self.catalog, '--root', f'home={self.destination}')
+        self.assertEqual(tomlkit.parse(self.config.read_text(encoding='utf-8'))['roots']['home'],
+                         str(self.destination))
+        self.run_cli('apply', '--item', 'cases')
+        self.assertFalse(self.target.is_symlink())
+        self.assertEqual((self.target / 'first.md').read_text(encoding='utf-8'), 'First case\n')
+        config_before = self.config.read_bytes()
+        ownership = deepcopy(self.manager().state.data['items'])
+        result = self.run_cli('bootstrap', '--root', f'home={self.root / "other"}', code=1)
+        self.assertIn('Root home is already configured', result)
+        self.assertEqual(self.config.read_bytes(), config_before)
+        self.assertEqual(self.manager().state.data['items'], ownership)
+
+    def test_existing_home_binding_is_preserved_without_cli_override(self):
+        del self.document['directories']['cases']['install']['root']
+        self.document['directories']['cases']['install']['mode'] = 'copy'
+        self.write()
+        machine = {'version': 1, 'catalog': str(self.catalog), 'roots': {'home': str(self.destination)}}
+        self.config.write_text(tomlkit.dumps(machine), encoding='utf-8')
+        with patch.object(Path, 'home', return_value=self.root / 'different home'):
+            self.run_cli('bootstrap')
+        self.assertEqual(tomlkit.parse(self.config.read_text(encoding='utf-8'))['roots']['home'],
+                         str(self.destination))
+        self.run_cli('apply', '--item', 'cases')
+        self.assertEqual((self.target / 'first.md').read_text(encoding='utf-8'), 'First case\n')
+
+    def test_bootstrap_adds_home_to_existing_machine_without_relocating_directory(self):
+        self.document['directories']['cases']['install']['mode'] = 'copy'
+        self.write()
+        self.bootstrap()
+        self.run_cli('apply', '--item', 'cases')
+        machine = tomlkit.parse(self.config.read_text(encoding='utf-8'))
+        machine['roots'].pop('home', None)
+        self.config.write_text(tomlkit.dumps(machine), encoding='utf-8')
+        previous_roots = dict(machine['roots'])
+        ownership = deepcopy(self.manager().state.data['items'])
+        home = self.root / 'new home'
+        with patch.object(Path, 'home', return_value=home):
+            self.run_cli('bootstrap')
+        self.assertEqual(dict(tomlkit.parse(self.config.read_text(encoding='utf-8'))['roots']),
+                         {**previous_roots, 'home': str(home)})
+        self.assertEqual(self.manager().state.data['items'], ownership)
+        self.run_cli('apply', '--item', 'cases')
+        self.assertEqual((self.target / 'first.md').read_text(encoding='utf-8'), 'First case\n')
+        self.assertFalse((home / 'agent-loop').exists())
+
+    def test_unbound_home_is_not_inferred_during_apply(self):
+        del self.document['directories']['cases']['install']['root']
+        self.write()
+        machine = {'version': 1, 'catalog': str(self.catalog), 'roots': {'personal': str(self.destination)}}
+        self.config.write_text(tomlkit.dumps(machine), encoding='utf-8')
+        config_before = self.config.read_bytes()
+        with patch.object(Path, 'home', return_value=self.root / 'home'):
+            self.assertIn("missing target root 'home'", self.run_cli('apply', code=1))
+        self.assertEqual(self.config.read_bytes(), config_before)
+        self.assertFalse((self.root / 'home').exists())
+
     def test_invalid_declarations_fail_before_network_or_machine_write(self):
         variants = [({'subdir': '../cases'}, None), ({'entry': 'first.md'}, None),
-                    ({'source': 'missing'}, None), ({}, {}),
+                    ({'source': 'missing'}, None), ({}, {'root': 1}),
+                    ({}, {'root': []}), ({}, {'root': ''}),
                     ({}, {'root': 'missing'}), ({}, {'root': 'personal', 'destination': '.'}),
                     ({}, {'root': 'personal', 'mode': 'other'})]
         original = deepcopy(self.document)

@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Default general directory installation to the saved `home` root when `install.root` is omitted, allowing the entire installation table to be omitted.
+Bootstrap records the user's home directory when the binding is absent, preserves existing bindings, and supports explicit `--root home=PATH` selection.
+
 ## [1.1.0] &mdash; 2026-10-04
 
 Git tag `v1.1.0` corresponds to Python package version `1.1.0`; based on `v1.0.1`.

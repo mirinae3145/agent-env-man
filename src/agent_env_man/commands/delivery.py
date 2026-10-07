@@ -60,6 +60,7 @@ def bootstrap_skills(config, state, args):
     defaults = next(iter(config.agents.values())) if config.agents else profile("codex").defaults()
     roots.setdefault("skills", defaults["skills"])
     roots.setdefault("agent", defaults["root"])
+    roots.setdefault("home", str(Path.home()))
     external_names = set()
     for value in args.external:
         key, separator, location = value.partition("=")
@@ -132,8 +133,9 @@ def bootstrap(runtime, **options):
     Omit CATALOG to reuse the saved binding. --item selects catalog skill,
     directory, instruction, setting or personal hook names, not installation
     component IDs. Omit --item to prepare all declared sources. Existing
-    checkouts are not updated. Directories require a named target root;
-    bind it with --root NAME=PATH.
+    checkouts are not updated. Directories default to the home root; bootstrap
+    records the user home when unbound. Override it with --root home=PATH or
+    bind another declared root with --root NAME=PATH. Saved roots are retained.
     """
     options["catalog_trigger"] = list(options["catalog_trigger"]) or None
     args = SimpleNamespace(**options)

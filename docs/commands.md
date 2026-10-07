@@ -240,6 +240,10 @@ Repository syntax matches catalog repository declarations: a URL, SSH location, 
 The default branch is discovered and written to the machine binding; repeating registration for the same repository without `--catalog-branch` retains the recorded branch.
 Catalog, checkout-root, and external CLI paths resolve relative to the working directory and are saved as absolute paths.
 Root paths must be absolute or begin with `~/`.
+Bootstrap fills missing `skills`, `agent`, and `home` root bindings, preserving saved values and explicit `--root` bindings.
+An unbound `home` is saved as the current user's absolute home directory; use `--root home=PATH` to choose another initial path.
+Directories without `install.root` use this saved `home` root.
+Apply and status use saved bindings without inferring a missing home path.
 Repeated `--external` binds declared external names; duplicate names in one invocation are invalid, and omitted saved bindings remain.
 `--item` selects catalog skill, directory, instruction, setting or personal hook names for preparation, not ownership IDs or repository names.
 No selection prepares all declared sources.

@@ -216,20 +216,22 @@ source = "case-store"
 subdir = "."
 
 [directories.cases.install]
-root = "personal"
 destination = "agent-loop"
 ```
 
-Declare `sources.case-store` as Git or external, then bind this device's target root:
+Declare `sources.case-store` as Git or external, then prepare and install:
 
 ```bash
-aem bootstrap /absolute/catalog.toml --root personal="$HOME"
+aem bootstrap /absolute/catalog.toml
 aem apply --item cases --dry-run
 aem apply --item cases
 aem locate cases
 ```
 
 This installs `~/agent-loop` as a link to the prepared source directory.
+When `install.root` is omitted, directories use the saved `home` root; bootstrap records the user's home directory if that binding is absent.
+Choose another initial path with `--root home=/absolute/parent`, or declare `install.root = "personal"` and bind it with `--root personal=/absolute/parent`.
+Omit the entire `install` table to use the item name as the directory name under `home`.
 Record through the link, then use authorized `aem publish cases -m "Record cases"` to share a Git source and `aem update cases` on another device to receive it.
 Local edits and diverged histories retain the ordinary Git refusal rules and require explicit reconciliation.
 For explicit copies, set `install.mode = "copy"`; copy edits are protected but never collected or published.
