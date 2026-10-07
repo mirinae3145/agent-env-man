@@ -46,7 +46,8 @@ Changes made inside an installed copy, including newly generated caches, still c
 For managed skill/directory copies, explicit [copy publication](commands.md#publish) can preserve those changes in the source and advance their common baseline; otherwise intentional replacement remains explicit.
 Interrupted copy collection is recovered with `aem recover`, using the source-group journal and retained backups outside the source root; later source/stage/backup edits stop recovery.
 Updates also guard active link sources and instruction entries against removal or unsupported type changes, even after declarations disappear.
-Nested payload symlinks/junctions, special files, and submodules are unsupported.
+Nested payload symbolic links require the general directory's POSIX [opt-in policy](configuration.md#directoriesname); junctions, other special files, and submodules remain unsupported.
+Saved link policy permits detach and recovery after the catalog disables the option or becomes unavailable; referent contents are never copied.
 Portable copy metadata is preserved; platform-specific ACLs, alternate streams, and power-loss atomicity are outside the guarantee.
 
 ## Remove integrations and uninstall

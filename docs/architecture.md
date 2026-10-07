@@ -40,7 +40,14 @@ Allow Git-ignored runtime files in checkouts while continuing to reject tracked 
 All content and catalog fast-forwards must refuse to overwrite ignored local files when mutating the Git checkout.
 Never delete caches or weaken local-file preservation to make an update succeed.
 Ignored regular files and directories remain part of directory payloads for hashing, copying, and detach.
-Check the entire installed-copy tree for local modifications, and reject nested links and special files during payload validation.
+Check the entire installed-copy tree for local modifications, and reject nested links unless the general directory explicitly enables POSIX `preserve_symlinks`.
+Special files remain unsupported.
+Link-enabled payloads hash link identity and raw target text without accessing referents; regular-node hash encoding stays unchanged.
+Apply relative-link policy at the logical location in the source root, including during temporary staging, backup, detach, and reverse collection.
+Use pinned non-following POSIX descriptors for enabled payload traversal and entry replacement; reject concurrent kind changes rather than following them.
+Save the policy and logical source-relative path with ownership and recovery observations; absent fields retain the old rejection behavior.
+Catalog policy removal cannot disable saved detach/recovery support.
+A shared checkout must satisfy every affected consumer's policy, including orphaned active links.
 
 ### Catalog and maintenance boundaries
 
@@ -169,7 +176,7 @@ Before source mutation, project collected copies onto affected saved active link
 Apply the same checks to previews and recheck before committing source writes; detached links impose no requirements, and content wording remains outside AEM's validation.
 Journal source replacements before mutation, retain backups outside the source root, and validate all recovery observations before restoring; never claim tree-wide visibility atomicity to external readers.
 Collected content and baselines survive later commit/push failures, separately reported from Git publication success.
-External copy publication confirms local handoff without contacting its service; external links remain unsupported.
+External copy publication confirms local handoff without contacting its service; installed outer links cannot be collected, while opted-in nested symbolic links retain their opaque identity.
 Text and JSON report the same conflict paths and comparison arguments without launching tools, merging, or force-overwriting.
 
 Self publication is a separate prepared-release contract: require a clean AEM checkout and an existing version tag resolving to HEAD, and never generate commits, tags, or version edits.

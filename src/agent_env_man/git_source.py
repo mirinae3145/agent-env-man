@@ -20,7 +20,7 @@ class Git:
         self.timeout = timeout
         self.deadline = time.monotonic() + timeout
 
-    def run(self, path: Path | None, *args: str, check: bool = True, strict_utf8: bool = False) -> subprocess.CompletedProcess:
+    def run(self, path: Path | None, *args: str, check: bool = True, strict_utf8: bool = False, raw: bool = False) -> subprocess.CompletedProcess:
         remaining = self.deadline - time.monotonic()
         if remaining <= 0:
             raise Error("Git operation timed out")
@@ -50,7 +50,8 @@ class Git:
             process.communicate()
             raise Error("Git operation timed out; checkout may need inspection") from exc
         result = subprocess.CompletedProcess(command, process.returncode,
-                                             stdout.decode("utf-8", errors="strict" if strict_utf8 else "replace").strip(),
+                                             (stdout.decode("utf-8", errors="surrogateescape") if raw else
+                                              stdout.decode("utf-8", errors="strict" if strict_utf8 else "replace").strip()),
                                              stderr.decode("utf-8", errors="replace").strip())
         if check and result.returncode:
             raise Error(f"Git {args[0]} failed: {result.stderr or result.stdout}")
@@ -221,7 +222,7 @@ class Git:
             if record.get("kind") == "instruction":
                 self.instruction_descriptor(source, relative, record["entry"], revision)
             if record.get("kind") == "directory":
-                self.directory_descriptor(source, relative, revision)
+                self.directory_descriptor(source, relative, revision, preserve_symlinks=record.get("preserve_symlinks", False))
             if relative == "." and record.get("kind") in ("skill", "directory", "instruction"):
                 mode = "040000"
             else:
@@ -230,22 +231,46 @@ class Git:
             allowed = ("040000",) if record["directory"] else ("100644", "100755")
             if mode not in allowed:
                 raise Error(f"{key}: incoming commit removes or changes the kind of a live link source; detach first")
-            if record["directory"] and record.get("kind") != "skill":
+            if record["directory"] and record.get("kind") not in ("skill", "directory"):
                 pathspec = () if relative == "." else (relative,)
                 tree = self.run(source.path, "ls-tree", "-rz", revision, "--", *pathspec).stdout
                 if any(entry.split(" ", 1)[0] not in ("100644", "100755") for entry in tree.split("\0") if entry):
                     raise Error(f"{key}: incoming linked directory contains a symlink or submodule")
 
-    def directory_descriptor(self, source, relative, revision="HEAD"):
-        """Require a Git tree of regular files without imposing an entry document."""
+    def directory_descriptor(self, source, relative, revision="HEAD", *, preserve_symlinks=False):
+        """Validate Git kinds and opaque link text before advancing live sources."""
+        from .payload_links import validate_link, require_posix, directory_fd
+        if preserve_symlinks:
+            require_posix()
         if relative != ".":
             listing = self.run(source.path, "ls-tree", "-z", revision, "--", relative).stdout
             if not listing or listing.split(" ", 1)[0] != "040000":
                 raise Error(f"{source.name}: directory must be a tracked Git tree: {relative}")
         pathspec = () if relative == "." else (relative,)
-        tree = self.run(source.path, "ls-tree", "-rz", revision, "--", *pathspec).stdout
-        if any(entry.split(" ", 1)[0] not in ("100644", "100755") for entry in tree.split("\0") if entry):
-            raise Error(f"{source.name}: directory contains a Git symlink or submodule")
+        tree = self.run(source.path, "ls-tree", "-rz", revision, "--", *pathspec, raw=True).stdout
+        for entry in tree.split("\0"):
+            if not entry:
+                continue
+            metadata, path = entry.split("\t", 1)
+            mode, _, oid = metadata.split(" ")
+            if mode in ("100644", "100755"):
+                continue
+            if mode != "120000" or not preserve_symlinks:
+                raise Error(f"{source.name}: directory contains a Git symlink or submodule")
+            target = self.run(source.path, "cat-file", "blob", oid, raw=True).stdout
+            validate_link(target, path)
+            symlinks = self.run(source.path, "config", "--bool", "--get", "core.symlinks", check=False)
+            if symlinks.returncode not in (0, 1) or symlinks.stdout == "false":
+                raise Error(f"{source.name}: Git symlink checkout requires core.symlinks=true")
+            if revision == "HEAD":
+                physical = source.path / path
+                with directory_fd(physical.parent) as parent:
+                    try:
+                        actual = os.readlink(physical.name, dir_fd=parent)
+                    except OSError as exc:
+                        raise Error(f"{source.name}: Git symlink is not a filesystem link: {path}") from exc
+                if actual != target:
+                    raise Error(f"{source.name}: Git symlink text differs from checkout: {path}")
 
     def instruction_descriptor(self, source, relative, entry, revision="HEAD"):
         """Validate the entry and complete regular-file tree before publishing Git content."""

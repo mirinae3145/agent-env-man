@@ -9,6 +9,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Opt-in POSIX symbolic link preservation for general directories with `preserve_symlinks`, including installation, updates, reverse copy collection, detach, and recovery.
+Relative link text must stay within the Git checkout or external source root; absolute and dangling links are preserved without traversing their targets.
+Windows opt-in is refused, and existing catalogs retain their link rejection policy.
+
 - `locate NAME --repo` selects the prepared source Git checkout root for skills, directories, instructions, settings, and personal hooks; combine with `--cd` to enter the repository through existing shell integration.
 - Catalog source names in `locate --source`, `locate --repo`, and `update`, with explicit `source:NAME` selectors to disambiguate names while preserving existing item selection.
 Updating a named source selects all its consumers, including shared settings reception into their stages.
