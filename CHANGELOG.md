@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Full automation can receive a newly declared skill from an existing stale shared checkout, including when existing consumers are detached or excluded.
+Validate all declared skills against incoming revisions before advancing shared checkouts, and report the affected skill with a supported update/bootstrap recovery sequence when standalone bootstrap finds an invalid local skill.
+
 ## [1.1.0] &mdash; 2026-10-04
 
 Git tag `v1.1.0` corresponds to Python package version `1.1.0`; based on `v1.0.1`.
