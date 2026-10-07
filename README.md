@@ -261,6 +261,7 @@ Find the prepared source with `locate --source`, edit it directly or through its
 ```bash
 aem locate report --source                  # Find the prepared source to edit.
 aem locate report --source --cd             # Enter it with the registered shell integration.
+aem locate report --repo --cd               # Enter the source Git repository root.
 aem publish report --dry-run                # Review local changes and outgoing commits.
 aem publish report -m "Clarify guidance"    # Commit checkout changes and push.
 aem publish report                         # Push changes already committed.

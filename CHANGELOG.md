@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `locate NAME --repo` selects the prepared source Git checkout root for skills, directories, instructions, settings, and personal hooks; combine with `--cd` to enter the repository through existing shell integration.
+
 ## [1.1.0] &mdash; 2026-10-04
 
 Git tag `v1.1.0` corresponds to Python package version `1.1.0`; based on `v1.0.1`.

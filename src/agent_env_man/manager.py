@@ -276,7 +276,7 @@ class Manager:
             raise Error(f"{item.key}: instruction entry must be a regular file")
         return fingerprint(item.source, exclude_git=item.kind in ("skill", "directory", "instruction", "instruction-hook") and item.relative == ".")
 
-    def locate(self, name, agent="codex", *, source=False, target=False):
+    def locate(self, name, agent="codex", *, source=False, target=False, repo=False):
         """Locate saved content by default, or current catalog source content explicitly.
 
         Saved locations take precedence even when broken: never silently redirect
@@ -285,6 +285,10 @@ class Manager:
         """
         self.state.ready()
         identifier(name)
+        if repo:
+            if target:
+                raise Error("--repo and --target are mutually exclusive")
+            return self.locate_repository(name)
         from .settings import Settings
         if f"{name}:settings" in self.state.data["items"]:
             if source:
@@ -378,6 +382,22 @@ class Manager:
         return {"root": str(item.source.parent if item.kind == 'personal-hook' else item.source), "entry": str(entry), "installed_root": None,
                 "detached": False, "location": "source", "repository": selected.git,
                 "checkout": str(selected.path) if selected.git else None,
+                "members": sorted(n for n, s in sources.items() if s.path == selected.path)}
+
+    def locate_repository(self, name):
+        """Locate a current source checkout offline without requiring its payload."""
+        sources = Config(self.config.path).sources
+        if name not in sources:
+            raise Error(f"{name}: unknown catalog skill, directory, instruction bundle, setting or personal hook")
+        selected = sources[name]
+        if not selected.git:
+            raise Error(f"{name}: external folder source has no registered Git checkout")
+        if not selected.path.is_dir():
+            raise Error(f"{name}: source is missing; run bootstrap to prepare the checkout")
+        Git().validate(self.delivery_source(selected))
+        return {"root": str(selected.path), "entry": str(selected.path), "installed_root": None,
+                "detached": False, "location": "source", "repository": selected.git,
+                "checkout": str(selected.path),
                 "members": sorted(n for n, s in sources.items() if s.path == selected.path)}
 
     @staticmethod

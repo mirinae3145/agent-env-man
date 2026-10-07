@@ -463,11 +463,12 @@ Unknown fields and unselected records are preserved; no legacy config-merge pars
 ## locate
 
 ```text
-aem locate NAME [--agent AGENT] [--source] [--cd]
+aem locate NAME [--agent AGENT] [--source | --target] [--repo] [--cd]
 ```
 
 Use `--cd` to change the current shell directory after registering the shell integration with `aem setup --shell bash`, `--shell zsh`, or `--shell powershell` and reloading the profile.
 It moves to the selected content root; `--source --cd` moves to the prepared source, while `catalog locate --cd` moves to the directory containing the catalog entry.
+Use `--repo --cd` to move to the source Git checkout root rather than the item's content subdirectory.
 Without the shell integration, `--cd` prints only the absolute directory path, so Bash/Zsh can also use `cd -- "$(aem locate NAME --cd)"`.
 The option cannot be combined with `--json`.
 Lookup failures leave the shell directory unchanged; help still prints normally.
@@ -488,6 +489,12 @@ It sets `installed_root` to null and `detached` to false because it describes th
 It requires a valid current machine/catalog configuration and existing source content; it does not clone or fetch.
 Git source lookup validates the registered repository and branch but allows uncommitted edits.
 Use the returned root/entry to edit, then `publish NAME` for Git content; external synchronization stays outside AEM.
+
+Use `--repo` to locate the current catalog item's prepared source Git checkout root, independently of installed copies, detached contents, and the selected agent.
+It can be combined with `--source`, but not `--target`; external folder sources are rejected even if the folder happens to be in a Git repository.
+Repository lookup returns `root`, `entry`, and `checkout` all identifying the checkout directory, plus `repository`, `members`, `location: "source"`, `installed_root: null`, and `detached: false`.
+It requires valid current configuration and a prepared checkout matching the registered Git URL and branch, permits uncommitted edits, and does not clone or fetch.
+The item's payload may be missing: repository lookup validates the checkout rather than its content entry.
 
 ```bash
 aem locate report --source
@@ -592,7 +599,7 @@ See [Staged settings](settings-management.md) for schedules, exclusions, and con
 
 | Command | Behavior |
 | --- | --- |
-| `locate NAME [--source \| --target]` | Stage by default, shared source or actual target explicitly; `--cd` returns its directory. |
+| `locate NAME [--source \| --target] [--repo]` | Stage by default, shared source or actual target explicitly; `--repo` selects the source Git checkout root and cannot accompany `--target`; `--cd` returns the selected directory. |
 | `export NAME... [--dry-run]` | Merge stages into Git/external sources without network access. |
 | `settings prepare NAME [--dry-run]` | Initialize from a prepared source, preserving existing stage edits. |
 | `settings collect NAME [--path JSON_ARRAY]... [--dry-run]` | Collect managed actual edits; explicitly select new fields. |
