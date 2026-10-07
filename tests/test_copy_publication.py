@@ -6,6 +6,7 @@ from contextlib import redirect_stdout, redirect_stderr
 import json
 import os
 from pathlib import Path
+import shutil
 import unittest
 from unittest.mock import patch
 
@@ -18,6 +19,7 @@ from agent_env_man.model import Config, Error
 from agent_env_man.storage import State, fingerprint
 from agent_env_man.output import format_report
 import test_publish as publication_tests
+import test_skill_catalog as skill_tests
 
 
 class CopyPublication(unittest.TestCase):
@@ -25,6 +27,114 @@ class CopyPublication(unittest.TestCase):
     git = publication_tests.Publication.git
     commit = publication_tests.Publication.commit
     cli = publication_tests.Publication.cli
+    require_links = skill_tests.SkillCatalog.require_links
+
+    def root_copy_with_linked_skill(self):
+        self.require_links()
+        self.document['skills']['two']['install']['mode'] = 'link'
+        self.document['directories'] = {
+            'root': {'source': 'shared', 'install': {'root': 'skills', 'mode': 'copy'}}}
+        self.catalog.write_text(tomlkit.dumps(self.document), encoding='utf-8')
+        self.cli('bootstrap')
+        self.cli('apply', '--item', 'root', '--item', 'two')
+        return self.root / 'installed/root'
+
+    def test_collection_preserves_declared_and_orphaned_live_skill_requirements(self):
+        copy = self.root_copy_with_linked_skill()
+        (copy / 'skill/SKILL.md').unlink()
+        source = fingerprint(self.checkout, exclude_git=True)
+        state = self.manager().state.path.read_bytes()
+        index = (self.checkout / '.git/index').read_bytes()
+        revision = self.git(self.checkout, 'rev-parse', 'HEAD')
+        for orphaned in (False, True):
+            if orphaned:
+                del self.document['skills']['two']
+                self.catalog.write_text(tomlkit.dumps(self.document), encoding='utf-8')
+            for preview in (True, False):
+                with self.subTest(orphaned=orphaned, preview=preview):
+                    args = ('--dry-run',) if preview else ('-m', 'Reject invalid skill')
+                    with patch.object(Git, 'publication_preflight', side_effect=AssertionError('invalid collection contacted remote')):
+                        report = self.cli('publish', 'root', '--from-copy', *args, code=1)[0]
+                    self.assertIn('two', report['error'])
+                    self.assertIn('detach', report['error'])
+                    self.assertEqual(fingerprint(self.checkout, exclude_git=True), source)
+                    self.assertEqual(self.manager().state.path.read_bytes(), state)
+                    self.assertEqual((self.checkout / '.git/index').read_bytes(), index)
+                    self.assertEqual(self.git(self.checkout, 'rev-parse', 'HEAD'), revision)
+                    self.assertTrue((self.root / 'installed/two/SKILL.md').is_file())
+                    self.assertFalse(list(self.checkout.parent.glob('.aem-collection-*')))
+
+    def test_detaching_link_allows_intentional_descriptor_removal(self):
+        copy = self.root_copy_with_linked_skill()
+        self.cli('detach', 'two')
+        (copy / 'skill/SKILL.md').unlink()
+        self.assertEqual(self.cli('publish', 'root', '--from-copy', '-m', 'Remove descriptor')[0]['status'], 'published')
+        self.assertFalse((self.checkout / 'skill/SKILL.md').exists())
+        self.assertEqual((self.root / 'installed/two/SKILL.md').read_text(), '# Skill\n')
+
+    def test_collection_allows_content_edits_and_nonessential_deletions_through_links(self):
+        (self.checkout / 'skill/notes.txt').write_text('Optional', encoding='utf-8')
+        self.commit(self.checkout)
+        copy = self.root_copy_with_linked_skill()
+        (copy / 'skill/SKILL.md').write_text('', encoding='utf-8')
+        (copy / 'skill/notes.txt').unlink()
+        self.assertEqual(self.cli('publish', 'root', '--from-copy', '-m', 'Edit content')[0]['status'], 'published')
+        self.assertEqual((self.root / 'installed/two/SKILL.md').read_text(), '')
+        self.assertFalse((self.root / 'installed/two/notes.txt').exists())
+
+    def test_external_collection_preserves_live_directory_kind(self):
+        self.require_links()
+        copy = self.external()
+        (self.shared / 'nested').mkdir()
+        (self.shared / 'nested/value.txt').write_text('Keep', encoding='utf-8')
+        self.document['directories']['nested'] = {
+            'source': 'files', 'subdir': 'nested', 'install': {'root': 'skills'}}
+        self.catalog.write_text(tomlkit.dumps(self.document), encoding='utf-8')
+        self.cli('apply', '--item', 'files', '--item', 'nested')
+        source = fingerprint(self.shared)
+        state = self.manager().state.path.read_bytes()
+        shutil.rmtree(copy / 'nested')
+        for replacement in ('missing', 'file'):
+            if replacement == 'file':
+                (copy / 'nested').write_text('Wrong kind', encoding='utf-8')
+            with self.subTest(replacement=replacement):
+                report = self.cli('publish', 'files', '--from-copy', code=1)[0]
+                self.assertIn('nested:directory', report['error'])
+                self.assertEqual(fingerprint(self.shared), source)
+                self.assertEqual(self.manager().state.path.read_bytes(), state)
+
+    def test_child_collection_preserves_ancestor_instruction_entry(self):
+        self.require_links()
+        self.document['instructions']['personal']['entry'] = 'skill/SKILL.md'
+        self.document['directories'] = {'child': {
+            'source': 'shared', 'subdir': 'skill', 'install': {'root': 'skills', 'mode': 'copy'}}}
+        self.catalog.write_text(tomlkit.dumps(self.document), encoding='utf-8')
+        self.cli('bootstrap')
+        self.cli('apply', '--item', 'child', '--item', 'personal:bundle')
+        (self.root / 'installed/child/SKILL.md').unlink()
+        source = fingerprint(self.checkout, exclude_git=True)
+        state = self.manager().state.path.read_bytes()
+        report = self.cli('publish', 'child', '--from-copy', '-m', 'Reject missing entry', code=1)[0]
+        self.assertIn('personal:bundle', report['error'])
+        self.assertEqual(fingerprint(self.checkout, exclude_git=True), source)
+        self.assertEqual(self.manager().state.path.read_bytes(), state)
+
+    def test_collection_preserves_standalone_instruction_file_link(self):
+        self.require_links()
+        self.document['directories'] = {
+            'root': {'source': 'shared', 'install': {'root': 'skills', 'mode': 'copy'}}}
+        self.catalog.write_text(tomlkit.dumps(self.document), encoding='utf-8')
+        self.cli('bootstrap')
+        self.cli('apply', '--item', 'root', '--item', 'personal:entry')
+        self.cli('detach', 'personal:bundle')
+        copy = self.root / 'installed/root'
+        (copy / 'AGENTS.md').unlink()
+        (copy / 'AGENTS.md').mkdir()
+        state = self.manager().state.path.read_bytes()
+        report = self.cli('publish', 'root', '--from-copy', '-m', 'Reject wrong entry kind', code=1)[0]
+        self.assertIn('personal:entry', report['error'])
+        self.assertEqual((self.root / 'agent/AGENTS.md').read_text(), '# Instructions\n')
+        self.assertEqual(self.manager().state.path.read_bytes(), state)
 
     def install(self):
         self.cli('apply', '--item', 'one', '--item', 'two')

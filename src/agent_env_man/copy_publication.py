@@ -9,7 +9,7 @@ import shlex
 import stat
 import uuid
 
-from .model import Error, Item, overlaps
+from .model import Error, Item, overlaps, relative
 from .storage import atomic_write, copy_payload, exists, fingerprint, is_reparse, observation, remove, saved_path
 
 
@@ -103,6 +103,43 @@ def selected_writes(plans):
     return writes
 
 
+def guard_links(writes, records):
+    """Check affected saved links against the source tree after collection.
+
+    Coalesced writes are disjoint and their copy payloads already reject links
+    and special files. Project required paths into those copies, retaining the
+    unchanged source for ancestors and excluded Git metadata. Saved ownership
+    also protects links whose catalog declarations have disappeared.
+    """
+    def incoming(path):
+        for write in writes:
+            root = write.item.source
+            if path == root or root in path.parents:
+                suffix = path.relative_to(root)
+                if write.record.get('exclude_git') and suffix.parts[:1] == ('.git',):
+                    return path
+                return write.item.target / suffix
+        return path
+
+    for key, record in records.items():
+        if record.get('mode') != 'link' or record.get('detached'):
+            continue
+        source = Path(record['source'])
+        if not any(overlaps(source, write.item.source) for write in writes):
+            continue
+        required = [(source, record['directory'])]
+        if record.get('kind') == 'skill':
+            required.append((source / 'SKILL.md', False))
+        elif record.get('kind') == 'instruction':
+            required.append((source / relative(record['entry']), False))
+        for path, directory in required:
+            candidate = incoming(path)
+            valid = candidate.is_dir() if directory else candidate.is_file()
+            if not valid or candidate.is_symlink() or is_reparse(candidate):
+                raise Error(f'{key}: collection removes or changes a required live link source: {path}; '
+                            'detach the affected item first or reconcile the copy')
+
+
 def validate(manager, plans):
     """Recheck source and copy observations before and after temporary staging."""
     manager.state.ready()
@@ -112,6 +149,7 @@ def validate(manager, plans):
         saved_path(str(plan.item.target))
         if fingerprint(plan.item.target, exclude_git=plan.record.get('exclude_git', False)) != plan.copy_hash:
             raise Error(f'{plan.item.key}: copy changed during collection; retry after inspection')
+    guard_links(selected_writes(plans), manager.state.data['items'])
 
 
 def collect(manager, source, plans):

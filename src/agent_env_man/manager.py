@@ -940,13 +940,13 @@ class Manager:
                 self.state.ready()
                 collection = None
                 if from_copy:
-                    from .copy_publication import plan, selected_writes, collect
+                    from .copy_publication import plan, selected_writes, guard_links, collect
                     self.check_destinations(self.items())
                     collection = plan(self, selected)
                     report['collection'] = [p.report for p in collection]
                     if any(p.report['conflict'] for p in collection):
                         raise Error('Copy and source changed since the common baseline; reconcile the reported paths and retry')
-                    selected_writes(collection)
+                    guard_links(selected_writes(collection), self.state.data['items'])
                 if not source.git:
                     if collection is not None:
                         report['transport_complete'] = False

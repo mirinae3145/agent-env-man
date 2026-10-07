@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Explicit `publish --from-copy` for managed skill and directory copies, comparing their saved common baseline before collecting into Git or external sources, with offline previews, conflict diagnostics, retained backups, and recovery after interrupted source writes.
 Git publication retains whole-checkout commit/push behavior; external completion confirms local source handoff only.
+Collection preserves affected active links' required paths and file kinds, including orphaned ownership, without restricting content wording.
 
 ## [1.1.0] &mdash; 2026-10-04
 

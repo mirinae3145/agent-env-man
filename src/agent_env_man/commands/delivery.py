@@ -165,6 +165,8 @@ def publish(runtime, source, message, from_copy, dry_run, timeout):
     --from-copy requires installed skill/directory copies for each selected
     name and compares their saved baseline before writing the source. External
     copies publish into their local source folder; transport stays outside AEM.
+    Collection preserves affected active links' required paths and file kinds;
+    reconcile the copy or detach affected items before removing those paths.
     Without --from-copy, installed copy edits are not collected.
 
     With --message, commit all nonignored changes in each selected repository.

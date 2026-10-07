@@ -397,6 +397,10 @@ Identical content refreshes the common baseline without rewriting the source.
 Identical overlapping collections are grouped; differing collections into overlapping source content fail before any write in that source group.
 Unselected copies are not collected or given a new baseline.
 Root payloads omit only their top-level `.git`; ignored regular contents remain included.
+Collection and dry run check affected active links using saved ownership, including items removed from the catalog.
+The resulting source must retain each linked file or directory's kind, each linked skill's regular `SKILL.md`, and each linked instruction bundle's regular entry file.
+Violations stop the source group before source writes, baseline changes, or Git remote inspection; reconcile the copy or detach the affected item before retrying.
+These checks enforce AEM's structural requirements, not document wording or meaning; ordinary content edits and removal of nonessential files remain allowed.
 
 Git remote history is checked before collection; behind/diverged histories and remote inspection failures preserve the source and copies.
 Actual Git collection requires `--message` when collection or existing checkout changes need a commit.

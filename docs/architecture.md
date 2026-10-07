@@ -164,6 +164,8 @@ Explicit `--from-copy` requires owned, non-detached skill or directory copies fo
 Use the existing ownership hash as the last common baseline, updating it after successful collection or agreement; source observation/update alone never advances it.
 Source-only changes leave stale copies untouched; competing source/copy changes or differing overlapping exports stop the group before writing.
 Root collection excludes only top-level `.git`, retaining ignored regular payloads and executable bits without copying Git administration.
+Before source mutation, project collected copies onto affected saved active link sources and preserve their file/directory kinds and required skill/instruction entries, including orphaned ownership.
+Apply the same checks to previews and recheck before committing source writes; detached links impose no requirements, and content wording remains outside AEM's validation.
 Journal source replacements before mutation, retain backups outside the source root, and validate all recovery observations before restoring; never claim tree-wide visibility atomicity to external readers.
 Collected content and baselines survive later commit/push failures, separately reported from Git publication success.
 External copy publication confirms local handoff without contacting its service; external links remain unsupported.
