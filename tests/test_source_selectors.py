@@ -97,6 +97,32 @@ class SourceSelectors(unittest.TestCase):
         self.assertEqual([r['source'] for r in self.cli('update')], ['one', 'two', 'personal'])
         self.assertEqual(self.cli('update', 'unused'), [{'source': 'source:unused', 'status': 'updated'}])
 
+    def test_repo_lookup_keeps_default_branch_after_last_consumer_removed(self):
+        del self.document['skills']
+        del self.document['instructions']
+        self.save()
+        self.assertEqual(self.cli('bootstrap')['skills'], [])
+        state = self.root / 'machine.toml.state/state.json'
+        before = state.read_bytes()
+        self.remote.rename(self.root / 'offline.git')
+        with patch.object(Git, 'fetch', side_effect=AssertionError('lookup fetched')):
+            report = self.cli('locate', 'source:shared', '--repo')
+        self.assertEqual(report['root'], str(self.checkout))
+        self.assertEqual(report['members'], [])
+        self.assertEqual(state.read_bytes(), before)
+
+    def test_explicit_update_keeps_default_branch_after_last_consumer_removed(self):
+        del self.document['skills']
+        del self.document['instructions']
+        self.save()
+        self.assertEqual(self.cli('bootstrap')['skills'], [])
+        (self.seed / 'skill/SKILL.md').write_text('# Incoming\n', encoding='utf-8')
+        self.commit(self.seed)
+        self.git(self.seed, 'push', 'origin', 'main')
+        self.assertEqual(self.cli('update', 'source:shared'),
+                         [{'source': 'source:shared', 'status': 'updated'}])
+        self.assertEqual((self.checkout / 'skill/SKILL.md').read_text(encoding='utf-8'), '# Incoming\n')
+
     def test_other_commands_do_not_expand_source_names(self):
         state = self.root / 'machine.toml.state/state.json'
         before = state.read_bytes()
