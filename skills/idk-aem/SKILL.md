@@ -69,6 +69,9 @@ For inspection of the installed content instead, omit `--source`.
 aem --json locate NAME --source
 ```
 
+Before editing managed content, inspect the located source directory and each parent directory up to and including the reported repository checkout root for applicable contribution and writing guidance.
+Read relevant guidance and follow its referenced documents according to their stated scope and the user's instruction hierarchy; directory placement alone does not establish precedence.
+
 Installed copies and detached contents can differ from the source; publishing does not collect their edits.
 Editing through an active link changes the source immediately.
 For copies, edit the source and apply after committing to refresh the installation.
