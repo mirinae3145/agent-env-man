@@ -393,6 +393,146 @@ class CopyPublication(unittest.TestCase):
         self.assertEqual(fingerprint(self.shared), before)
         self.assertIsNone(self.manager().state.data['pending'])
 
+    def interrupted_collection(self):
+        copy = self.external()
+        (copy / 'first.txt').write_text('Edited', encoding='utf-8')
+        (copy / 'new.txt').write_text('New', encoding='utf-8')
+        items = deepcopy(self.manager().state.data['items'])
+        from agent_env_man import copy_publication
+        replace = copy_publication.os.replace
+
+        def interrupt_stage(source, target):
+            if Path(source).parent.name == 'stages' and Path(target) == self.shared / 'new.txt':
+                raise KeyboardInterrupt('Interrupted before adding new file')
+            return replace(source, target)
+
+        with patch.object(copy_publication.os, 'replace', interrupt_stage):
+            with self.assertRaises(KeyboardInterrupt):
+                self.manager().publish(['files'], from_copy=True)
+        self.assertEqual((self.shared / 'first.txt').read_text(), 'Edited')
+        self.assertFalse((self.shared / 'new.txt').exists())
+        return copy, items
+
+    def test_recovery_preserves_edited_stage_and_backup_before_restoring_any_source(self):
+        copy, items = self.interrupted_collection()
+        state = self.manager().state
+        journal = state.data['pending']
+        paths = [Path(journal['files'][0]['backup']), Path(journal['files'][1]['stage'])]
+        for path in paths:
+            with self.subTest(path=path):
+                original = path.read_bytes()
+                path.write_text('Later user edit', encoding='utf-8')
+                before = state.path.read_bytes()
+                self.assertIn('Recovery stopped', self.cli('recover', code=1))
+                self.assertEqual(path.read_text(), 'Later user edit')
+                self.assertEqual((self.shared / 'first.txt').read_text(), 'Edited')
+                self.assertFalse((self.shared / 'new.txt').exists())
+                self.assertEqual(state.path.read_bytes(), before)
+                path.write_bytes(original)
+        self.cli('recover')
+        self.assertEqual((self.shared / 'first.txt').read_text(), 'First\n')
+        self.assertEqual((copy / 'first.txt').read_text(), 'Edited')
+        self.assertEqual(self.manager().state.data['items'], items)
+        self.assertIsNone(self.manager().state.data['pending'])
+
+    def test_invalid_recovery_journal_preserves_source_and_outside_files(self):
+        self.interrupted_collection()
+        state = self.manager().state
+        original = deepcopy(state.data['pending'])
+        outside = self.root / 'unrelated.txt'
+        outside.write_text('Unrelated', encoding='utf-8')
+        mutations = {
+            'storage': lambda j: j.update(scratch=str(self.root / 'unrelated-storage')),
+            'missing files': lambda j: j.update(files=None),
+            'unknown entry': lambda j: j['files'][0].update(unknown=True),
+            'outside target': lambda j: j['files'][0].update(target=str(outside)),
+            'duplicate target': lambda j: j['files'][1].update(target=j['files'][0]['target']),
+            'outside backup': lambda j: j['files'][0].update(backup=str(outside)),
+            'invalid observation': lambda j: j['files'][0].update(before={'kind': 'file', 'hash': None}),
+            'unknown mode': lambda j: j['modes'][0].update(unknown=True),
+            'outside mode': lambda j: j['modes'][0].update(target=str(self.root)),
+            'boolean mode': lambda j: j['modes'][0].update(before=True),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(case=name):
+                journal = deepcopy(original)
+                mutate(journal)
+                state.data['pending'] = journal
+                state.save()
+                before = state.path.read_bytes()
+                self.assertIn('Invalid' if name != 'missing files' else 'Incomplete',
+                              self.cli('recover', code=1))
+                self.assertEqual(state.path.read_bytes(), before)
+                self.assertEqual((self.shared / 'first.txt').read_text(), 'Edited')
+                self.assertEqual(outside.read_text(), 'Unrelated')
+        state.data['pending'] = original
+        state.save()
+        self.cli('recover')
+        self.assertEqual((self.shared / 'first.txt').read_text(), 'First\n')
+
+    def test_recovery_can_retry_interruption_while_restoring_backup(self):
+        copy, items = self.interrupted_collection()
+        state = self.manager().state
+        backup = Path(state.data['pending']['files'][0]['backup'])
+        from agent_env_man import copy_publication
+        replace = copy_publication.os.replace
+
+        def interrupt_restore(source, target):
+            if Path(source).parent.name == 'stages' and Path(target) == self.shared / 'first.txt':
+                raise KeyboardInterrupt('Interrupted while restoring backup')
+            return replace(source, target)
+
+        with patch.object(copy_publication.os, 'replace', interrupt_restore):
+            with self.assertRaises(KeyboardInterrupt):
+                self.manager().recover()
+        self.assertEqual(backup.read_text(), 'First\n')
+        self.assertIsNotNone(self.manager().state.data['pending'])
+        self.cli('recover')
+        self.assertEqual((self.shared / 'first.txt').read_text(), 'First\n')
+        self.assertEqual(backup.read_text(), 'First\n')
+        self.assertEqual((copy / 'new.txt').read_text(), 'New')
+        self.assertEqual(self.manager().state.data['items'], items)
+        self.assertIsNone(self.manager().state.data['pending'])
+
+    def test_interruption_before_baseline_commit_removes_new_source_files_on_recovery(self):
+        copy = self.external()
+        (copy / 'new.txt').write_text('New', encoding='utf-8')
+        items = deepcopy(self.manager().state.data['items'])
+        before = fingerprint(self.shared)
+        save = State.save
+
+        def interrupt_commit(state):
+            if state.data['pending'] is None and (self.shared / 'new.txt').exists():
+                raise KeyboardInterrupt('Interrupted before baseline commit')
+            return save(state)
+
+        with patch.object(State, 'save', interrupt_commit):
+            with self.assertRaises(KeyboardInterrupt):
+                self.manager().publish(['files'], from_copy=True)
+        self.assertEqual((self.shared / 'new.txt').read_text(), 'New')
+        self.assertEqual(self.manager().state.data['items'], items)
+        self.cli('recover')
+        self.assertEqual(fingerprint(self.shared), before)
+        self.assertEqual((copy / 'new.txt').read_text(), 'New')
+        self.assertEqual(self.manager().state.data['items'], items)
+        self.assertIsNone(self.manager().state.data['pending'])
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX directory permissions')
+    def test_recovery_preserves_later_directory_permission_edits(self):
+        self.interrupted_collection()
+        state = self.manager().state
+        original = state.data['pending']['modes'][0]['before']
+        self.shared.chmod(original ^ 0o020)
+        self.addCleanup(self.shared.chmod, original)
+        before = state.path.read_bytes()
+        self.assertIn('permissions changed', self.cli('recover', code=1))
+        self.assertEqual(self.shared.stat().st_mode & 0o7777, original ^ 0o020)
+        self.assertEqual((self.shared / 'first.txt').read_text(), 'Edited')
+        self.assertEqual(state.path.read_bytes(), before)
+        self.shared.chmod(original)
+        self.cli('recover')
+        self.assertEqual((self.shared / 'first.txt').read_text(), 'First\n')
+
     def test_overlapping_source_payloads_agree_or_fail_before_writing(self):
         copy = self.external()
         (self.shared / 'nested').mkdir()

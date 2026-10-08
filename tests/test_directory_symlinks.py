@@ -324,6 +324,60 @@ class DirectorySymlinks(unittest.TestCase):
         self.assertFalse((self.root / 'copy/nested/secret').exists())
         self.assertEqual((outside / 'secret').read_text(), 'private')
 
+    def test_regular_file_replaced_before_open_is_rejected_without_reading(self):
+        payload = self.repo / 'cases'
+        old = self.root / 'original-file'
+        real_open = payload_links.os.open
+
+        def race(name, flags, *args, **kwargs):
+            if name == 'first.md':
+                (payload / name).rename(old)
+                (payload / name).write_text('Concurrent replacement', encoding='utf-8')
+            return real_open(name, flags, *args, **kwargs)
+
+        with patch.object(payload_links.os, 'open', side_effect=race), \
+                patch.object(payload_links.os, 'read', side_effect=AssertionError('Read replaced file')):
+            with self.assertRaisesRegex(Error, 'changed while opening'):
+                fingerprint(payload, preserve_symlinks=True, source_relative='cases')
+        self.assertTrue(old.is_file())
+        self.assertEqual((payload / 'first.md').read_text(), 'Concurrent replacement')
+
+    def test_file_edited_during_copy_is_rejected(self):
+        payload = self.repo / 'cases'
+        real_read = payload_links.os.read
+        changed = False
+
+        def race(fd, size):
+            nonlocal changed
+            block = real_read(fd, size)
+            if block and not changed:
+                changed = True
+                (payload / 'first.md').write_text('Concurrent edit during copy', encoding='utf-8')
+            return block
+
+        with patch.object(payload_links.os, 'read', side_effect=race):
+            with self.assertRaisesRegex(Error, 'changed during inspection'):
+                copy_payload(payload, self.root / 'copy', preserve_symlinks=True, source_relative='cases')
+        self.assertTrue(changed)
+        self.assertEqual((payload / 'first.md').read_text(), 'Concurrent edit during copy')
+
+    def test_link_replaced_during_inspection_is_rejected(self):
+        payload = self.repo / 'cases'
+        link = self.link(payload / 'reference', 'first.md')
+        real_readlink = payload_links.os.readlink
+
+        def race(name, *args, **kwargs):
+            target = real_readlink(name, *args, **kwargs)
+            if name == 'reference':
+                link.unlink()
+                self.link(link, '/unavailable/new-target')
+            return target
+
+        with patch.object(payload_links.os, 'readlink', side_effect=race):
+            with self.assertRaisesRegex(Error, 'changed during inspection'):
+                fingerprint(payload, preserve_symlinks=True, source_relative='cases')
+        self.assertEqual(os.readlink(link), '/unavailable/new-target')
+
     def test_fifo_refused_without_opening(self):
         os.mkfifo(self.repo / 'cases/pipe')
         with self.assertRaisesRegex(Error, 'Special files'):
