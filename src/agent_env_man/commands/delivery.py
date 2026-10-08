@@ -116,7 +116,9 @@ def bootstrap_skills(config, state, args):
     if candidate.catalog_copy_source is None:
         atomic_write(config.path, tomlkit.dumps(candidate.doc).encode("utf-8"))
     report, failed = manager.prepare_skills(args.item, timeout=args.timeout)
-    result = {"skills": report, "config": str(config.path), "next": "apply --dry-run"}
+    from ..reports import preparation_reports
+    items, legacy = preparation_reports(report, candidate)
+    result = {"items": items, "skills": legacy, "config": str(config.path), "next": "apply --dry-run"}
     if catalog_report:
         result["catalog"] = catalog_report
     return result, failed

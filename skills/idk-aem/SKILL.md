@@ -47,7 +47,8 @@ the group and its source/runtime dependency.
 
 ## Receive updates or inspect the installation
 
-For an inspection, use `aem status`; add global `--json` when later actions need to parse the report.
+For an inspection, use `aem status`; use global `--verbose` for detailed text or `--json` when later actions need to parse the report.
+Read bootstrap JSON `items` for content names and kinds; `skills` is a duplicate legacy view that also contains non-skill content.
 Status is offline; `aem status --refresh` fetches observations without advancing checkouts.
 To receive changes for a selected source and install them, use:
 
@@ -175,6 +176,7 @@ If help does not resolve the question, run `aem docs` to locate the installed RE
 | Ownership conflicts, recovery, integration removal, or uninstalling | Maintenance and recovery |
 | Agent paths, hook formats, or session reload behavior | Agent profiles |
 
-Global `--config PATH` and `--json` precede the command; preserve the user's chosen machine configuration on every call.
+Global `--config PATH`, `--json`, and `--verbose` precede the command; `--json` and `--verbose` are mutually exclusive.
+Preserve the user's chosen machine configuration on every call.
 Use installed-version help and documentation rather than assuming options are shared between subcommands.
 Treat missing or incomplete advertised materials as an installation or documentation issue.

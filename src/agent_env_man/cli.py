@@ -17,15 +17,18 @@ from .model import default_config
 @click.option("--config", type=click.Path(path_type=Path), default=default_config,
               help="Machine-local TOML file.")
 @click.option("--json", "json_output", is_flag=True, help="Emit JSON instead of readable text.")
+@click.option("--verbose", is_flag=True, help="Show detailed text reports; cannot be combined with --json.")
 @click.pass_context
-def cli(ctx, config, json_output):
+def cli(ctx, config, json_output, verbose):
     """Install skills and personal instruction bundles from an independent catalog.
 
-    Global --config and --json options precede COMMAND.
+    Global --config, --json and --verbose options precede COMMAND.
     """
     # Parsing and help must remain side-effect free. Configuration/state reads
     # and locks belong to the selected command's Runtime.run boundary.
-    ctx.obj = Runtime(config, json_output)
+    if json_output and verbose:
+        raise click.UsageError("--json and --verbose are mutually exclusive")
+    ctx.obj = Runtime(config, json_output, verbose)
 
 
 for command in (docs, delivery.bootstrap, delivery.update, delivery.publish,

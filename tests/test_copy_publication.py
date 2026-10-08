@@ -17,7 +17,6 @@ from agent_env_man.git_source import Git
 from agent_env_man.manager import Manager
 from agent_env_man.model import Config, Error
 from agent_env_man.storage import State, fingerprint
-from agent_env_man.output import format_report
 import test_publish as publication_tests
 import test_skill_catalog as skill_tests
 
@@ -247,7 +246,13 @@ class CopyPublication(unittest.TestCase):
         with redirect_stdout(output), redirect_stderr(output):
             code = main(['--config', str(self.config), 'publish', 'one', '--from-copy', '-m', 'Reject'])
         self.assertEqual(code, 1)
-        self.assertEqual(output.getvalue(), format_report([report]) + '\n')
+        text = output.getvalue()
+        self.assertIn('failed', text)
+        self.assertIn(conflict['copy'], text)
+        self.assertIn(conflict['source'], text)
+        for argument in conflict['compare']:
+            self.assertIn(argument, text)
+        self.assertEqual(self.manager().state.path.read_bytes(), previous)
 
     def test_remote_behind_refuses_before_collection_and_index_changes(self):
         copy = self.install()

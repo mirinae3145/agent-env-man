@@ -14,7 +14,8 @@ from . import self_update
 from .agents import PROFILES, profile
 from .manager import Manager
 from .model import Config, Error, MachineFile, identifier
-from .output import format_report
+from .output import human_report
+from .reports import describe_report
 from .storage import State, lock
 
 
@@ -90,13 +91,24 @@ class Session:
 class Runtime:
     config_path: Path
     json_output: bool = False
+    verbose: bool = False
 
-    def emit(self, report, *, machine=False):
+    def emit(self, report, *, machine=False, failed=False):
         if machine and isinstance(report, str):
             click.echo(report)
             return
-        click.echo(json.dumps(report, indent=2, ensure_ascii=True)
-                   if machine or self.json_output else format_report(report))
+        if machine or self.json_output:
+            click.echo(json.dumps(report, indent=2, ensure_ascii=True))
+            return
+        context = click.get_current_context(silent=True)
+        commands = []
+        planned = False
+        while context is not None and context.parent is not None:
+            commands.append(context.info_name)
+            planned |= bool(context.params.get("dry_run"))
+            context = context.parent
+        click.echo(human_report(report, command=" ".join(reversed(commands)),
+                                verbose=self.verbose, planned=planned, failed=failed))
 
     def run(self, operation, *, maintenance=False, missing_ok=False, preview=False,
             status_fallback=False, callback=None, agent=None, output=None):
@@ -157,7 +169,9 @@ class Runtime:
                            for path, data in snapshot.items()):
                         raise Error('Saved instruction locations changed during lookup; retry after the active command')
                 if output is None:
-                    self.emit(report, machine=callback is not None)
+                    if callback is None:
+                        report = describe_report(report, config, state)
+                    self.emit(report, machine=callback is not None, failed=failed)
                 else:
                     output(report)
         except OPERATION_ERRORS as exc:

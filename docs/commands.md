@@ -1,14 +1,20 @@
 # Command reference
 
 ```text
-aem [--config PATH] [--json] COMMAND [ARGS]
+aem [--config PATH] [--json | --verbose] COMMAND [ARGS]
 ```
 
-`--config` and `--json` are global options and must precede the command.
+`--config`, `--json`, and `--verbose` are global options and must precede the command.
 Command-specific options follow their command, for example `aem --json catalog publish --dry-run`.
 Options require their full spelling; abbreviated long options are rejected.
 Every command accepts `-h` or `--help`.
-Ordinary commands print human-readable fields and indented lists by default, including when stdout is redirected.
+Ordinary commands print concise summaries by default, including when stdout is redirected.
+Content results are grouped as instructions, skills, directories, settings, or hooks when their type is known; source and repository results remain separate.
+Result counts count operation results, so preparation and staging of one setting, or separate instruction installation components, can contribute multiple results.
+Empty results are explicit; routine paths, revisions, empty fields, and duplicate compatibility views are omitted.
+Errors, conflicts, pending recovery, comparison arguments, settings field paths, and required notices remain visible.
+Use `--verbose` for detailed text, for example `aem --verbose status`; it cannot be combined with `--json` (usage error, exit `2`).
+Text durations include units, and previews and last-fetch observations are distinguished from completed operations and current remote observations.
 Use `--json` for the existing JSON report schema, for example `aem --json status` or `aem --json catalog status`.
 Scripts that parse stdout must add `--json`; startup and agent-hook callbacks retain JSON automatically.
 Ordinary operation errors use stderr and exit `1`, argument parsing errors exit `2`.
@@ -274,8 +280,15 @@ Failed catalog download or validation preserves the previous binding and leaves 
 An interrupted machine-file save may leave a validated checkout that the same registration can reuse.
 Existing machine settings and omitted external/root bindings are preserved.
 
-The JSON result retains `skills`, `config`, and `next`.
-The legacy `skills` array also contains directory preparation results: Git entries use `directory: NAME`, while external entries use the existing `source: NAME` and `external-ready` fields.
+The JSON result adds `items`, an ordered array of preparation and settings-stage results.
+Each item has `name` (the catalog content name), `kind` (`skill`, `instruction`, `directory`, `setting`, or `personal-hook`), `phase` (`source` for content preparation or `stage` for settings-stage preparation), and the original status and applicable path, checkout, stage, or error fields.
+Separate operations for the same content remain separate results, including source preparation and settings-stage preparation.
+The result retains `skills`, `config`, and `next` for compatibility.
+The legacy `skills` array preserves its existing values and order, including non-skill results and their historical `skill`, `directory`, `setting`, or `source` identity keys.
+Non-skill entries additionally carry their actual `kind` and a `compatibility_note` directing consumers to `items`.
+There is no scheduled removal of the legacy fields; new consumers should read `items`.
+Other ordinary command results add `kind` to identifiable content rows using already loaded declarations or saved ownership, without changing source/repository result identity or forcing catalog reads during maintenance.
+Text output uses the canonical items and omits the legacy duplicate in both default and verbose mode.
 For Git bindings it also includes `catalog`, with `status` (`cloned` or `already-prepared`), absolute `checkout` and `entry` paths, `repository`, resolved `branch`, and `revision`.
 
 ## catalog

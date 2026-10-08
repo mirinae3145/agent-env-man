@@ -9,12 +9,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Global `--verbose` for detailed text reports.
 - Platform-independent catalog reading and delivery for directory link-preservation declarations, with item-level Windows diagnostics and preflight refusal before unsupported content operations.
 Independent supported items remain usable; shared-source and saved ownership protection remain enforced.
 - Explicit full-automation exclusion of platform-unsupported items through machine `automation.skip_unsupported` and installer/setup `--automation-skip-unsupported` / `--no-automation-skip-unsupported` options.
 The default remains refusal; previews and full results report exclusions, while policy-based automation retains independent failures and throttling.
 - Managed instruction bundle copies with global entries linked into the installed reading tree, offline location and hook lookup, machine mode overrides, and explicit `publish --from-copy` collection with conflict protection.
 - Copy-backed local catalog bindings through `bootstrap --catalog-copy`, with offline consumption, explicit validated update and `catalog publish --from-copy`, source location, common-baseline conflict protection, and recoverable file/binding changes.
+
+### Changed
+
+- Default CLI reports summarize results by content type, omit routine metadata, and retain failure, conflict, recovery, settings field paths, and action notices.
+Text distinguishes previews and last-fetch observations and adds duration units.
+
+### Fixed
+
+- Non-skill bootstrap content was reported under skill identities.
+Canonical JSON `items` identify content names, kinds, and preparation phases; legacy `skills` results remain compatible with explanatory fields on non-skill entries.
+Text uses the correct content groups without duplicating the legacy view.
+- Empty command results no longer print an unexplained `none`; summaries describe when there is no content to prepare, install, inspect, update, or detach.
 
 ## [1.2.0-beta] &mdash; 2026-10-08
 

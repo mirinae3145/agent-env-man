@@ -37,9 +37,9 @@ These files match the installed package and can be read without a repository che
 AEM uses one package version for command, catalog, and existing-installation compatibility.
 Review the [compatibility policy](docs/compatibility.md) and [existing-installation precautions](docs/removed-interfaces.md) before upgrading across an incompatible release.
 
-CLI commands show readable fields and indented lists by default.
-For scripts, add the global `--json` option before the command, for example `aem --json status`.
-Put global options (`--config`, `--json`) before the command and command-specific options after their command.
+Default output summarizes results by content type; use `aem --verbose status` for detailed text.
+For scripts, add the global `--json` option before the command, for example `aem --json status`; it cannot be combined with `--verbose`.
+Put global options (`--config`, `--json`, `--verbose`) before the command and command-specific options after their command.
 Installed startup and instruction callbacks continue to emit their required JSON automatically.
 
 ## Install and connect this machine
