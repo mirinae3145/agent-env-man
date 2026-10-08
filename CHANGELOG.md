@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.0-beta] &mdash; 2026-10-08
+
+First beta of 1.2.0; Git tag `v1.2.0-beta` corresponds to Python package version `1.2.0b0`; based on `v1.1.1`.
+
 ### Added
 
 - Opt-in POSIX symbolic link preservation for general directories with `preserve_symlinks`, including installation, updates, reverse copy collection, detach, and recovery.
@@ -282,7 +286,8 @@ Maintenance commands can still inspect, detach, recover, and remove saved integr
 - Linux/WSL and native Windows path handling, with Python 3.11 or later and Git required.
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
-[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0-beta...HEAD
+[1.2.0-beta]: https://github.com/mirinae3145/agent-env-man/compare/v1.1.1...v1.2.0-beta
 [1.1.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.0...v1.0.1
