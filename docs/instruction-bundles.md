@@ -99,7 +99,7 @@ aem bootstrap /home/me/ai-config/instructions.toml --external personal-documents
 No machine file needs to be prepared first.
 The positional argument selects the local catalog; `--catalog PATH` is an equivalent spelling.
 Repeat `--external NAME=PATH` for each external source that needs a binding.
-The name must be declared in `[externals]`; the path is expanded for `~` and resolved relative to the command's working directory before being saved as an absolute path.
+The name must be declared in `[sources.NAME]` with `type = "external"`; the path is expanded for `~` and resolved relative to the command's working directory before being saved as an absolute path.
 Omitted bindings are reused on subsequent bootstrap calls; a required binding with no saved value is an error.
 Duplicate names and unknown names are rejected before saving or cloning.
 A Git-only catalog needs no external binding.
@@ -157,6 +157,8 @@ Apply installs the directory link, original-entry link, and then the hook regist
 If an existing global AGENTS.md occupies the destination, ordinary apply reports a conflict rather than overwriting it.
 Use the existing conflict/adoption/replacement workflow only after deciding how to preserve that content.
 
+### Installed tree
+
 After successful apply:
 
 ```text
@@ -174,6 +176,8 @@ After successful apply:
   -> /home/me/Syncthing/agent-documents/guidance/start.md
 /home/me/.codex/hooks.json                        merged hook configuration
 ```
+
+### Hook registration and trust
 
 `/home/me/.codex/AGENTS.md` now reads exactly the original `start.md` contents.
 No locator command is inserted into that document.
@@ -213,6 +217,8 @@ Do not bypass hook trust: review the generated command in Codex before trusting 
 Codex requires review for new/changed non-managed hooks and supplies SessionStart output as extra developer context; AEM supplies only path metadata, not the personal instruction text.
 See the [official hook documentation](https://learn.chatgpt.com/docs/hooks).
 
+### Reading-location metadata
+
 For the external example, the callback's `hookSpecificOutput.additionalContext` contains these location fields plus relative-reference guidance:
 
 ```json
@@ -228,6 +234,8 @@ For the external example, the callback's `hookSpecificOutput.additionalContext` 
 An entry may be nested, so its parent directory need not equal `root`.
 These fields describe locations, not the entry's subject matter or applicability.
 
+### Resolve document references
+
 The callback does not request another reading of the entry.
 If its contents are already present in the agent's context, the agent should not reread them solely to establish these paths; the callback does not assume that the host has loaded them.
 Relative references in the entry resolve from the parent directory of `entry`, not the installed entry's directory or the working directory.
@@ -236,6 +244,9 @@ For example, an entry at `root/entry/start.md` resolves `../research/workflow.md
 The user documents continue to determine applicability and reading order; location metadata does not trigger a scan or reading of every file in the bundle.
 The hook omits installation diagnostics: `aem locate personal` still reports `installed_root` (AEM's installed bundle path) and `detached` (bundle ownership released).
 After detaching only the bundle directory, that installed path holds a preserved copy while the global entry still links to the live source; the hook continues to supply the live source's `root` and `entry` until the global entry is detached too.
+
+### Lookup failures and diagnostics
+
 The callback reads saved installation records without fetching, loading the catalog, or rewriting ownership records.
 If lookup fails, it returns a structured `continue: false` stop request and visible error instead of a guessed path.
 Codex cannot receive that response if the interpreter itself is missing or the hook is disabled/untrusted; verify registration and trust through `/hooks`.
@@ -288,7 +299,6 @@ C:/Users/me/.codex/hooks.json
 ```
 
 The generated command explicitly invokes an encoded PowerShell command on Windows and uses POSIX quoting on Linux/WSL; paths containing spaces are supported.
-Tests execute the generated encoded command in native Windows PowerShell with quoted configuration paths; delivery through a real approved agent session remains a separate integration check.
 AEM does not transfer the catalog or source documents between these devices.
 
 ## Changes, missing sources, and management removal
@@ -304,6 +314,8 @@ AEM does not transfer the catalog or source documents between these devices.
 | Write through the global AGENTS.md link | The original entry changes immediately. Replace the link with a regular file to keep a separate local edit; apply then reports a conflict. |
 | Detach bundle and entry | AEM materializes both links, releases their ownership and the associated hook ownership, and retains hook configuration for continued root discovery. |
 | Edit/remove the AEM hook group | Ordinary apply reports a conflict. Explicit replacement restores only the owned group and preserves other hooks. |
+
+### Detach the bundle and entry
 
 To detach the example:
 
@@ -409,12 +421,6 @@ For example, `install.bundle.root = "rules"`, `install.bundle.destination = "per
 Removing those fields from an installed bundle can change its target path, so detach and deliberately reattach if you want to move to the default.
 For old catalogs, follow the [catalog v2 transition](removed-interfaces.md#catalog-v2-transition).
 Older state and generated-guide installations are not upgraded in place; follow [Removed interfaces](removed-interfaces.md) before installing the current version.
-
-## Validation performed
-
-The offline tests cover bootstrap/preview without registration, exact original-entry links, preserved unrelated hooks, idempotence, local edits, failed writes and recovery, detached copies, missing sources, and command quoting.
-Native Windows tests also execute the generated hook in PowerShell and verify literal-path shell navigation in temporary environments.
-Delivery into a real approved model session remains unverified.
 
 ## Keep a managed copy for offline reading
 

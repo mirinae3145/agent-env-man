@@ -36,11 +36,22 @@ aem setup --automation off
 For a newly declared skill in an existing shared checkout, full mode validates the skill against the fetched revision before advancing the checkout, rather than requiring its path in the older local revision.
 Missing checkouts are still cloned and validated during preparation; standalone `bootstrap` never updates existing checkouts.
 
-Full mode uses one shared trigger list and attempt interval, including failed attempts.
-Its defaults are shell/agent startup, 3600 seconds between attempts, and 30 seconds per content/catalog Git phase.
-It replaces individual automatic triggers, intervals, and check/sync actions for this run.
-Skills and directories without an explicit trigger policy participate; explicit `manual` exclusions resolve through catalog defaults, named policy, and item fields.
-Detached skills, directories, and instruction groups remain excluded.
+### Schedule and eligibility
+
+| Schedule field | Full-mode default |
+| --- | --- |
+| Events | Shell and agent startup. |
+| Attempt interval | 3600 seconds, including failed attempts. |
+| Git timeout | 30 seconds per content/catalog phase. |
+
+Full mode uses one shared trigger list and attempt interval, replacing individual triggers, intervals, and check/sync actions for the run.
+
+- Skills and directories without an explicit trigger policy participate.
+- Explicit empty-trigger exclusions resolve through catalog defaults, named policy, and item fields.
+- Detached skills, directories, and instruction groups remain excluded.
+
+### Unsupported items
+
 By default, a platform-unsupported item stops the content stage before preparation, source updates, or installation.
 On native Windows this includes directories declaring `preserve_symlinks = true`, even when their current contents contain no links.
 To explicitly exclude these items from subsequent full runs on this machine, use `aem setup --automation full --automation-skip-unsupported` (full mode still requires registered runtime paths).
@@ -52,12 +63,17 @@ An excluded item sharing a source with a remaining item still participates in so
 The check uses the updated catalog; earlier tool and catalog stages are not rolled back.
 Dry run reports support and exclusions against the local catalog without fetching or recording attempts; actual execution checks again after catalog delivery.
 In policies mode, unsupported due items fail independently while other independent items continue, retaining normal failure throttling.
-Shared checkout updates can still change linked consumers excluded from installation, including manual skills; this is the existing shared-source contract.
-It never adopts conflicts, replaces user edits, reattaches detached content, removes undeclared targets, or grants agent hook trust.
-New valid catalog declarations can be prepared and installed in full mode.
-For existing shared Git checkouts, directory paths introduced by new declarations are validated against the incoming revision before fast-forwarding, so they need not exist in the current revision.
-Dirty sources and divergent histories require explicit reconciliation; automation never merges or stashes them.
-A failed stage stops later stages; successful earlier work remains and normal per-target recovery rules apply.
+
+### Preservation and failure boundaries
+
+- Shared checkout updates can still change linked consumers excluded from installation, including manual skills; this is the existing shared-source contract.
+- It never adopts conflicts, replaces user edits, reattaches detached content, removes undeclared targets, or grants agent hook trust.
+- New valid catalog declarations can be prepared and installed in full mode.
+- For existing shared Git checkouts, directory paths introduced by new declarations are validated against the incoming revision before fast-forwarding, so they need not exist in the current revision.
+- Dirty sources and divergent histories require explicit reconciliation; automation never merges or stashes them.
+- A failed stage stops later stages; successful earlier work remains and normal per-target recovery rules apply.
+
+### Runtime requirements and results
 
 The installer must register an external Python, uv, and the installation directories before full mode can be enabled, even when tool updates are off.
 No OS scheduler or daemon is installed: use startup integrations or `aem automation --trigger interval` from an external scheduler.
@@ -79,6 +95,8 @@ aem self update                  # Queue an explicit compatible release update.
 aem self update --mode breaking  # Permit incompatible releases for this attempt.
 ```
 
+### Release permission and tag selection
+
 For final releases from `1.0.0` onward, `compatible` permits newer final releases in the same major version.
 For a prerelease, `compatible` permits only a higher numeric subversion with the same base `X.Y.Z` and the same `a`, `b`, or `rc` label (for example, `1.0.0rc1` to `1.0.0rc2`).
 Changing the label, base version, or moving to a final release requires `breaking`.
@@ -99,6 +117,8 @@ AEM reads `vVERSION` tags from its upstream Git repository, verifies the matchin
 Use the installer's `--update-repository URL` to select another release repository.
 Development checkout edits are not published or installed by this path.
 
+### Scheduling and completion
+
 In `policies` mode with tool updates enabled, the existing startup callback queues at most one attempt per day across shell and agent events; failures are throttled too.
 It works without a bound content catalog.
 The worker waits for the requesting AEM process to exit, then uses the installer's external Python rather than the environment being replaced.
@@ -107,6 +127,8 @@ A queued result means the attempt has been scheduled, not completed; use `aem se
 Explicit updates bypass the daily throttle and work even with automatic updates off.
 Content updates, catalog delivery, instruction location callbacks, and `auto` do not update AEM itself.
 No daemon or OS scheduler is installed.
+
+### Replacement and repair
 
 Self-updates coordinate registered AEM commands sharing the same uv tools directory.
 Commands can report lock contention during replacement; startup remains fail-open.
@@ -136,11 +158,15 @@ Repeated trigger options replace the complete event list; omitted options retain
 Policy-only setup needs no executable or startup selections and leaves existing profiles alone.
 The underlying `catalog_update` table remains documented in [Configuration](configuration.md#catalog-automatic-update-settings).
 
+### Eligibility and startup sequence
+
 The default trigger is `manual`; automatic updates require a Git catalog binding.
 In `policies` mode, setup's existing startup callback updates a due catalog first, then resolves skill policies from the validated new catalog.
 If that catalog attempt fails, the callback skips skill updates for the event and still allows startup to continue.
 External callers can use `aem catalog auto --trigger interval`; add `--dry-run` for an offline preview.
 `aem auto` operates on skill and directory policies.
+
+### Throttling and preservation
 
 Catalog automation shares one attempt clock across events, throttling failures too.
 It uses the same validation and fast-forward guards as `aem catalog update`, preserving local edits and the previous catalog on validation failure.
@@ -172,6 +198,8 @@ Setup connects interactive shell and agent startup to a fail-open `startup` call
 Without setup, external callers can invoke `aem auto --trigger shell-start`, `agent-start`, or `interval`.
 For `interval`, arrange an OS scheduler; AEM does not run a daemon.
 Preview due work with `aem auto --trigger agent-start --dry-run`.
+
+### Independent outcomes
 
 Each skill or directory has one attempt clock across events; failed attempts are throttled too.
 Automatic sync handles skills and directories independently and preserves conflicts and detached items.
@@ -209,15 +237,22 @@ Once the exclusions are saved, restore full mode with `aem setup --automation fu
 ## Personal hooks
 
 Personal hook registrations are always excluded from policies and full mode.
-Explicit `apply --item NAME` is required. A skill sharing a source checkout can
-still update a live script; registration definitions and trust remain unchanged.
+Explicit `apply --item NAME` is required.
+A skill sharing a source checkout can still update a live script; registration definitions and trust remain unchanged.
 See [Personal hooks](personal-hooks.md).
 
 ## Startup contention and shared fetches
 
-Startup callbacks wait up to five seconds for short lock contention. On Linux/WSL, instruction callbacks can return validated saved location metadata while a content update holds the configuration lock. They still refuse package-replacement contention, pending recovery, replaced links, or a saved configuration/state change during lookup. Native Windows retains exclusive installation locking.
+Startup callbacks wait up to five seconds for short lock contention.
+On Linux/WSL, instruction callbacks can return validated saved location metadata while a content update holds the configuration lock.
+They still refuse package-replacement contention, pending recovery, replaced links, or a saved configuration/state change during lookup.
+Native Windows retains exclusive installation locking.
 
-In one automatic skill-policy run, skills sharing a prepared checkout, remote, branch, and Git timeout reuse the same fetch observation, including a network failure. Different timeout budgets fetch separately. Each skill retains its own selection, attempt clock, outcome, local-file checks, and application. Later events fetch again when due; manual commands remain unthrottled.
+In one automatic skill-policy run, skills sharing a prepared checkout, remote, branch, and Git timeout reuse the same fetch observation, including a network failure.
+Different timeout budgets fetch separately.
+Each skill retains its own selection, attempt clock, outcome, local-file checks, and application.
+Later events fetch again when due; manual commands remain unthrottled.
 Checks and sync guards compare HEAD with their fetched or reused commit, even if a different timeout's fetch updates the shared remote-tracking ref during the run.
 
-Policy updates remain synchronous and must fit the configured outer startup hook duration. Reusing fetches reduces network work but does not impose a total run deadline or queue policy runs in the background.
+Policy updates remain synchronous and must fit the configured outer startup hook duration.
+Reusing fetches reduces network work but does not impose a total run deadline or queue policy runs in the background.

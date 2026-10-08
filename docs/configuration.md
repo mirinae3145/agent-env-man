@@ -111,17 +111,19 @@ General directories use Git or external sources and require no entry document, s
 | `install` | Table | Optional installation settings below. |
 | `update` | Table | Optional policy selection and overrides, using the same rules as skills. |
 
-`directories.NAME.install` accepts `root`, `destination`, and `mode`.
-`root` is a machine root name, defaulting to `"home"` when omitted.
-Bootstrap preserves a saved `roots.home`, or records the current user's absolute home directory when the binding is absent.
-Use `--root home=PATH` for an explicit initial binding, or `--root NAME=PATH` to bind another declared root.
-An explicitly named root without a machine binding is an error; it never falls back to `home`.
-`destination` is a literal relative directory path below that root, defaulting to the item name.
-`mode` is `"link"` by default or explicit `"copy"`; machine `modes.NAME` overrides it.
-The entire `install` table may be omitted to use these defaults.
-Each declaration creates one agent-independent target and ownership ID `NAME:directory`; commands also accept the catalog name.
-The target cannot own an entire configured root or overlap sources, other targets, catalog, stages, or manager storage.
-Path and mode changes require detach before reconfiguration.
+- `directories.NAME.install` accepts `root`, `destination`, and `mode`.
+- `root` is a machine root name, defaulting to `"home"` when omitted.
+  Bootstrap preserves a saved `roots.home`, or records the current user's absolute home directory when the binding is absent.
+  Use `--root home=PATH` for an explicit initial binding, or `--root NAME=PATH` to bind another declared root.
+- An explicitly named root without a machine binding is an error; it never falls back to `home`.
+- `destination` is a literal relative directory path below that root, defaulting to the item name.
+- `mode` is `"link"` by default or explicit `"copy"`; machine `modes.NAME` overrides it.
+- The entire `install` table may be omitted to use these defaults.
+- Each declaration creates one agent-independent target and ownership ID `NAME:directory`; commands also accept the catalog name.
+- The target cannot own an entire configured root or overlap sources, other targets, catalog, stages, or manager storage.
+- Path and mode changes require detach before reconfiguration.
+
+#### Payload and platform support
 
 The selected source must be a directory; its root and selected ancestry cannot redirect through links.
 By default its payload accepts only regular files and directories.
@@ -137,6 +139,8 @@ Full automation can explicitly exclude unsupported items through the machine's `
 Other reparse points, special files, and Git submodules remain unsupported.
 This option does not enable links in skills, instructions, settings, or hooks.
 
+#### Symbolic link identity and relocation
+
 Relative link targets are interpreted component by component from the link's parent and must never step above the source root, even if later components would return inside it.
 The boundary is the entire Git checkout or bound external root, not `subdir`, an entry document, or an installation/staging directory.
 Absolute POSIX link targets and dangling links are allowed.
@@ -145,6 +149,8 @@ Link identity contributes to payload hashes; referent contents and availability 
 Copy, detach, and recovery preserve link text, not the identity or availability of its resolved target: a relative link outside the copied subtree can resolve differently afterward.
 Absolute links depend on each device's filesystem layout.
 These are payload rules, not a sandbox for programs consuming the installed directory.
+
+#### Policy changes and preservation
 
 Git tree links must materialize as actual filesystem links; text checkouts such as `core.symlinks=false` are refused without automatic configuration changes.
 Ignored links participate in local payload validation, copies, and detach, but are not transmitted by Git.
@@ -174,11 +180,14 @@ External transport remains outside AEM; copy publication only hands content to t
 
 `install.bundle` accepts optional `root`, `destination`, and `mode` (`"link"` by default, or `"copy"`).
 Machine `modes.NAME` overrides the bundle mode; the global entry always remains a link.
-`root` names a machine root for bundle installation; omission uses `<machine-file>.bundles`.
-`destination` is a relative bundle destination and defaults to the instruction name.
-`install.entry` accepts only optional `root` and `destination`.
-`root` names a machine root for the global entry and hook file; omission uses selected agent roots.
-`destination` is a relative global entry destination and defaults to the agent's entry filename (`AGENTS.md` for Codex).
+
+- `root` names a machine root for bundle installation; omission uses `<machine-file>.bundles`.
+- `destination` is a relative bundle destination and defaults to the instruction name.
+- `install.entry` accepts only optional `root` and `destination`.
+- `root` names a machine root for the global entry and hook file; omission uses selected agent roots.
+- `destination` is a relative global entry destination and defaults to the agent's entry filename (`AGENTS.md` for Codex).
+
+#### Installation and ownership
 
 An explicit `install.entry.root` selects one destination; without it at least one machine agent must be selected.
 Bootstrap supplies `roots.agent`, but an instruction declaration must either refer to it or use an agent binding.
@@ -292,11 +301,15 @@ Ordinary catalog operations always consume that copy, even when the original is 
 The copied file remains editable; valid edits are used on the next command, while malformed edits require repair before content operations.
 `catalog locate` finds the editable copy without parsing its TOML, and `catalog locate --source` reports the original even when absent.
 
+#### Reception and reverse publication
+
 `catalog update` explicitly receives original changes, and `catalog publish --from-copy` explicitly returns copy edits.
 Both compare a saved common content hash: one-sided changes flow only in their selected direction, equal contents advance the baseline, and competing changes stop without overwriting.
 No automatic merge, force publication, or local catalog automatic refresh is provided.
 Source absence does not prevent use of the copy, but update/publication require an existing regular original and never recreate it.
 External synchronization remains outside AEM.
+
+#### Rebinding and storage
 
 Bootstrap with an unchanged binding reuses the copy without refreshing it.
 Rebinding can replace only an unchanged owned copy; preserve and reconcile local edits first.
@@ -333,10 +346,13 @@ The entry and checkout must not redirect through symlinks or junctions.
 Reading a Git catalog validates its checkout origin, recorded branch, and tracked entry without fetching; local edits remain readable.
 Run bootstrap after manually specifying a Git binding without a branch.
 
+#### Git binding maintenance
+
 Only `catalog update` advances an existing catalog checkout.
 Bootstrap reuses it without pulling, and content update/sync/skill automatic policies do not refresh it.
 Catalog updates can run automatically only through the independent device policy below.
-Catalog status and locate also support local bindings; update and publish require Git.
+Catalog status and locate also support local bindings.
+Update and publish support Git bindings and the explicit local copy workflow; direct local file bindings do not support either operation.
 Switching to a local binding preserves the old Git checkout.
 Reusing the same Git checkout requires a matching origin and branch; a new binding never resets or replaces a mismatching repository.
 To switch repositories, preserve or move the old `<machine-file>.catalog` checkout explicitly before bootstrapping the new binding.
@@ -360,6 +376,9 @@ See [Agent startup hook duration](#agent-startup-hook-duration) for the independ
 `setup.shells` maps `bash`, `zsh`, or `powershell` to absolute profile paths.
 Manage these selections with `aem setup`; editing TOML does not itself install or remove profile blocks, hook groups, or official skill links.
 Setup rejects an invalid executable path before writing profiles and requires an existing executable except during dry run.
+
+#### Official skill installation
+
 General setup also attempts to install an owned `idk-aem` link for each connected agent under its configured `skills` directory, pointing to the official skill shipped in the installed AEM package.
 This ancillary link is attempted after core setup is saved; a recoverable link failure is reported separately without preventing the agent selection from being connected or removed.
 The root-level source `skills/idk-aem/SKILL.md` is included through setuptools package-resource mapping; a development checkout is not required for installed use.
@@ -380,6 +399,8 @@ Do not synchronize machine files, checkouts, or state between devices.
 Share a Git catalog through its repository, letting each device prepare its own checkout and machine binding.
 External roots must be disjoint from each other, managed checkout storage, the catalog, machine file, and state.
 Targets may not overlap sources, manager storage, or another owned target tree.
+
+#### Maintenance without valid installation configuration
 
 The catalog is loaded lazily so status, detach, locate, recover, and setup can still operate when it is unavailable.
 Status reports catalog errors alongside saved installation observations.
@@ -411,6 +432,8 @@ Unknown fields are rejected.
 | `uv` | Absolute path string | Installer-discovered uv executable. |
 | `tool_dir` | Absolute path string | Installer-discovered uv tools directory; also identifies the shared installation lock. |
 | `bin_dir` | Absolute path string | Installer-discovered executable directory; passed to uv to preserve executable locations. |
+
+### Runtime and release selection
 
 All four runtime paths are required when enabling automatic updates or requesting an explicit update.
 For final releases from `1.0.0` onward, `compatible` permits the same major.
@@ -473,6 +496,8 @@ Boolean numeric values are rejected.
 Its tool stage retains the self-update release permission (`off`, `compatible`, or `breaking`); the copied worker uses the existing 300-second tool subprocess bounds.
 Full mode requires installer-registered runtime paths even when tool updates are off.
 
+### Full-mode eligibility and cancellation
+
 In full mode the implicit skill/directory trigger default becomes eligible for the full run, while explicitly declared trigger fields keep the existing precedence.
 A resulting explicit or inherited `[]` excludes a skill or directory; other trigger lists and per-item actions/intervals are replaced by the full-run schedule and prepare/update/apply behavior.
 Instruction groups with detached components are excluded together; remaining bundles participate without introducing instruction-specific policy tables.
@@ -508,9 +533,10 @@ See [Staged settings](settings-management.md) for the canonical metadata grammar
 
 ## Personal hook declarations and runtime bindings
 
-`hooks.NAME` accepts exactly `source` (a declared source name) and `agents` (a
-nonempty table of product bindings). Names share the content namespace. At least
-one declared agent must be selected by the machine. Each binding accepts:
+`hooks.NAME` accepts exactly `source` (a declared source name) and `agents` (a nonempty table of product bindings).
+Names share the content namespace.
+At least one declared agent must be selected by the machine.
+Each binding accepts:
 
 | Field | Contract |
 |---|---|
@@ -521,14 +547,16 @@ one declared agent must be selected by the machine. Each binding accepts:
 | `timeout` | Positive integer seconds; defaults to 10, except Codex SessionEnd/Interrupt default and maximum 3. |
 | `matcher` | Optional native regular-expression string; expressions must pass Python regex syntax validation (`"*"` is also accepted as match-all), and unsupported matcher events are refused. Use expressions supported by the target product. |
 
-Both profiles support SessionStart, SessionEnd, PreToolUse, PermissionRequest,
-PostToolUse, PreCompact, PostCompact, SubagentStart, Stop, SubagentStop and
-UserPromptSubmit. Codex additionally supports Interrupt; Claude additionally
-supports PostToolUseFailure. UserPromptSubmit and Stop do not accept matchers; Codex Interrupt also refuses them.
+### Supported personal hook events
+
+Both profiles support SessionStart, SessionEnd, PreToolUse, PermissionRequest, PostToolUse, PreCompact, PostCompact, SubagentStart, Stop, SubagentStop and UserPromptSubmit.
+Codex additionally supports Interrupt; Claude additionally supports PostToolUseFailure.
+UserPromptSubmit and Stop do not accept matchers; Codex Interrupt also refuses them.
 Claude SessionEnd timeout is capped at 60 seconds.
-Only command hooks are supported; async/prompt/agent hooks, environment maps and
-plugin-only fields are not part of this declaration. Native products may impose
-additional event restrictions; the script must follow their actual contract.
+Only command hooks are supported; async/prompt/agent hooks, environment maps and plugin-only fields are not part of this declaration.
+Native products may impose additional event restrictions; the script must follow their actual contract.
+
+### Runtime binding and ownership
 
 Machine `runtimes` maps identifiers to absolute existing executable paths:
 
@@ -537,16 +565,16 @@ Machine `runtimes` maps identifiers to absolute existing executable paths:
 python = "/absolute/python"
 ```
 
-Interpreter paths preserve symlinks, including virtualenv interpreter paths, so
-execution uses the bound environment rather than its base interpreter.
-Bootstrap's repeated `--runtime NAME=PATH` binds these paths without installing
-anything. Omitted bindings persist. Duplicate names in one call are refused.
-This additive syntax keeps catalog version 2 and machine version 1; older AEM
-packages reject the new fields. No migration is needed for existing catalogs.
+Interpreter paths preserve symlinks, including virtualenv interpreter paths, so execution uses the bound environment rather than its base interpreter.
+Bootstrap's repeated `--runtime NAME=PATH` binds these paths without installing anything.
+Omitted bindings persist.
+Duplicate names in one call are refused.
+This additive syntax keeps catalog version 2 and machine version 1; older AEM packages reject the new fields.
+No migration is needed for existing catalogs.
 Personal ownership IDs are `NAME:hook` for Codex and `NAME:hook@claude` for Claude.
-Select `NAME` to apply all declared agent bindings, or an exact ID for one binding;
-`--agent` further filters the selection. Plain apply and automatic full mode
-exclude these items. See [Personal hooks](personal-hooks.md) for the lifecycle.
+Select `NAME` to apply all declared agent bindings, or an exact ID for one binding; `--agent` further filters the selection.
+Plain apply and automatic full mode exclude these items.
+See [Personal hooks](personal-hooks.md) for the lifecycle.
 
 ## Agent startup hook duration
 

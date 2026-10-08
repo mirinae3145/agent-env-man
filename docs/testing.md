@@ -35,9 +35,13 @@ Both installations must have identical command behavior, configuration defaults,
 Installing either package does not register shell or agent integrations; `aem setup` owns those explicit changes.
 The repository installer combines package installation and requested setup as a user-facing workflow.
 
+### Runtime dependency isolation
+
 Runtime commands must not import development or build tools.
 Build-system requirements provision isolated package builds independently of the `dev` extra; setuptools in `dev` supports source build-hook tests.
 Keep the standalone installer and copied worker standard-library-only, and verify them with Python site packages disabled.
+
+### Installed distribution checks
 
 Source tests in an editable development environment and verification of an installed distribution are separate acceptance checks.
 For packaging or dependency changes, also install a built wheel without extras into a fresh environment with neither coverage.py nor setuptools, and run the runtime verifier from the checkout:
@@ -77,6 +81,8 @@ Coverage data and reports are ignored local artifacts.
 There is no minimum coverage threshold or automatic CI or hook enforcement.
 Keep coverage.py's default exclusions; do not exclude whole files to improve the percentage.
 
+### Interpret coverage results
+
 Review unmeasured failure, recovery, and platform paths for meaningful behavior tests before choosing a minimum threshold.
 Record the source revision, environment, test outcomes and skips, statement and branch coverage, and combined percentage with validation results rather than embedding changing baselines in this guidance.
 Linux/WSL measurement does not establish coverage of Windows-only behavior.
@@ -87,24 +93,26 @@ Mocked Windows API tests check branching and resource handling; they do not esta
 
 ## Validation expectations
 
-Changes to delivery must exercise clone, fast-forward, dirty/divergent histories, network/remote failures, and live-link removal guards using local Git fixtures.
-Catalog tests must start with repositories lacking links.conf, exercise root and nested skills, and keep the inventory independent of both checkouts and installation roots.
-Verify that missing inventory files do not prevent status from observing installed contents or detach from preserving them.
-Changes to installation must exercise unmanaged targets, local edits, directory contents, unrelated hook preservation, detach, and failure recovery.
-Policy changes must cover precedence, empty-trigger opt-out, event selection, offline preview/check-only behavior, per-skill throttling including failures, independent outcomes, and preservation of local edits and detached skills.
-Test meaningful user-visible behavior and preservation boundaries rather than mirroring private implementation functions.
-When adding or changing a workflow that connects multiple commands, verify that each command's outputs and selected scope match the next command's inputs and actual operation targets.
-Where source content and installed content can differ, cover link, copy, and detached states and verify which content an edit changes and which content the subsequent command consumes.
-Installation and update paths must reject unknown fields and invalid types instead of silently accepting misspelled or removed settings.
-Update examples and platform limitations with interface changes.
+Choose checks by the affected contract, using temporary local Git fixtures and fake installers where needed.
 
-Verify registration, saved-binding reuse, update/bootstrap/apply and locate/edit/publish workflows, invalid incoming catalogs, ownership conflicts, offline maintenance, local edits, and remote failures with local Git fixtures.
+| Affected area | Required behavior checks |
+| --- | --- |
+| Source delivery | Clone, fast-forward, dirty/divergent histories, network/remote failures, and active live-link guards. |
+| Catalog declarations and delivery | No source-local `links.conf` prerequisite; root and nested skills; inventory independent of checkouts/targets; registration and saved-binding reuse; invalid incoming catalogs; ownership conflicts; offline maintenance; local edits and remote failures. |
+| Installation | Unmanaged targets, local edits, directory contents, unrelated hook preservation, detach, and failure recovery. |
+| Automatic policies | Precedence, empty-trigger opt-out, event selection, offline previews and check-only behavior, per-item throttling including failures, independent outcomes, local edits, and detached content. |
+| Content publication | Shared skill/instruction consumers, unrelated files, existing commits, offline previews, rejected histories, remote failure, and retry. |
+| Full automation | Actual fresh-CLI continuation, stage ordering, new declarations, exclusions, throttling, cancellation, lock handoff, and failure gates. |
+| AEM self-update | Release boundaries, annotated tags, metadata mismatches, policy cancellation, contention, failure/retry, and worker lifetime. |
 
-Exercise shared skill/instruction consumers, unrelated files, existing commits, offline preview, rejected histories, remote failure, and retry using local Git fixtures.
+Cross-cutting requirements:
 
-Test actual fresh-CLI continuation, stage ordering, new declarations, exclusions, throttling, cancellation, lock handoff, and failure gates using local fixtures and fake installers.
-
-Exercise release boundaries, annotated tags, metadata mismatches, policy cancellation, contention, failure/retry, and worker lifetime with local repositories and fake uv processes.
+- Verify that missing inventory files still allow status to observe installed contents and detach to preserve them.
+- Test meaningful user-visible behavior and preservation boundaries rather than mirroring private implementation functions.
+- For workflows spanning commands, verify that outputs and selection scope match the next command's inputs and operation targets, including update/bootstrap/apply and locate/edit/publish.
+- Where source and installation can differ, cover link, copy, and detached states and verify which content editing and subsequent commands consume.
+- Installation and update paths must reject unknown fields and invalid types rather than accepting misspelled or removed settings.
+- Update examples and platform limitations with interface changes.
 
 ## Agent integration checks
 

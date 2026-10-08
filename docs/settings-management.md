@@ -48,19 +48,21 @@ The corresponding machine table is:
 target = "/absolute/app/config.toml"
 ```
 
+### Stage storage and ownership
+
 Bootstrap prepares the source and initializes `<machine-file>.stages/editor/config.toml` (or `config.json`) and `management.toml` without writing the application file.
 `settings prepare NAME [--dry-run]` also initializes a stage from an already prepared source, with no cloning or binding changes.
 Existing stages retain edits and require an explicit update to receive shared changes.
-A file has at most one AEM setting owner, although that owner manages only its declared fields.
-Claude's `settings.json` can also contain AEM setup and instruction hook groups.
-A JSON setting may share that exact file with Claude hook integrations, but cannot
-manage the top-level `hooks` field or any of its descendants, including deletion
-or release metadata. Setup and settings preserve each other's fields; two settings
-owners still cannot share a target. Overlapping directory targets remain rejected.
-Removal validates the saved hook group and settings ownership without requiring the current agent profile or reading the editable settings stage.
-Targets and stage storage must not overlap sources, catalog storage, AEM state, or other managed targets.
-Symlinks, junctions, redirected ancestry, and special files are rejected.
-Changing the source, target, or format of an active item requires detach first.
+
+- A file has at most one AEM setting owner, although that owner manages only its declared fields.
+- Claude's `settings.json` can also contain AEM setup and instruction hook groups.
+  A JSON setting may share that exact file with Claude hook integrations, but cannot manage the top-level `hooks` field or any of its descendants, including deletion or release metadata.
+  Setup and settings preserve each other's fields; two settings owners still cannot share a target.
+  Overlapping directory targets remain rejected.
+- Removal validates the saved hook group and settings ownership without requiring the current agent profile or reading the editable settings stage.
+- Targets and stage storage must not overlap sources, catalog storage, AEM state, or other managed targets.
+- Symlinks, junctions, redirected ancestry, and special files are rejected.
+- Changing the source, target, or format of an active item requires detach first.
 
 ## Edit, apply, and share
 
@@ -76,12 +78,16 @@ aem export editor
 aem publish editor -m "Update editor preferences"
 ```
 
+### Choose the editing location
+
 Default locate for settings always identifies the stage; a missing or damaged stage never silently redirects to another location.
 `--source` and `--target` are mutually exclusive.
 Saved stage and target locations remain available without the catalog, including after detach.
 The target path may be reported before the application file exists.
 Locate reports `root`, `entry`, `metadata` (null for the actual file), `location` (`stage`, `source`, or `target`), `prepared`, and `detached`.
 `--cd` prints the root directory and retains the existing shell integration semantics.
+
+### TOML values and deletion intent
 
 Edit the reported stage entry (`config.toml` or `config.json`) to prepare added or changed values.
 Removing a previously managed field prepares a deletion; AEM records the deletion in metadata on the next successful stage operation, apply, or export.
@@ -92,6 +98,8 @@ TOML types remain distinct during comparison, including integer versus float and
 Physical LF and CRLF newlines in TOML multiline strings compare equally across shared sources, stages, actual settings, and saved comparison snapshots, including strings inside arrays and tables.
 Explicit carriage-return escapes such as `\r` and `\u000D` remain meaningful string content and are not normalized.
 Comparison does not rewrite the original TOML tokens or snapshot formatting.
+
+### JSON values
 
 For a JSON setting, declare the application's file using the same catalog and target binding workflow:
 
@@ -106,15 +114,17 @@ format = "json"
 aem bootstrap --setting-target assistant=/absolute/app/settings.json
 ```
 
-JSON files must contain one top-level object, with unique keys in every nested object, including inside arrays.
-Comments, trailing commas, `NaN`, and `Infinity` are unsupported; JSONC is not accepted.
-An existing empty or whitespace-only file is invalid, while a missing target is initialized as an empty object before applying fields.
-Nonempty objects expose their leaves; arrays and empty objects are atomic values.
-`null` is a value, distinct from deleting or releasing a field.
-Literal dotted keys, empty keys, and escaped keys use the same string-array path selection as TOML.
-Numbers compare by exact numeric value: `1`, `1.0`, and `1e0` are equal, as are signed and unsigned zero, while `true` is distinct from `1`.
-Numeric tokens are retained without binary floating-point conversion, preserving large integers and precise decimal values.
-Object key order is ignored for comparison; array order remains meaningful.
+- JSON files must contain one top-level object, with unique keys in every nested object, including inside arrays.
+  Comments, trailing commas, `NaN`, and `Infinity` are unsupported; JSONC is not accepted.
+- An existing empty or whitespace-only file is invalid, while a missing target is initialized as an empty object before applying fields.
+- Nonempty objects expose their leaves; arrays and empty objects are atomic values.
+- `null` is a value, distinct from deleting or releasing a field.
+- Literal dotted keys, empty keys, and escaped keys use the same string-array path selection as TOML.
+- Numbers compare by exact numeric value: `1`, `1.0`, and `1e0` are equal, as are signed and unsigned zero, while `true` is distinct from `1`.
+- Numeric tokens are retained without binary floating-point conversion, preserving large integers and precise decimal values.
+- Object key order is ignored for comparison; array order remains meaningful.
+
+### Apply to the application
 
 Apply consumes the stage without fetching, exporting, or collecting application changes.
 It preserves nonmanaged fields and their comments, preserves existing file permissions and line endings, and avoids rewriting semantically unchanged values.
@@ -127,6 +137,8 @@ Initial identical values and already absent deletion targets are adopted automat
 Different existing values require `aem apply --item editor --replace`; replacement is limited to managed fields.
 Even explicit replacement cannot remove unmanaged descendants during a table/scalar transition.
 
+### Export and publish
+
 If several selected stages share one source file, identical exports are grouped and differing exports are rejected before any write.
 Export merges the stage with the current shared source and writes the source settings plus metadata without network access.
 It works for both Git and external folders.
@@ -137,6 +149,8 @@ Publication never implicitly collects actual application settings.
 Git behind/diverged history must be reconciled before publication; AEM does not merge Git histories or reset local work.
 Failed publication preserves successful local exports and commits for retry.
 Unselected settings with unexported stage changes in a published checkout are listed under `unpublished_settings` and are not exported implicitly.
+
+### Receive and automate changes
 
 Apply and publication are independent: apply before publishing to try a change locally, or publish without applying here.
 `update editor` receives shared changes into the stage but does not apply them.
@@ -178,10 +192,14 @@ Explicit collection also reclaims a previously deleted or released field if it e
 A missing actual file is an error for collection; a missing managed field in an existing file is a deletion candidate.
 Conflicting stage and actual edits abort collection without writing the stage.
 
+### Release field ownership
+
 Release is an explicit change in ownership, not a deletion.
 It removes the field from the desired values and records `released`; apply leaves the current actual value untouched even if the user changed it.
 A released field is excluded from subsequent collection unless explicitly selected.
 To restore management manually, remove its deletion/release record and add the desired value to the stage; alternatively collect that actual field explicitly.
+
+### Shared intent metadata
 
 Shared intent is stored next to the settings file as `<filename>.aem.toml`:
 
@@ -200,11 +218,14 @@ AEM propagates current state and persistent intent, not a replay of every interm
 
 ## Conflicts, status, and recovery
 
-Shared merges compare the last accepted shared state, current stage, and incoming source.
-Application merges compare the last applied state, current actual settings, and stage.
-One-sided changes and identical concurrent changes merge; different edits, deletion versus modification, and overlapping structural changes conflict.
-A conflict in an actual file aborts the whole file operation.
-A shared conflict is saved separately from the valid editable settings file and blocks apply/export/publish until resolved:
+| Merge | Comparison inputs | Conflict effect |
+| --- | --- | --- |
+| Shared reception/export | Last accepted shared state, current stage, and incoming source. | Saved separately from the valid stage; blocks apply/export/publish until resolved. |
+| Application | Last applied state, current actual settings, and stage. | Aborts the whole application-file operation. |
+
+One-sided changes and identical concurrent changes merge.
+Different edits, deletion versus modification, and overlapping structural changes conflict.
+Resolve a saved shared conflict explicitly:
 
 ```bash
 aem settings resolve editor --path '["color"]' --take local
@@ -217,6 +238,8 @@ A structural conflict resolves all connected overlapping paths together.
 `--take edited` validates the edited stage and explicitly acknowledges that choice.
 Commands report conflict paths without embedding configuration values in ordinary diagnostics.
 
+### Status and detach
+
 Setting item IDs are `NAME:settings`; `--item NAME` also selects the item.
 Status reports `not-prepared`, `prepared`, `managed`, `conflict`, `detached`, or `unavailable`, plus `conflicts`, `unpublished`, `unexported`, and (after apply) `unapplied` and `modified_locally` where available.
 `unpublished` compares against the last received or successfully published shared state; for external folders export updates that local shared baseline without claiming synchronization completed.
@@ -226,6 +249,8 @@ Git source status separately reports uncommitted changes and outgoing commits.
 It releases management locally and does not publish a field release.
 Reattach requires explicit `apply --item NAME --reattach`, with `--replace` if the new target conflicts.
 Saved location, detach, and recover work without the catalog.
+
+### Previews and grouped recovery
 
 All stage-editing commands, apply, export, resolve, and publish offer `--dry-run`; previews do not normalize or save metadata, write state, or contact Git publication remotes.
 Update itself retains the existing networked delivery command behavior.

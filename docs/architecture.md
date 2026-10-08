@@ -6,15 +6,19 @@ For contribution setup and check selection, see [Contributing](https://github.co
 
 ## Core responsibilities
 
-Click owns CLI parsing, help, and command groups.
-Command callbacks adapt inputs to core operations; shared execution owns configuration loading, locks, report output, and callback failure behavior.
-Keep core installation, delivery, ownership, and policy operations independent of Click contexts so workers and non-CLI callers can reuse them.
-Help and usage validation must complete before reading machine configuration or acquiring locks.
-Global options belong before the command; repeated policy options must preserve the distinction between omission and an explicit replacement list.
-Machine callbacks must emit the JSON required by their agent or worker contracts regardless of ordinary output mode.
-The standalone installer and external update worker remain standard-library-only because they run outside the installed package environment.
-Captured background processes on Windows must not open console windows, including Git, uv, PowerShell profile discovery, and fresh-CLI worker continuations.
-Keep the worker lifetime pipe, process-group termination, captured output, and exit-code behavior intact when controlling console creation.
+| Layer | Responsibility |
+| --- | --- |
+| Click | CLI parsing, help, and command groups. |
+| Command callbacks | Adapt inputs to core operations. |
+| Shared execution | Configuration loading, locks, report output, and callback failure behavior. |
+| Core operations | Installation, delivery, ownership, and policy behavior, independent of Click contexts for worker and non-CLI reuse. |
+
+- Help and usage validation must complete before reading machine configuration or acquiring locks.
+- Global options belong before the command; repeated policy options must preserve the distinction between omission and an explicit replacement list.
+- Machine callbacks must emit the JSON required by their agent or worker contracts regardless of ordinary output mode.
+- The standalone installer and external update worker remain standard-library-only because they run outside the installed package environment.
+- Captured background processes on Windows must not open console windows, including Git, uv, PowerShell profile discovery, and fresh-CLI worker continuations.
+  Keep the worker lifetime pipe, process-group termination, captured output, and exit-code behavior intact when controlling console creation.
 
 ### Managed content
 
@@ -47,6 +51,9 @@ Apply relative-link policy at the logical location in the source root, including
 Use pinned non-following POSIX descriptors for enabled payload traversal and entry replacement; reject concurrent kind changes rather than following them.
 Save the policy and logical source-relative path with ownership and recovery observations; absent fields retain the old rejection behavior.
 Catalog policy removal cannot disable saved detach/recovery support.
+
+#### Shared consumers and platform checks
+
 A shared checkout must satisfy every affected consumer's policy, including orphaned active links.
 Keep catalog schema validation platform-independent; check selected items and affected source consumers for platform support before content mutations.
 Do not put execution capability checks in general selection or catalog validation: inspection and catalog delivery must remain usable.
@@ -72,6 +79,9 @@ Preserve named-source checkout paths; do not migrate or remove old direct-declar
 Validate every skill in a shared checkout before publishing it, and guard all active links from that checkout before advancing it.
 Full automation may defer skill payload checks in an existing checkout until delivery validates every declared skill against the incoming revision before fast-forwarding.
 Standalone bootstrap continues to validate local HEAD without updating existing checkouts.
+
+#### Ownership and maintenance boundaries
+
 Keep installation ownership and automatic policies per skill, even when delivery is shared.
 Do not introduce a provider framework without a demonstrated need.
 Content rendering and arbitrary shell evaluation are not part of path substitution.
@@ -106,24 +116,38 @@ Entry selection includes bundle and hook installation, but never extends replace
 Report the required `/hooks` trust review after apply; preview must show the planned group without registering it.
 Detach materializes both links and releases hook ownership while retaining its configuration, so saved locator records still support preserved documents.
 Default bundle installation to `<machine-file>.bundles/<bundle-name>` without requiring a configured rules root; preserve explicit location overrides and relocation guards.
-Resolve roots from saved installation records and actual filesystem links, not from prompt text or the current catalog.
-Saved location lookup must remain offline, avoid updating ownership records, work for managed and detached copies without a catalog or source, and reject missing or redirected entries and replaced active links.
-User-facing `locate` also supports saved skills and current catalog source lookup for uninstalled content or explicit `--source` requests.
-Keep callbacks on saved instruction lookup only; never fall back from a broken saved installation to a different source.
-Source lookup validates paths and Git identity without requiring a clean checkout, fetching, or installing content.
-Keep copy/detached locations distinct from source editing paths; ordinary publication never implies collecting installed-copy edits, and reverse collection requires explicit `--from-copy`.
+
+#### Saved location lookup
+
+- Resolve roots from saved installation records and actual filesystem links, not from prompt text or the current catalog.
+- Saved location lookup must remain offline, avoid updating ownership records, work for managed and detached copies without a catalog or source, and reject missing or redirected entries and replaced active links.
+- User-facing `locate` also supports saved skills and current catalog source lookup for uninstalled content or explicit `--source` requests.
+- Keep callbacks on saved instruction lookup only; never fall back from a broken saved installation to a different source.
+- Source lookup validates paths and Git identity without requiring a clean checkout, fetching, or installing content.
+- Keep copy/detached locations distinct from source editing paths; ordinary publication never implies collecting installed-copy edits, and reverse collection requires explicit `--from-copy`.
+
+#### Callback transport and locking
+
 Use an absolute interpreter for hook execution, quote POSIX arguments, and explicitly encode a PowerShell command on Windows without evaluating user paths.
 Instruction callbacks emit only path metadata, never document contents.
 Codex uses `additionalContext` and a structured stop; Claude uses plain stdout and stderr with exit 2 on failure, which does not stop SessionStart.
 Instruction callbacks wait at most 5 seconds total for the installation and configuration locks within their 10-second hook limit.
-On POSIX, CLI processes hold a shared installation lock; package-replacement workers retain the exclusive lock. Windows retains exclusive installation locking.
-If only the configuration lock remains busy, instruction callbacks may resolve read-only location metadata from saved state. Reject pending recovery, invalid or replaced links, and any change to the machine file or ownership state during lookup before emitting context.
+On POSIX, CLI processes hold a shared installation lock; package-replacement workers retain the exclusive lock.
+Windows retains exclusive installation locking.
+If only the configuration lock remains busy, instruction callbacks may resolve read-only location metadata from saved state.
+Reject pending recovery, invalid or replaced links, and any change to the machine file or ownership state during lookup before emitting context.
 Startup callbacks also wait up to 5 seconds for contention instead of skipping immediately; other commands retain immediate configuration contention failure.
+
+#### Reading-location metadata
+
 Limit callback metadata to the effective `root`, `entry`, and `global_entry` reading locations.
 Explain their correspondence without assuming the entry's contents have already been loaded or requesting a redundant read when they have.
 Resolve entry-relative references from its parent directory and supplemental references from the referring document's directory, unless the user documents explicitly specify another base.
 Do not infer applicability or reading order from bundle placement or the entry filename.
 Keep `installed_root` and `detached` in locator diagnostics so a preserved copy cannot be mistaken for the live entry's source tree.
+
+#### Preservation and automation
+
 Preserve original documents and use the existing per-target conflict/recovery machinery.
 Guard the saved entry path of active linked Git bundles even when their catalog declarations disappear or a shared skill initiates update.
 Entry links into installed copies do not consume the delivery checkout and must not block its updates as live-source links.
@@ -146,6 +170,8 @@ Catalog delivery precedes content delivery and must not depend on declarations i
 Use a separate checkout even when catalog and content share a remote, so content updates cannot implicitly change the inventory or automatic policies.
 Do not merge checkout identities by URL.
 
+### Candidate validation
+
 Preparing a missing Git catalog checkout is the explicit exception to declaration validation before network access.
 Clone it to temporary storage, then validate its tracked regular UTF-8 entry, declarations, machine bindings, and existing ownership before publishing the checkout or saving the binding.
 Content repositories must remain untouched until preflight succeeds.
@@ -153,6 +179,8 @@ Validate candidate revisions against final machine paths without temporarily cha
 Catalog updates fast-forward only after the candidate passes the same declaration and ownership checks.
 Preserve the old catalog on validation failure, local edits on delivery failure, and installed ownership when declarations disappear.
 Do not reset mismatching checkouts on rebind.
+
+### Catalog automation boundaries
 
 Explicit catalog update/publication and separately opted-in catalog automation may contact an existing catalog's remote.
 Keep catalog automation policy in machine configuration, outside the file it updates.
@@ -196,6 +224,8 @@ Collected content and baselines survive later commit/push failures, separately r
 External copy publication confirms local handoff without contacting its service; installed outer links cannot be collected, while opted-in nested symbolic links retain their opaque identity.
 Text and JSON report the same conflict paths and comparison arguments without launching tools, merging, or force-overwriting.
 
+### Prepared AEM release publication
+
 Self publication is a separate prepared-release contract: require a clean AEM checkout and an existing version tag resolving to HEAD, and never generate commits, tags, or version edits.
 Resolve its default checkout from local installation provenance or the running module's own development tree, never by searching the current directory or user homes; invalid recorded paths require explicit correction.
 Keep it independent of machine/catalog state and self-update scheduling.
@@ -211,9 +241,10 @@ Validate all policy declarations, including unused named policies, before networ
 Keep common trigger/action/interval settings separate from source-specific delivery options; reject unsupported capabilities rather than substituting another action.
 
 External callers supply `shell-start`, `agent-start`, or `interval` events to `auto`.
-Policy configuration does not install hooks, modify shell profiles, register OS tasks, or imply an in-process scheduler.
-Ordinary `apply`, `status`, and `bootstrap` must not perform implicit automatic updates.
-Explicit commands retain their existing contracts and ignore automatic policy throttles.
+
+- Policy configuration does not install hooks, modify shell profiles, register OS tasks, or imply an in-process scheduler.
+- Ordinary `apply`, `status`, and `bootstrap` must not perform implicit automatic updates.
+- Explicit commands retain their existing contracts and ignore automatic policy throttles.
 
 Under the existing configuration lock, persist each skill's attempt before network access and throttle failures as well as successes across all its events.
 Preview must not fetch or record attempts.
@@ -245,16 +276,17 @@ Stop later stages on failure without claiming cross-repository rollback; preserv
 
 ## Ownership and safety
 
-Only declared catalog skills, directories, and instruction bundles, and the package-owned official integration skill, may be installed.
-A content repository update cannot expand the local catalog.
-Catalog skill names identify ownership independently of repository URLs and paths.
-Instruction ownership uses the bundle name and bundle/entry/hook component.
-Do not infer ownership from an existing file or delete targets when declarations disappear.
-Reject overlapping target trees and require detach before changing an existing item's path or mode.
-A directory item owns its entire subtree, so extra local files are meaningful modifications.
-Repository-root skills are valid and use direct links, not an extra content layer.
-Exclude only their top-level `.git` administration entry from content fingerprints, copies, and detach materialization.
-Never duplicate a repository database or worktree pointer into an unmanaged skill.
+- Only declared catalog skills, directories, and instruction bundles, and the package-owned official integration skill, may be installed.
+- A content repository update cannot expand the local catalog.
+- Catalog skill names identify ownership independently of repository URLs and paths.
+- Instruction ownership uses the bundle name and bundle/entry/hook component.
+- Do not infer ownership from an existing file or delete targets when declarations disappear.
+- Reject overlapping target trees and require detach before changing an existing item's path or mode.
+- A directory item owns its entire subtree, so extra local files are meaningful modifications.
+- Repository-root skills are valid and use direct links, not an extra content layer.
+  Exclude only their top-level `.git` administration entry from content fingerprints, copies, and detach materialization.
+- Never duplicate a repository database or worktree pointer into an unmanaged skill.
+
 Git identity checks still validate the managed checkout's origin and expected branch before applying or updating.
 
 General directories reuse directory payloads, named sources, and per-target ownership without requiring an entry document or agent integration.
@@ -262,6 +294,8 @@ Omitted directory installation roots normalize to `home`; bootstrap records the 
 Their single ownership key is `NAME:directory`; agent filters include them as common items.
 Directory policies reuse skill policy composition and clocks, supporting local external checks/sync without Git transport.
 Active directory link guards include orphaned consumers of shared checkouts.
+
+### Replacement transactions
 
 Link and copy have different contracts.
 Never silently fall back from link to copy.
@@ -272,6 +306,8 @@ Write the recovery journal before the first rename and commit the ownership reco
 Keep target backups; cleanup must never remove user changes discovered during recovery.
 The process lock serializes commands for one configuration, not arbitrary editors or Git processes.
 Retain the documented per-target transaction boundary instead of claiming global atomicity.
+
+### Detach semantics
 
 Detach preserves the current usable contents, then releases ownership and records a tombstone to prevent automatic reinstallation.
 It does not restore pre-installation contents.
@@ -312,6 +348,8 @@ Keep package replacement outcomes separate from official link refresh outcomes; 
 Older saved source hashes may differ after another configuration or an external installer replaces the package; compare payloads only for the recorded package version.
 Catalog update policies must never register hooks implicitly.
 
+### Setup transactions and removal
+
 Selections accumulate, and repeated setup must preserve unrelated content and avoid duplicate groups or blocks.
 Preflight all core profile edits before changing any of them, and commit each target through the existing recovery journal.
 Save machine selection after core target transactions and before ancillary skill attempts.
@@ -326,6 +364,8 @@ A setup invocation containing only removals must touch only requested saved inte
 Use saved shell blocks and hook groups, including retired integration names; ignore an executable override on removal-only calls.
 Preflight selected removals and machine-document edits before writing, detect concurrent edits, group removals sharing a hook file, and retain the same journal/retry boundaries as setup installation.
 Do not grant agent hook trust or rewrite user execution policies.
+
+### Agent profile boundary
 
 Resolve product-specific defaults, hook serialization, and callback output through internal agent profiles.
 Codex and Claude Code are shipped profiles.
@@ -347,6 +387,8 @@ Full device automation includes settings by default, preserving explicit empty-t
 A shared checkout update by another consumer may change the source but must not activate or rewrite an unselected settings stage.
 Automatic settings application retains the ordinary field conflict checks and must never replace local edits or reattach detached items.
 
+### Format adapters
+
 Keep format parsing, value identity, field enumeration, and preserving edits behind the format adapter.
 Do not use TOML parser nodes as persisted ownership values or expose them in CLI reports.
 Shared intent metadata is an AEM contract, independent of the supported application format.
@@ -355,6 +397,8 @@ JSON numbers compare by exact numeric value regardless of spelling, with boolean
 Keep JSON edits local to changed values and required punctuation, preserving untouched tokens and returning unchanged documents verbatim.
 Reject duplicate JSON keys, comments, trailing commas, and nonstandard numeric constants.
 Distinguish format-specific empty document construction from parsing an existing file; an existing empty JSON file is invalid.
+
+### Comparison state and recovery
 
 Editable stages never replace trusted shared/apply comparison bases.
 Deletion, ownership release, and local detach have distinct semantics; preserve intent records for newly connected and offline devices.
@@ -366,18 +410,16 @@ Reuse existing whole-checkout publication and Git safety rules; field merging ne
 ## Personal command hook resources
 
 Catalog `hooks` extends declared content, independently of skill/plugin discovery.
-The catalog owns per-agent event/script/literal arguments; the machine binds
-runtime executable paths. Profiles own supported events, timeout/matcher limits
-and direct command rendering. AEM never invokes script logic or grants product
-trust. No callback proxy, scheduler, workflow runner or source manifest is added.
+The catalog owns per-agent event/script/literal arguments; the machine binds runtime executable paths.
+Profiles own supported events, timeout/matcher limits and direct command rendering.
+AEM never invokes script logic or grants product trust.
+No callback proxy, scheduler, workflow runner or source manifest is added.
 
 Preparation validates all agent scripts in a shared checkout before publishing.
-Incoming revisions guard declared and saved active scripts, including orphaned
-consumers; updates expose source content directly without changing registration.
-Personal hooks require explicit apply selection and remain excluded from full
-mode. Group ownership recognizes an exact silent command prefix and compares the
-complete saved event/group. Duplicate identities across events fail closed.
-Event moves, multiple selected groups and shared JSON settings use one image per
-target and existing journals. Preserve unrelated JSON fields, including exact
-numeric tokens. Saved removal remains independent of catalog/profile/runtime;
-detach retains groups and does not materialize standalone scripts.
+Incoming revisions guard declared and saved active scripts, including orphaned consumers; updates expose source content directly without changing registration.
+Personal hooks require explicit apply selection and remain excluded from full mode.
+Group ownership recognizes an exact silent command prefix and compares the complete saved event/group.
+Duplicate identities across events fail closed.
+Event moves, multiple selected groups and shared JSON settings use one image per target and existing journals.
+Preserve unrelated JSON fields, including exact numeric tokens.
+Saved removal remains independent of catalog/profile/runtime; detach retains groups and does not materialize standalone scripts.

@@ -5,12 +5,25 @@ Keep CLI and TOML details canonical in [Commands](commands.md) and [Configuratio
 Detailed contributor contracts live in [Architecture](architecture.md) and [Testing](testing.md).
 Keep change-specific validation results with the change, rather than adding them to durable contributor guidance.
 
+## Guide structure
+
+Keep the README focused on installation, a minimal working example, everyday commands, and preservation boundaries.
+Link advanced workflows to their detailed guides.
+
+Within detailed guides, group related information under descriptive subheadings so readers can find prerequisites, steps, selection scope, constraints, outcomes, and recovery.
+Choose the structure for the topic rather than repeating a fixed template in every section.
+Use ordered lists for sequential procedures, bullets for independent requirements, and tables for comparable choices or field contracts.
+Keep explanatory prose for rationale and relationships; avoid turning every sentence into a list item.
+Preserve existing linked headings when adding structure, or update every affected cross-reference.
+
 ## CLI help scope
 
 CLI help is the installed, version-matched entry point for choosing and invoking commands.
 Explain the target being read or changed, selection identifiers and scope, omitted-option behavior, and non-obvious prerequisites or option incompatibilities when these affect correct use.
 For workflows spanning multiple commands, make clear which phase a selector filters and which content each command consumes, such as a source, editable stage, or actual application file.
 Describe consequential defaults and preview limits concisely enough to choose the operation without reading a full guide.
+
+### Keep help concise and available
 
 Keep help focused on invocation decisions; retain full schemas, output contracts, detailed recovery procedures, and extended examples in the authoritative documentation.
 Do not reproduce a manual in command help or compensate for missing help by copying syntax and procedures into the official skill.
@@ -26,6 +39,8 @@ Ship `README.md`, `docs/`, `examples/`, and `LICENSE.txt` as version-matched loc
 Package installation provides these resources; setup only connects integrations and does not download documentation.
 Keep canonical sources at the repository root and copy them unchanged during builds; do not maintain a second authored copy or rewrite Markdown links at build time.
 The documentation copy of LICENSE.txt and the packaging-standard metadata license must both come from the same source file; do not add installation-time symlinks.
+
+### Links and build verification
 
 Exclude CONTRIBUTING.md and CHANGELOG.md from installed documentation resources.
 Links to contribution instructions and release history use repository web URLs as optional references, not required paths for ordinary tool use.
@@ -47,6 +62,8 @@ Use the local help and documentation provided by the installation.
 Treat missing or incomplete advertised materials as an installation or documentation issue; do not add fallback instructions to the skill.
 Keep essential guidance inline when it prevents a material mistake, rather than making ordinary use depend on loading an entire manual.
 Do not move duplicated manuals into skill references merely to shorten the entrypoint.
+
+### Preserve decision guidance
 
 Retain distinctions that affect the requested outcome, such as preparation versus installation, source versus installed copy, live-link update effects, settings stages versus actual files, repository-wide publication, and preservation during recovery.
 The skill must not impose content-authoring policies or infer publication authorization from an editing request.

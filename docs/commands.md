@@ -8,6 +8,9 @@ aem [--config PATH] [--json | --verbose] COMMAND [ARGS]
 Command-specific options follow their command, for example `aem --json catalog publish --dry-run`.
 Options require their full spelling; abbreviated long options are rejected.
 Every command accepts `-h` or `--help`.
+
+## Output formats
+
 Ordinary commands print concise summaries by default, including when stdout is redirected.
 Content results are grouped as instructions, skills, directories, settings, or hooks when their type is known; source and repository results remain separate.
 Result counts count operation results, so preparation and staging of one setting, or separate instruction installation components, can contribute multiple results.
@@ -17,26 +20,40 @@ Use `--verbose` for detailed text, for example `aem --verbose status`; it cannot
 Text durations include units, and previews and last-fetch observations are distinguished from completed operations and current remote observations.
 Use `--json` for the existing JSON report schema, for example `aem --json status` or `aem --json catalog status`.
 Scripts that parse stdout must add `--json`; startup and agent-hook callbacks retain JSON automatically.
+
+## Exit codes
+
 Ordinary operation errors use stderr and exit `1`, argument parsing errors exit `2`.
 Invalid numeric CLI durations (non-finite values, nonpositive timeouts, or negative intervals) are argument errors and exit `2` before configuration reads or filesystem effects.
 Help exits `0`; invoking a command group without a required subcommand shows usage/help and exits `2`.
 Successful operations exit `0`; status also exits `0` when its report contains conflicts or unavailable sources.
+
+## Platform support and preflight
+
 Platform-unsupported directory policies appear as item `status = "unavailable"` with `error`; detached items retain `status = "detached"` and include the limitation as `error`.
 Their presence does not invalidate the catalog or prevent independent supported item operations.
 Explicit content commands preflight the complete selected operation and its shared-source consumers before content changes; unsupported policies fail rather than being silently skipped.
 Bootstrap performs this preflight after reading the catalog and before saving the machine binding or preparing content.
 `sync --item` still updates all sources; use `update NAME` and `apply --item NAME` for independent work.
 Callbacks have the exceptions described below.
+
+## Compatibility
+
 Documented commands, behavior, exit codes, and JSON fields are covered by the package's [compatibility policy](compatibility.md).
 JSON consumers must ignore unknown object fields; field additions may appear in compatible feature releases.
 Enum values are closed unless their interface explicitly documents unknown-value handling.
 JSON whitespace, object key order, and human-readable diagnostic wording are not stable interfaces.
+
+## Locks and shared sources
+
 Commands using machine state lock one configuration; installations registered for self-updates also share a lock for their uv tools directory.
 `docs` and `self publish` operate independently of machine state and acquire neither lock.
 Content and catalog updates allow Git-ignored regular caches in their checkouts and refuse any fast-forward that would overwrite them.
 In content status, `sources[].checkout` is `dirty` for tracked edits or nonignored untracked files; ignored files alone leave it `clean`.
 External editors and other package-manager processes do not participate in these locks.
 Read-only commands and dry runs may create the lock directory/file; `setup --dry-run`, `self update --dry-run`, and `automation --dry-run` do not.
+
+## Command overview
 
 | Command | Purpose | Network |
 | --- | --- | --- |
@@ -58,6 +75,12 @@ Read-only commands and dry runs may create the lock directory/file; `setup --dry
 | `startup` | Fail-open automatic-update callback. | According to due policies. |
 | `agent-hook` | Emit instruction locations for the selected agent. | None. |
 
+## Common argument values
+
+Git duration options use `--git-timeout`, `--catalog-git-timeout`, and `--automation-git-timeout`.
+The previous names `--timeout`, `--catalog-timeout`, and `--automation-timeout` remain supported aliases with identical behavior.
+Saved TOML `timeout` keys and effective JSON policy fields retain their names.
+
 `TIMEOUT` below defaults to `30` seconds and must be positive and finite.
 It bounds each Git phase, not the entire command or filesystem copying.
 `AGENT` is `codex` or `claude`.
@@ -74,10 +97,6 @@ With global `--json`, return `root` (the local documentation directory) and `ent
 The directory also contains docs/, examples/, and LICENSE.txt with working relative links.
 Lookup is offline and independent of machine configuration, catalogs, state, and setup integrations.
 Editable/source development resolves to the repository's canonical documentation.
-
-Git duration options use `--git-timeout`, `--catalog-git-timeout`, and `--automation-git-timeout`.
-The previous names `--timeout`, `--catalog-timeout`, and `--automation-timeout` remain supported aliases with identical behavior.
-Saved TOML `timeout` keys and effective JSON policy fields retain their names.
 
 ## setup
 
@@ -98,22 +117,31 @@ aem setup [--shell SHELL ...] [--agent AGENT ...]
           [--automation-skip-unsupported | --no-automation-skip-unsupported]
 ```
 
-Shell choices are `bash`, `zsh`, and `powershell`.
-Selections accumulate; omitted selections remain saved, and repeated setup avoids duplicate blocks/groups.
-Initial integration setup requires at least one shell or agent selection.
-`--startup-hook-timeout` may also be saved before agents are registered; with saved agents, setup updates their managed startup groups.
-Omission retains the saved value, defaulting to ten seconds.
-It does not change instruction-location hooks or Git phase limits.
-A call supplying only catalog/device automation policy options (and optionally `--dry-run`) can save policy without registering integrations or requiring an executable.
-Adding and removing the same integration in one call is invalid.
+### Integration selection
+
+- Shell choices are `bash`, `zsh`, and `powershell`.
+- Selections accumulate; omitted selections remain saved, and repeated setup avoids duplicate blocks/groups.
+- Initial integration setup requires at least one shell or agent selection.
+- `--startup-hook-timeout` may also be saved before agents are registered; with saved agents, setup updates their managed startup groups.
+  Omission retains the saved value, defaulting to ten seconds.
+  It does not change instruction-location hooks or Git phase limits.
+- A call supplying only catalog/device automation policy options (and optionally `--dry-run`) can save policy without registering integrations or requiring an executable.
+- Adding and removing the same integration in one call is invalid.
+
 `--executable` overrides the saved absolute executable path, otherwise it defaults beside the running Python interpreter.
 Setup edits startup integrations, links the packaged `idk-aem` skill for selected agents, and saves machine selections; it does not bootstrap or apply user catalog content.
+
+### Official skill installation
+
 General integration setup refreshes the official links of saved agents; shell-only initial setup and policy-only edits do not install official skills.
 Official skills use links without automatic fallback to copies; platforms without symlink privileges report an official skill failure.
 Unmanaged targets, changed links, overlapping ownership or catalog targets, and local source edits within the recorded package version skip that official skill without preventing core shell/hook setup and machine selection storage.
 Core setup completes first; each ancillary skill attempt is reported separately in the additive `official_skills` array, leaving the existing `integrations` results unchanged.
 Recoverable skill failures keep setup's successful exit status; shared-state errors and unresolved recovery still fail the command.
 Official skill records are setup-owned and do not enter content command selection.
+
+### Update policies
+
 `--self-update` saves `off`, `compatible`, or `breaking`; omission preserves the saved mode.
 The `--update-*` options register the release source and external installer runtime described in [Configuration](configuration.md#aem-self-update-settings).
 Enabling updates requires runtime registration; the repository installer supplies those paths.
@@ -123,6 +151,9 @@ Changing self-update settings does not immediately update the package.
 Omitted policy options preserve their saved fields; configuring events requires a bound Git catalog.
 Policy-only edits validate machine settings and use the configuration journal without reading or rewriting profiles, even when those profiles contain local edits.
 They do not fetch, run automatic updates, or register startup integrations; the result includes the effective `catalog_update` policy.
+
+### Removal and previews
+
 Removing an agent requires first detaching its managed content.
 Dry run writes no files, including lock files.
 When only `--remove-shell` / `--remove-agent` selections are supplied, setup uses saved ownership instead of validating installation declarations.
@@ -156,6 +187,8 @@ It uses the saved enabled mode, or `compatible` if automatic updates are off.
 Dry run requires a registered runtime but performs no remote access, launches no worker, and writes no files.
 Pending recovery blocks an update.
 
+### Update execution and preservation
+
 The worker waits for the requesting AEM process to exit, locks the registered installation and configuration, then rechecks its request token, saved settings, and recovery state.
 A superseded request does no work; changed settings or pending recovery cancel it.
 The actual uv-installed version is checked under the installation lock so another configuration's completed update cannot cause a downgrade.
@@ -176,6 +209,8 @@ Git authentication is noninteractive.
 Each Git/uv subprocess and worker lock wait is bounded to 300 seconds.
 Package-manager rollback and coordination with external installers are not guaranteed.
 If an installation is damaged, rerun the repository installer.
+
+### Update result fields
 
 A queued report contains `status`, `time` (Unix seconds), `token`, and `mode`.
 Dry run returns `status = "planned"`, `mode`, and `network = false`.
@@ -203,8 +238,10 @@ Prepare the release with Git before invoking publication:
 - HEAD must be attached to a branch; the selected path must be the working-tree root.
 - HEAD must contain a tracked regular `pyproject.toml` with `project.name = "agent-env-man"` and an `X.Y.Z` or `X.Y.ZaN`/`X.Y.ZbN`/`X.Y.ZrcN` version; the pre number may be omitted and means zero.
 - A matching local `vVERSION` tag in Python or supported SemVer-style notation must already resolve to HEAD; lightweight and annotated tags are supported.
+
 The exact package spelling is preferred when present, then equivalent Python spellings, then SemVer spellings.
 An exact package tag pointing elsewhere is rejected even when an equivalent alias points to HEAD.
+
 - `origin` must have the same single fetch and push destination.
 
 The target is `origin` and the current branch; no separate publication binding or remote/branch override is provided.
@@ -244,6 +281,8 @@ aem bootstrap [CATALOG | --catalog PATH] [--catalog-copy] [--checkout-root PATH]
               [--catalog-git-timeout SECONDS]
 ```
 
+### Catalog binding
+
 Omit the catalog argument to reuse the saved binding.
 For an explicit local file, add `--catalog-copy` to prepare an editable managed copy; this flag cannot be combined with Git registration.
 Reusing a copy binding never refreshes from the external original; use `catalog update` explicitly.
@@ -257,6 +296,9 @@ Git catalog registration requires `--catalog-repository` and `--catalog-path` to
 `--catalog-path` is relative to the repository root, not the working directory, and must identify a tracked regular TOML file.
 Repository syntax matches catalog repository declarations: a URL, SSH location, or absolute local repository path.
 The default branch is discovered and written to the machine binding; repeating registration for the same repository without `--catalog-branch` retains the recorded branch.
+
+### Device paths and content selection
+
 Catalog, checkout-root, and external CLI paths resolve relative to the working directory and are saved as absolute paths.
 Root paths must be absolute or begin with `~/`.
 Bootstrap fills missing `skills`, `agent`, and `home` root bindings, preserving saved values and explicit `--root` bindings.
@@ -273,12 +315,16 @@ A failed content download leaves the machine binding saved so bootstrap can be r
 Content installation and updates require catalog `version = 2`; see the [syntax reference](configuration.md#catalog) and [manual transition](removed-interfaces.md#catalog-v2-transition).
 Saved-state maintenance stays available with an old catalog.
 
+### Preflight and retry
+
 For a local catalog, declaration and ownership preflight failures do not save a new binding or contact repositories.
 For a missing Git catalog, bootstrap must clone the catalog into a temporary directory before validating its declarations and current ownership.
 It publishes that checkout and saves the binding only after preflight succeeds, then prepares content repositories.
 Failed catalog download or validation preserves the previous binding and leaves no new catalog checkout; fix the input or remote and repeat the registration command.
 An interrupted machine-file save may leave a validated checkout that the same registration can reuse.
 Existing machine settings and omitted external/root bindings are preserved.
+
+### Bootstrap result fields
 
 The JSON result adds `items`, an ordered array of preparation and settings-stage results.
 Each item has `name` (the catalog content name), `kind` (`skill`, `instruction`, `directory`, `setting`, or `personal-hook`), `phase` (`source` for content preparation or `stage` for settings-stage preparation), and the original status and applicable path, checkout, stage, or error fields.
@@ -301,6 +347,8 @@ aem catalog auto --trigger EVENT [--dry-run]
 aem catalog publish [-m MESSAGE | --message MESSAGE] [--from-copy] [--dry-run] [--git-timeout TIMEOUT]
 ```
 
+### Inspection and location
+
 These commands select the bound catalog, independently of the skill/instruction namespace.
 They never install content or run content automatic policies.
 `status` and `locate` are offline and do not change saved state; their Git subprocesses still respect `--git-timeout`.
@@ -311,6 +359,8 @@ Catalog reading/inspection failures appear as `error` with status `unavailable` 
 Locate validates Git identity and the tracked file but does not parse its TOML or require cleanliness, so it can locate a malformed file for repair.
 `--source` selects a copied catalog's external original, including when unavailable; other binding types keep their existing entry.
 `--cd` uses the selected entry directory through the existing shell integration.
+
+### Local copy update and publication
 
 For a [local copy binding](configuration.md#copied-local-catalog-binding), `catalog update` validates and receives the original without installing its declarations.
 `catalog publish --from-copy` validates and returns copy edits to that external file; omitting `--from-copy` or supplying `--message` is an error.
@@ -328,6 +378,8 @@ Update/publication report `planned` for previews, `updated`/`published` for writ
 Their comparison includes `changed`, `stale` (source-only changes), `local_edits` (copy-only changes), and `compare` arguments when observations succeed.
 Successful publication reports `collection_complete = true` and `transport_complete = false`; it confirms local handoff only.
 
+
+### Git update and publication
 
 For Git catalogs, `update` requires a clean checkout on the recorded branch with the expected origin.
 It fetches that branch, validates the incoming tracked UTF-8 TOML, declarations, machine bindings, target paths, and existing ownership, then fast-forwards only after all checks pass.
@@ -351,7 +403,9 @@ Operation failures include `error` and exit 1; binding/precondition errors may u
 Update includes `previous_revision`, `observed_revision`, and `last_fetch` once fetched, and `revision` / `last_update` after success.
 Publish uses the inspection/result fields described above and adds `created_commit` when it commits, and `revision`, `observed_revision`, `last_fetch`, and `last_publish` after successful publication.
 Fetch/publication observations are saved separately from content ownership and automatic attempt clocks.
-Local catalog bindings reject update and publish; manage their transport yourself or register a Git catalog.
+Direct local catalog bindings reject update and publish; use a Git binding or the explicit local copy workflow to manage delivery.
+
+### Catalog automation
 
 `auto` runs the machine's [catalog policy](configuration.md#catalog-automatic-update-settings) for the supplied event.
 It shares update's validation and fast-forward behavior and does not prepare or install content.
@@ -410,6 +464,8 @@ Review full existing commit patches with Git in the reported checkout when neede
 Dry run does not stage, commit, push, fetch, or update ownership/source records.
 Its remote comparison can be stale; actual publication fetches before staging.
 
+### Repository scope and Git safeguards
+
 Selection chooses whole repositories, not file scopes.
 Each shared checkout is processed once, even if several selected skills or bundles reference it.
 With `-m`, all nonignored changes in that checkout are staged and committed, including deletions, untracked files, previously staged changes, and changes outside declared skill directories.
@@ -430,6 +486,8 @@ Dry runs remain offline and cannot confirm whether a remote is empty.
 Behind/diverged histories, wrong branches, and unfinished Git operations must be reconciled explicitly with Git before retrying.
 Ignored untracked files are left alone by publication; the existing update/apply cleanliness rules still apply afterward.
 
+### Publication results and retry
+
 With `--json`, results are grouped by checkout, with independent success/failure outcomes; any failure exits 1.
 Publication is not atomic across repositories or between commit and push.
 When an empty remote is confirmed, results include `initial_publish: true`; `remote_relation` remains `unknown` because there is no remote comparison base, and `commits` lists existing local history.
@@ -438,6 +496,8 @@ A failed commit may leave staged changes, and a failed push retains the local co
 Publication does not install content or update automatic-policy attempt clocks.
 Without `--from-copy`, copy edits are not collected and external publication remains unsupported.
 Detached content is never collected.
+
+### Collect managed copies
 
 Use `--from-copy` to collect selected installed, managed skill, directory, or instruction bundle copies into their source before publication:
 
@@ -470,11 +530,15 @@ External collection does not require a message or invoke Git; completion means o
 Installed outer links cannot be collected; nested symbolic links in opted-in general directory copies are preserved as links.
 Collection validates their relative targets at the final source location before writing, including effects on other active consumers.
 
+### Collection recovery
+
 Changed source children are staged temporarily and replaced under a recovery journal; backups are retained beside the source root, outside its payload and Git checkout.
 Live links and external synchronizers may observe source writes immediately; collection is not a tree-wide atomic activation.
 After interruption, use `aem recover`; later edits to source, stages or backups stop recovery instead of being discarded.
 After collection succeeds, commit/push failure retains collected content, the new common baseline and any created commit for retry.
 Source groups have independent outcomes, with no cross-source transaction.
+
+### Collection result fields
 
 Copy publication uses existing `planned`, `published` and `failed` result values.
 Additional `collection` entries contain `item`, `source`, `copy`, `baseline_hash`, `source_hash`, `copy_hash`, boolean `changed`, `stale`, `conflict`, and relative `changes` (including `.` for root permission changes).
@@ -491,14 +555,18 @@ aem apply [--agent AGENT] [--item ID ...] [--git-timeout TIMEOUT]
           [--adopt | --replace] [--reattach] [--dry-run]
 ```
 
-Omit items to install all declared, non-detached items except personal hooks, which require explicit selection.
-Skill and directory selectors are catalog names (directories also accept `NAME:directory`); instruction IDs are `NAME:bundle`, `NAME:entry`, and `NAME:hook`.
-Selecting an entry or hook also selects its bundle and the other instruction items.
-Selecting only a bundle installs its directory link alone.
-`--agent` filters installation destinations; directories remain included as agent-independent targets.
+- Omit items to install all declared, non-detached items except personal hooks, which require explicit selection.
+- Skill and directory selectors are catalog names (directories also accept `NAME:directory`); instruction IDs are `NAME:bundle`, `NAME:entry`, and `NAME:hook`.
+- Selecting an entry or hook also selects its bundle and the other instruction items.
+- Selecting only a bundle installs its linked or copied directory without selecting the entry or hook.
+- `--agent` filters installation destinations; directories remain included as agent-independent targets.
 
-`--adopt` records matching existing content; `--replace` backs up and replaces a conflict.
-Both require explicit `--item` selections, as does `--reattach` for detached items.
+| Option | Effect | Selection requirement |
+| --- | --- | --- |
+| `--adopt` | Record matching existing content. | Explicit `--item`. |
+| `--replace` | Back up and replace a conflict. | Explicit `--item`. |
+| `--reattach` | Reinstall detached content. | Explicit `--item`. |
+
 An implicitly selected bundle does not gain replacement permission.
 Dry run validates and shows planned actions without changing targets or ownership.
 Prepared checkouts must be clean even though this command does not fetch.
@@ -554,13 +622,14 @@ It never fetches; `--refresh` does not use the fallback.
 aem detach ID [ID ...] [--agent AGENT] [--dry-run]
 ```
 
-Materializes links as regular copies, preserves copy contents, and records detached tombstones.
-Detaching an instruction entry also releases its hook ownership while retaining the hook configuration.
-For independent instruction copies, detach both `NAME:bundle` and `NAME:entry`.
-Detach does not restore pre-installation content or disable retained hooks.
-It refuses missing or unreadable content that cannot be preserved.
-`--agent` cannot detach only one consumer of a shared target; omit it to release all consumers.
-Dry run leaves targets and ownership unchanged.
+- Materializes links as regular copies, preserves copy contents, and records detached tombstones.
+- Detaching an instruction entry also releases its hook ownership while retaining the hook configuration.
+  For independent instruction copies, detach both `NAME:bundle` and `NAME:entry`.
+- Detach does not restore pre-installation content or disable retained hooks.
+- It refuses missing or unreadable content that cannot be preserved.
+- `--agent` cannot detach only one consumer of a shared target; omit it to release all consumers.
+- Dry run leaves targets and ownership unchanged.
+
 Detach does not require valid installation fields or source declarations; it accepts state versions 1 and 2 without changing the version.
 It materializes an actual symbolic link regardless of an obsolete saved mode, and checks regular contents are readable before releasing ownership.
 Unknown fields and unselected records are preserved; no legacy config-merge parser is needed.
@@ -594,6 +663,8 @@ An installed copy or detached item resolves to its preserved local contents, not
 Saved lookup works without loading the catalog or validating installation fields, accepts state versions 1 and 2, and never changes ownership.
 Missing or redirected entries and replaced active links are errors; a broken installation never silently falls back to its source.
 
+### Prepared source lookup
+
 If no saved installation exists for the selected agent, locate resolves the prepared source from the current catalog.
 Use `--source` to request that source explicitly even when a copy, detached item, or broken installation exists.
 Source lookup returns `location: "source"`, `root`, `entry`, `checkout` (null for external folders), `repository`, and all source names sharing the checkout in `members`.
@@ -601,6 +672,8 @@ It sets `installed_root` to null and `detached` to false because it describes th
 It requires a valid current machine/catalog configuration and existing source content; it does not clone or fetch.
 Git source lookup validates the registered repository and branch but allows uncommitted edits.
 Use the returned root/entry to edit, then `publish NAME` for Git content; external synchronization stays outside AEM.
+
+### Repository and named source lookup
 
 Use `--repo` to locate the current catalog item's prepared source Git checkout root, independently of installed copies, detached contents, and the selected agent.
 It can be combined with `--source`, but not `--target`; external folder sources are rejected even if the folder happens to be in a Git repository.
@@ -656,6 +729,8 @@ The full preview includes `policy` and `stages = ["tool", "catalog", "content"]`
 The full launch result includes `mode`, Unix `time`, `trigger`, `token`, and an opaque request `binding`.
 A launch failure exits 1; a successfully queued run exits 0 and reports eventual failure through status.
 
+### Automation result fields
+
 `status` includes an `automation` object with effective `policy` and `last_attempt`.
 Full attempt status can be `queued`, `continuing`, `completed`, `failed`, or `cancelled`.
 Continuation results contain a `stages` object with the tool outcome and, when reached, catalog and content outcomes.
@@ -667,6 +742,8 @@ Full runs can install new declarations, while preserving explicit manual exclusi
 They do not publish content or delete targets removed from the catalog.
 The worker and fresh continuation release/reacquire installation-before-configuration locks; mode/runtime binding and one-use token checks prevent stale continuation.
 The continuation has no total wall-clock timeout; individual Git phases and the tool subprocess remain bounded.
+
+### Mode restrictions
 
 In `off` mode, `auto` returns no skill work and `catalog auto` reports `not-triggered`.
 In `full` mode these individual event commands fail with guidance to use `automation`, avoiding duplicate policy execution.
@@ -742,14 +819,13 @@ See [Staged settings](settings-management.md) for complete behavior, locate/stat
 
 ## Claude callback behavior
 
-Claude agent-hook emits plain stdout path context. Lookup failure uses stderr
-and exit 2; SessionStart continues. Startup may request reloadSkills after a
-successful synchronous skill installation or checkout advancement affecting that
-consumer, including active links indirectly changed through shared checkouts.
-Unapplied copies and detached skills do not request reload. An advanced live-link
-source still requests reload if subsequent application fails. No-op/check/throttled
-runs and failures without a relevant change do not request reload. In full asynchronous
-mode, wait for worker completion and start a fresh session to discover changes.
+Claude agent-hook emits plain stdout path context.
+Lookup failure uses stderr and exit 2; SessionStart continues.
+Startup may request reloadSkills after a successful synchronous skill installation or checkout advancement affecting that consumer, including active links indirectly changed through shared checkouts.
+Unapplied copies and detached skills do not request reload.
+An advanced live-link source still requests reload if subsequent application fails.
+No-op/check/throttled runs and failures without a relevant change do not request reload.
+In full asynchronous mode, wait for worker completion and start a fresh session to discover changes.
 The hidden --aem-hook-id identifies supported command-field ownership.
 See [profile contracts](agent-profiles.md).
 
@@ -760,18 +836,17 @@ See [profile contracts](agent-profiles.md).
 aem hooks remove NAME... [--agent AGENT] [--dry-run]
 ```
 
-NAME selects saved personal hook resources, not source repository names or
-instruction hooks. Omit `--agent` to remove all saved agent groups for those
-names. Removal checks the exact saved group and stable identity, preserves
-unselected groups/preferences, and releases ownership. Edited, duplicate,
-missing or detached groups are refused; no force removal is supplied.
-It works offline without a catalog, runtime or source. Dry run preserves targets
-and records. Detach instead preserves groups. Explicit selected reattachment is
-required after removal. This operation does not remove AEM setup/instruction
-hooks or revoke product trust.
+NAME selects saved personal hook resources, not source repository names or instruction hooks.
+Omit `--agent` to remove all saved agent groups for those names.
+Removal checks the exact saved group and stable identity, preserves unselected groups/preferences, and releases ownership.
+Edited, duplicate, missing or detached groups are refused; no force removal is supplied.
+It works offline without a catalog, runtime or source.
+Dry run preserves targets and records.
+Detach instead preserves groups.
+Explicit selected reattachment is required after removal.
+This operation does not remove AEM setup/instruction hooks or revoke product trust.
 
-Prepare with `bootstrap --runtime NAME=ABSOLUTE_EXECUTABLE`, then register with
-`apply --item NAME` (or `NAME:hook` / `NAME:hook@claude`). Plain apply and plain
-sync exclude personal hook registration. Update visits the source without
-changing installed definitions; its live script contents may change immediately.
+Prepare with `bootstrap --runtime NAME=ABSOLUTE_EXECUTABLE`, then register with `apply --item NAME` (or `NAME:hook` / `NAME:hook@claude`).
+Plain apply and plain sync exclude personal hook registration.
+Update visits the source without changing installed definitions; its live script contents may change immediately.
 See [Personal hooks](personal-hooks.md).

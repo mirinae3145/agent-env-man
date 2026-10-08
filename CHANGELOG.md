@@ -19,6 +19,7 @@ The default remains refusal; previews and full results report exclusions, while 
 
 ### Changed
 
+- Focus the README on installation and basic use, structure detailed guides by task and contract, and clarify catalog-copy support and current external-source declarations.
 - Official AEM skill guidance follows applicable content instructions without adding an authoring procedure, removes the implied commit prerequisite for refreshing copies, and routes uncommon operational details to CLI help and local documentation.
 - Default CLI reports summarize results by content type, omit routine metadata, and retain failure, conflict, recovery, settings field paths, and action notices.
 Text distinguishes previews and last-fetch observations and adds duration units.
