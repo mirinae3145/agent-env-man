@@ -27,28 +27,22 @@ Setup includes this official skill but does not install user catalog content or 
 For a Git catalog, replace the bootstrap example with `aem bootstrap --catalog-repository URL --catalog-path catalogs/personal.toml`.
 For an external source, add `--external NAME=/absolute/source` to bootstrap.
 General directories are independent of agent integrations and default to links under the saved `home` root.
-Bootstrap records the user's home directory when that binding is absent; use `--root home=/absolute/parent` to choose another initial path, or bind another catalog root with `--root NAME=/absolute/parent`.
+For custom destination roots, consult bootstrap help before preparing sources.
 Use a link when writes at the installed path should reach the publish source; copy edits reach it only through explicit `publish --from-copy`.
-General directories can opt into nested symbolic links on POSIX; consult the directory configuration reference before enabling them.
-Native Windows can read these declarations but cannot execute their preservation policy; select independent supported items explicitly.
-Full automation refuses unsupported items by default; only enable its machine-level skip policy when the user requests exclusion, and keep shared-source guards intact.
+For directories with symbolic links, consult the local directory configuration guidance for preservation and platform limits before choosing an installation mode.
 Copy and detach preserve their target text, so relative referents may change after relocation; they do not produce dependency-free copies.
 Bootstrap prepares sources without updating existing checkouts or installing targets; apply installs from local prepared paths without fetching.
 
 To install newly declared content, use `aem bootstrap --item NAME`, then preview and apply the corresponding installation item with `aem apply --item ID --dry-run` and `aem apply --item ID`.
 If a new skill is missing from an already prepared shared checkout but exists upstream, run `aem update NAME` before retrying bootstrap; this also works when existing consumers are detached or excluded from automation.
 Skill, directory and setting IDs are their catalog names; an instruction entry uses `NAME:entry`, which also selects its bundle and hook.
-Omitting selectors prepares all declared sources and applies eligible items except
-personal hooks: register those only with explicit `apply --item NAME`. Bind a
-requested interpreter with bootstrap `--runtime NAME=/absolute/executable`; AEM
-never installs it or grants native trust. Remove an unchanged saved personal
-group using `aem hooks remove NAME --dry-run`, then without preview. Detach retains
-the group and its source/runtime dependency.
+Omitting selectors prepares all declared sources and applies eligible items except personal hooks, which require explicit `apply --item NAME`.
+For personal hook runtimes or removal, consult bootstrap or hooks help; AEM does not install interpreters or grant native trust, and detach retains the hook group and its dependencies.
 
 ## Receive updates or inspect the installation
 
 For an inspection, use `aem status`; use global `--verbose` for detailed text or `--json` when later actions need to parse the report.
-Read bootstrap JSON `items` for content names and kinds; `skills` is a duplicate legacy view that also contains non-skill content.
+Read bootstrap JSON `items` for content names and kinds.
 Status is offline; `aem status --refresh` fetches observations without advancing checkouts.
 To receive changes for a selected source and install them, use:
 
@@ -80,17 +74,15 @@ Source selectors are supported only by `locate --source`, `locate --repo`, and `
 aem --json locate NAME --source
 ```
 
-Before editing managed content, inspect the located source directory and each parent directory up to and including the reported repository checkout root for applicable contribution and writing guidance.
-Read relevant guidance and follow its referenced documents according to their stated scope and the user's instruction hierarchy; directory placement alone does not establish precedence.
+Before editing, identify and follow the guidance applicable to the located content, including referenced documents, using the user's and content's existing rules for discovery, scope, and precedence.
+Locating content through AEM does not replace or waive that guidance.
 
 Installed copies and detached contents can differ from the source; ordinary publishing does not collect their edits.
 Editing through an active link changes the source immediately.
-For copies, edit the source and apply after committing to refresh the installation.
-To share edits made in an installed, managed skill, directory, or instruction bundle copy, use `aem publish NAME --from-copy --dry-run`, then authorized `aem publish NAME --from-copy -m "Share copy edits"` for Git, or omit the message for an external source.
-Collection refuses differing changes on both sides and reports source/copy paths and Git comparison arguments; inspect and reconcile them rather than replacing content to bypass the conflict.
-It also preserves affected active links' required paths and file kinds, including saved links removed from the catalog; reconcile the copy or explicitly detach the affected item before intentional removal.
-External completion confirms local source handoff only; detached content, entry links, hooks, and actual settings are not collected by this option.
-`locate --cd` requires registered shell integration and a reloaded profile; do not assume shell navigation persists between tool subprocesses.
+For copies, edit the source, then preview and apply to refresh the installation.
+For requested publication of installed-copy edits, consult publish help for `--from-copy` eligibility and preview collection before proceeding.
+Collection compares source and copy against their saved baseline and preserves active links' required paths; reconcile reported conflicts rather than bypassing them.
+Detached content, entry links, hooks, and actual settings are not collected by this option.
 
 When publication is requested, inspect all changes in the reported repository, then review and publish:
 
@@ -103,9 +95,7 @@ Publication acts on the entire selected repository, including files outside the 
 Supplying a message stages all nonignored changes; without a message, `aem publish NAME` pushes existing commits from a clean checkout.
 Review unrelated edits and outgoing commits before selecting that scope.
 For Git catalog edits, locate with `aem --json catalog locate`, edit the reported entry, and use `aem catalog publish --dry-run` followed by the authorized `aem catalog publish -m "Update catalog"`.
-For offline use of an external catalog, register its local file with `bootstrap PATH --catalog-copy`; later commands read the managed copy, and only explicit `catalog update` refreshes it.
-Return edited catalog copies with `catalog publish --from-copy --dry-run`, then authorized `catalog publish --from-copy` without a commit message.
-Use `catalog locate --source` to distinguish the external original; reconcile competing edits rather than overwriting either side.
+For copied external catalogs, consult catalog locate and publish help to distinguish the managed entry from its original and return edits explicitly; ordinary use does not refresh or write the original.
 Publication does not install content, and a request to locate or edit does not itself authorize publication.
 External-source synchronization remains the responsibility of its existing service.
 A preview is offline and cannot confirm remote state; a remote failure does not establish an empty remote.
@@ -131,11 +121,10 @@ Removing a managed field from the stage requests deletion; `aem settings release
 ## Configure automation or update AEM itself
 
 For automation changes, inspect `aem --json status` and choose the requested device mode and schedule before changing settings.
-Use `aem automation --dry-run` to inspect the current mode's planned work.
+Use `aem automation --trigger EVENT --dry-run` to inspect the current mode's planned work for the requested `shell-start`, `agent-start`, or `interval` event.
 When mode or schedule choices remain unresolved, consult setup help first, then the local automation guide only if more behavioral detail is needed.
 For individual policies, use the relevant command help before consulting the guide as needed.
-Directories share the skill update policy system and participate in full runs, preserving empty-trigger exclusions and detach.
-Settings have independent automatic sync policies and participate by default in full runs, receiving then applying changes while preserving conflicts, explicit exclusions, and detach.
+Check the selected mode's scope and exclusions before enabling automation; shared-source updates can affect live links even when their consumers are excluded from installation.
 Collection, export, and publication remain explicit.
 
 For an AEM tool update, inspect `aem self status`, then use `aem self update --dry-run` and the requested `aem self update`.
@@ -169,7 +158,7 @@ If help does not resolve the question, run `aem docs` to locate the installed RE
 | Unresolved task detail | Local guide linked from the README |
 | --- | --- |
 | Exact options, selection scope, or report fields | Command reference |
-| Catalog declarations, machine bindings, or defaults | TOML specification |
+| Catalog declarations, directory link preservation, machine bindings, or defaults | TOML specification |
 | Instruction bundle installation and hook trust | Instruction walkthrough |
 | Settings field selection, deletion/release, or conflicts | Staged settings |
 | Device modes, schedules, or asynchronous tool updates | Automation and AEM updates |

@@ -276,7 +276,7 @@ Pass multiple names to publish several sources; shared checkouts are grouped and
 Selection covers the whole repository, including files outside declared skills.
 The optional dry run is offline; publication fetches first and leaves behind/diverged histories for explicit reconciliation.
 A failed push retains the local commit for retry.
-For copy installations, edit the checkout and apply after committing; installed-copy edits are not collected automatically.
+For copy installations, edit the source, then preview and apply to refresh the installation; installed-copy edits are not collected automatically.
 To share edits made in a managed skill, directory, or instruction bundle copy, use:
 
 ```bash
