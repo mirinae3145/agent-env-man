@@ -323,6 +323,183 @@ class CopyPublication(unittest.TestCase):
             raise
         self.assertEqual(self.cli('publish', 'files', '--from-copy', code=1)[0]['status'], 'failed')
 
+    def test_changed_ownership_and_invalid_baselines_refuse_collection_without_writes(self):
+        copy = self.external()
+        (copy / 'first.txt').write_text('Copy edit', encoding='utf-8')
+        state = self.manager().state
+        original = deepcopy(state.data['items']['files:directory'])
+        source = fingerprint(self.shared)
+        mutations = (
+            ('source', str(self.root / 'different source'), 'detach before reconfiguration'),
+            ('target', str(self.root / 'different target'), 'detach before reconfiguration'),
+            ('mode', 'link', 'detach before reconfiguration'),
+            ('kind', 'skill', 'ownership changed'),
+            ('hash', None, 'no saved baseline'),
+            ('exclude_git', False, 'payload boundary changed'),
+        )
+        for field, value, diagnostic in mutations:
+            with self.subTest(field=field):
+                state.data['items']['files:directory'] = {**original, field: value}
+                state.save()
+                before = state.path.read_bytes()
+                for preview in (True, False):
+                    args = ('--dry-run',) if preview else ()
+                    report = self.cli('publish', 'files', '--from-copy', *args, code=1)[0]
+                    self.assertIn(diagnostic, report['error'])
+                    self.assertEqual(fingerprint(self.shared), source)
+                    self.assertEqual((copy / 'first.txt').read_text(), 'Copy edit')
+                    self.assertEqual(state.path.read_bytes(), before)
+                    self.assertFalse(list(self.shared.parent.glob('.aem-collection-*')))
+        state.data['items']['files:directory'] = original
+        state.save()
+        self.assertTrue(self.cli('publish', 'files', '--from-copy')[0]['collection_complete'])
+
+    def test_missing_or_file_replacement_of_copy_is_preserved_and_refused(self):
+        copy = self.external()
+        source = fingerprint(self.shared)
+        state = self.manager().state.path.read_bytes()
+        shutil.rmtree(copy)
+        for replacement in ('missing', 'file'):
+            with self.subTest(replacement=replacement):
+                if replacement == 'file':
+                    copy.write_text('User replacement', encoding='utf-8')
+                report = self.cli('publish', 'files', '--from-copy', code=1)[0]
+                self.assertIn('copy directory is missing', report['error'])
+                self.assertEqual(fingerprint(self.shared), source)
+                self.assertEqual(self.manager().state.path.read_bytes(), state)
+                if replacement == 'file':
+                    self.assertEqual(copy.read_text(), 'User replacement')
+                else:
+                    self.assertFalse(copy.exists())
+
+    def test_skill_copy_requires_descriptor_before_remote_preflight(self):
+        copy = self.install()
+        (copy / 'SKILL.md').unlink()
+        source = fingerprint(self.checkout, exclude_git=True)
+        state = self.manager().state.path.read_bytes()
+        with patch.object(Git, 'publication_preflight', side_effect=AssertionError('invalid copy contacted remote')):
+            report = self.cli('publish', 'one', '--from-copy', '-m', 'Reject', code=1)[0]
+        self.assertIn('requires SKILL.md', report['error'])
+        self.assertEqual(fingerprint(self.checkout, exclude_git=True), source)
+        self.assertEqual(self.manager().state.path.read_bytes(), state)
+
+    def test_source_edit_during_staging_is_preserved_before_collection_starts(self):
+        copy = self.external()
+        (copy / 'first.txt').write_text('Copy edit', encoding='utf-8')
+        state = self.manager().state.path.read_bytes()
+        from agent_env_man import copy_publication
+        copy_payload = copy_publication.copy_payload
+
+        def concurrent_edit(source, target, **kwargs):
+            copy_payload(source, target, **kwargs)
+            (self.shared / 'first.txt').write_text('Concurrent source edit', encoding='utf-8')
+
+        with patch.object(copy_publication, 'copy_payload', concurrent_edit):
+            report = self.cli('publish', 'files', '--from-copy', code=1)[0]
+        self.assertIn('source changed during collection', report['error'])
+        self.assertEqual((self.shared / 'first.txt').read_text(), 'Concurrent source edit')
+        self.assertEqual((copy / 'first.txt').read_text(), 'Copy edit')
+        self.assertEqual(self.manager().state.path.read_bytes(), state)
+        self.assertFalse(list(self.shared.parent.glob('.aem-collection-*')))
+
+    def test_damaged_stage_is_rejected_without_source_or_baseline_changes(self):
+        copy = self.external()
+        (copy / 'first.txt').write_text('Copy edit', encoding='utf-8')
+        source = fingerprint(self.shared)
+        state = self.manager().state.path.read_bytes()
+        from agent_env_man import copy_publication
+        copy_payload = copy_publication.copy_payload
+
+        def damaged_stage(source, target, **kwargs):
+            copy_payload(source, target, **kwargs)
+            target.write_text('Damaged stage', encoding='utf-8')
+
+        with patch.object(copy_publication, 'copy_payload', damaged_stage):
+            report = self.cli('publish', 'files', '--from-copy', code=1)[0]
+        self.assertIn('copy changed while staging', report['error'])
+        self.assertEqual(fingerprint(self.shared), source)
+        self.assertEqual((copy / 'first.txt').read_text(), 'Copy edit')
+        self.assertEqual(self.manager().state.path.read_bytes(), state)
+        self.assertFalse(list(self.shared.parent.glob('.aem-collection-*')))
+        self.assertTrue(self.cli('publish', 'files', '--from-copy')[0]['collection_complete'])
+
+    def test_copy_edit_after_source_replacement_rolls_back_and_can_retry(self):
+        copy = self.external()
+        (copy / 'first.txt').write_text('Copy edit', encoding='utf-8')
+        source = fingerprint(self.shared)
+        items = deepcopy(self.manager().state.data['items'])
+        from agent_env_man import copy_publication
+        replace = copy_publication.os.replace
+
+        def concurrent_edit(source, target):
+            result = replace(source, target)
+            if Path(source).parent.name == 'stages' and Path(target) == self.shared / 'first.txt':
+                (copy / 'first.txt').write_text('Later copy edit', encoding='utf-8')
+            return result
+
+        with patch.object(copy_publication.os, 'replace', concurrent_edit):
+            report = self.cli('publish', 'files', '--from-copy', code=1)[0]
+        self.assertIn('copy changed before collection state commit', report['error'])
+        self.assertEqual(fingerprint(self.shared), source)
+        self.assertEqual((copy / 'first.txt').read_text(), 'Later copy edit')
+        self.assertEqual(self.manager().state.data['items'], items)
+        self.assertIsNone(self.manager().state.data['pending'])
+        self.assertTrue(self.cli('publish', 'files', '--from-copy')[0]['collection_complete'])
+        self.assertEqual((self.shared / 'first.txt').read_text(), 'Later copy edit')
+
+    def test_source_edit_after_journaling_stops_recovery_until_reconciled(self):
+        copy = self.external()
+        (copy / 'first.txt').write_text('Copy edit', encoding='utf-8')
+        items = deepcopy(self.manager().state.data['items'])
+        save = State.save
+
+        def concurrent_edit(state):
+            save(state)
+            if state.data['pending'] and state.data['pending'].get('operation') == 'copy-collection':
+                (self.shared / 'first.txt').write_text('Concurrent source edit', encoding='utf-8')
+
+        with patch.object(State, 'save', concurrent_edit):
+            report = self.cli('publish', 'files', '--from-copy', code=1)[0]
+        self.assertIn('Recovery stopped', report['error'])
+        self.assertEqual((self.shared / 'first.txt').read_text(), 'Concurrent source edit')
+        self.assertEqual((copy / 'first.txt').read_text(), 'Copy edit')
+        self.assertEqual(self.manager().state.data['items'], items)
+        self.assertIsNotNone(self.manager().state.data['pending'])
+        self.assertIn('Recovery stopped', self.cli('recover', code=1))
+        (self.shared / 'first.txt').write_text('First\n', encoding='utf-8')
+        self.cli('recover')
+        self.assertIsNone(self.manager().state.data['pending'])
+        self.assertTrue(self.cli('publish', 'files', '--from-copy')[0]['collection_complete'])
+        self.assertEqual((self.shared / 'first.txt').read_text(), 'Copy edit')
+
+    def test_source_edit_after_replacement_preserves_journal_and_user_edit(self):
+        copy = self.external()
+        (copy / 'first.txt').write_text('Copy edit', encoding='utf-8')
+        items = deepcopy(self.manager().state.data['items'])
+        from agent_env_man import copy_publication
+        replace = copy_publication.os.replace
+
+        def concurrent_edit(source, target):
+            result = replace(source, target)
+            if Path(source).parent.name == 'stages' and Path(target) == self.shared / 'first.txt':
+                Path(target).write_text('Later source edit', encoding='utf-8')
+            return result
+
+        with patch.object(copy_publication.os, 'replace', concurrent_edit):
+            report = self.cli('publish', 'files', '--from-copy', code=1)[0]
+        self.assertIn('Recovery stopped', report['error'])
+        self.assertEqual((self.shared / 'first.txt').read_text(), 'Later source edit')
+        self.assertEqual((copy / 'first.txt').read_text(), 'Copy edit')
+        self.assertEqual(self.manager().state.data['items'], items)
+        self.assertIsNotNone(self.manager().state.data['pending'])
+        self.assertIn('Recovery stopped', self.cli('recover', code=1))
+        (self.shared / 'first.txt').write_text('Copy edit', encoding='utf-8')
+        self.cli('recover')
+        self.assertEqual((self.shared / 'first.txt').read_text(), 'First\n')
+        self.assertEqual(self.manager().state.data['items'], items)
+        self.assertIsNone(self.manager().state.data['pending'])
+        self.assertTrue(self.cli('publish', 'files', '--from-copy')[0]['collection_complete'])
+
     def test_git_root_collection_preserves_git_database_and_ignored_payloads(self):
         self.document['directories'] = {'root': {'source': 'shared', 'install': {'root': 'skills', 'mode': 'copy'}}}
         self.catalog.write_text(tomlkit.dumps(self.document), encoding='utf-8')
