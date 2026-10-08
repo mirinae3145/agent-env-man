@@ -19,7 +19,7 @@ The default remains refusal; previews and full results report exclusions, while 
 
 ### Changed
 
-- Default CLI reports summarize results by content type, omit routine metadata, and retain failure, conflict, recovery, and action notices.
+- Default CLI reports summarize results by content type, omit routine metadata, and retain failure, conflict, recovery, settings field paths, and action notices.
 Text distinguishes previews and last-fetch observations and adds duration units.
 
 ### Fixed

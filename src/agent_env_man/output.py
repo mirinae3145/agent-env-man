@@ -71,6 +71,8 @@ ROW_STATES = ("status", "action", "installation", "availability", "checkout", "r
 def _word(value, key):
     if key == "checkout" and value not in ("clean", "dirty"):
         return value
+    if key == "remote_relation" and value in ("ahead", "behind", "diverged"):
+        return f"{value} at last fetch"
     if key in SECONDS_FIELDS and isinstance(value, (int, float)) and not isinstance(value, bool):
         return f"{value:g} seconds"
     if isinstance(value, str) and key in (*ROW_STATES, "mode", "note", "trust"):
@@ -208,7 +210,10 @@ def human_report(report, *, command="", verbose=False, planned=False, failed=Fal
                 # available with --verbose, including raw timestamps and hashes.
                 if not isinstance(child, (dict, list)) or not _attention(child):
                     continue
-            if is_row and key in PATH_FIELDS and not needs_attention and not location:
+            # Settings field paths are arrays identifying the operation's
+            # subject, not routine filesystem locations.
+            if (is_row and key in PATH_FIELDS and isinstance(child, str)
+                    and not needs_attention and not location):
                 continue
             if is_row and key in ("mode", "transport", "branch") and not needs_attention:
                 continue

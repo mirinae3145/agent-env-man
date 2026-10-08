@@ -12,7 +12,7 @@ Ordinary commands print concise summaries by default, including when stdout is r
 Content results are grouped as instructions, skills, directories, settings, or hooks when their type is known; source and repository results remain separate.
 Result counts count operation results, so preparation and staging of one setting, or separate instruction installation components, can contribute multiple results.
 Empty results are explicit; routine paths, revisions, empty fields, and duplicate compatibility views are omitted.
-Errors, conflicts, pending recovery, comparison arguments, and required notices remain visible.
+Errors, conflicts, pending recovery, comparison arguments, settings field paths, and required notices remain visible.
 Use `--verbose` for detailed text, for example `aem --verbose status`; it cannot be combined with `--json` (usage error, exit `2`).
 Text durations include units, and previews and last-fetch observations are distinguished from completed operations and current remote observations.
 Use `--json` for the existing JSON report schema, for example `aem --json status` or `aem --json catalog status`.

@@ -192,6 +192,37 @@ class MixedOutputTests(unittest.TestCase):
     def test_external_types_legacy_compatibility_and_settings_stage(self):
         self.check_preparation(self.configure(external=True))
 
+    def test_offline_status_labels_cached_remote_relations(self):
+        self.configure()
+        from agent_env_man.git_source import Git
+        for relation in ('ahead', 'behind', 'diverged'):
+            with self.subTest(relation=relation), \
+                    patch.object(Git, 'relation', return_value=relation), \
+                    patch.object(Git, 'fetch', side_effect=AssertionError('Offline status fetched')):
+                for flags in ((), ('--verbose',)):
+                    text = self.call('status', flags=flags)
+                    self.assertIn(f'{relation} at last fetch', text)
+                report = self.call('status', flags=['--json'])
+                self.assertTrue(all(row['remote_relation'] == relation for row in report['sources']))
+
+    def test_settings_release_keeps_field_path_in_preview_and_result(self):
+        self.configure()
+        stage = Path(str(self.config) + '.stages') / 'editor/config.toml'
+        before = stage.read_bytes()
+        for flags in ((), ('--verbose',), ('--json',)):
+            report = self.call('settings', 'release', 'editor', '--path', '["color"]',
+                               '--dry-run', flags=flags)
+            if '--json' in flags:
+                self.assertEqual(report['path'], ['color'])
+            else:
+                self.assertIn('path:', report)
+                self.assertIn('color', report)
+                self.assertIn('preview', report)
+            self.assertEqual(stage.read_bytes(), before)
+        text = self.call('settings', 'release', 'editor', '--path', '["color"]')
+        self.assertIn('path:', text)
+        self.assertIn('color', text)
+
     def test_failed_git_consumers_keep_types_and_error_details(self):
         self.configure()
         checkout = self.checkouts / '.aem-repositories/shared'
