@@ -128,7 +128,15 @@ Explicit full device automation may prepare/update/apply instruction bundles, ex
 
 ## Catalog delivery contracts
 
-Preserve compatibility for local catalog path strings, and keep Git bindings in machine configuration.
+Preserve compatibility for local catalog path strings, and keep Git and explicit local copy bindings in machine configuration.
+A local copy binding separates the external original from the managed file always consumed by catalog readers.
+Keep its common content hash and binding in separate `catalog_copy` state, never content ownership or Git observations.
+Initial registration and rebinding validate candidates before journaling the managed file and machine binding together.
+Reuse an existing binding without reading the original; refresh and reverse publication are explicit.
+Local update and publication use a common baseline, preserve one-sided edits in the opposite direction, and refuse competing changes.
+Only `catalog publish --from-copy` writes the external original; require an existing regular file and never invoke its synchronization service.
+Use grouped file recovery with input observations and separate baseline updates; recovery must work without parsing the catalog.
+Reject redirected paths, overlapping storage/targets, unmanaged copy replacement, and rebinding over copy edits.
 Bootstrap accepts the catalog repository, relative entry path, and optional branch without requiring a hand-written machine file; persist the resolved branch for subsequent operations.
 Catalog delivery precedes content delivery and must not depend on declarations inside the catalog itself.
 Use a separate checkout even when catalog and content share a remote, so content updates cannot implicitly change the inventory or automatic policies.

@@ -232,7 +232,7 @@ Explicit commands ignore these policies and clocks.
 | Field/table | Type | Meaning/default |
 | --- | --- | --- |
 | `version` | Integer | Required, exactly `1`. |
-| `catalog` | String or table | Optional local catalog path or Git binding described below; required for bootstrap/content preparation. One binding per machine file. |
+| `catalog` | String or table | Optional direct local path, local copy binding, or Git binding described below; required for bootstrap/content preparation. One binding per machine file. |
 | `checkout_root` | String | Managed Git storage; defaults to sibling `<machine-file>.checkouts`. |
 | `roots` | Table of paths | User-named installation roots; bootstrap defaults missing `skills`, `agent`, and `home`. |
 | `agents` | Table | Agent selections and path bindings, normally written by setup. |
@@ -267,6 +267,36 @@ report = "copy"
 Machine selection defaults to `$XDG_CONFIG_HOME/agent-env-man/machine.toml` or `~/.config/agent-env-man/machine.toml` on Linux/WSL.
 On Windows it uses `%LOCALAPPDATA%/agent-env-man/machine.toml`, falling back to `~/AppData/Local/agent-env-man/machine.toml`.
 Pass `--config PATH` before the command to select another file.
+
+### Copied local catalog binding
+
+Use `bootstrap /absolute/external/catalog.toml --catalog-copy` (or `--catalog PATH --catalog-copy`) to retain a managed local file:
+
+```toml
+[catalog]
+type = "local"
+path = "/absolute/external/catalog.toml"
+mode = "copy"
+```
+
+`path` identifies the original regular file; relative paths and redirected ancestry are rejected in this machine table.
+The managed entry is `<machine-file>.catalog-copy/catalog.toml`.
+Ordinary catalog operations always consume that copy, even when the original is available.
+The copied file remains editable; valid edits are used on the next command, while malformed edits require repair before content operations.
+`catalog locate` finds the editable copy without parsing its TOML, and `catalog locate --source` reports the original even when absent.
+
+`catalog update` explicitly receives original changes, and `catalog publish --from-copy` explicitly returns copy edits.
+Both compare a saved common content hash: one-sided changes flow only in their selected direction, equal contents advance the baseline, and competing changes stop without overwriting.
+No automatic merge, force publication, or local catalog automatic refresh is provided.
+Source absence does not prevent use of the copy, but update/publication require an existing regular original and never recreate it.
+External synchronization remains outside AEM.
+
+Bootstrap with an unchanged binding reuses the copy without refreshing it.
+Rebinding can replace only an unchanged owned copy; preserve and reconcile local edits first.
+Unowned files at the managed location are not adopted implicitly.
+Registration, refresh, and publication retain recoverable backups and commit the file and comparison state together.
+Copy storage and the original must not overlap manager storage, content roots, or installation targets.
+Existing string bindings remain direct local file bindings unless explicitly registered with `--catalog-copy`.
 
 ### Git catalog binding
 

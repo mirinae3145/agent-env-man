@@ -741,7 +741,7 @@ class Manager:
             from .copy_publication import recover
             recover(self.state)
             return
-        if pending.get("operation") == "settings-group":
+        if pending.get("operation") in ("settings-group", "catalog-copy"):
             from .settings import recover_group
             recover_group(self.state)
             return

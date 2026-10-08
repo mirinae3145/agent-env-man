@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - Managed instruction bundle copies with global entries linked into the installed reading tree, offline location and hook lookup, machine mode overrides, and explicit `publish --from-copy` collection with conflict protection.
+- Copy-backed local catalog bindings through `bootstrap --catalog-copy`, with offline consumption, explicit validated update and `catalog publish --from-copy`, source location, common-baseline conflict protection, and recoverable file/binding changes.
 
 ## [1.2.0-beta] &mdash; 2026-10-08
 

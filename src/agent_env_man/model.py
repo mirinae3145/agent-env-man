@@ -150,6 +150,7 @@ class Config(MachineFile):
                 self.roots[key] = path
         self.catalog_path = None
         self.catalog_source = None
+        self.catalog_copy_source = None
         # Candidate revisions can be validated against final device paths before
         # moving the catalog checkout. This input never changes path resolution.
         self._catalog_document = catalog_document
@@ -165,7 +166,25 @@ class Config(MachineFile):
             raise Error("Checkout storage must be separate from machine config and state")
         if "catalog" in self.doc:
             value = self.doc["catalog"]
-            if isinstance(value, dict):
+            if isinstance(value, dict) and value.get("type") == "local":
+                if set(value) != {"type", "path", "mode"} or value.get("mode") != "copy":
+                    raise Error("Local copy catalog requires only type, path, and mode = copy")
+                from .storage import saved_path
+                raw_path = value["path"]
+                if not isinstance(raw_path, str):
+                    raise Error("Local catalog source must be an absolute path")
+                self.catalog_copy_source = saved_path(str(Path(raw_path).expanduser()))
+                storage = self.path.parent / (self.path.name + ".catalog-copy")
+                self.catalog_path = storage / "catalog.toml"
+                saved_path(str(self.catalog_path))
+                protected = [self.path, self.state_dir, self.checkout_root,
+                             self.path.parent / (self.path.name + ".catalog"),
+                             self.path.parent / (self.path.name + ".stages")]
+                if any(overlaps(storage, p) or overlaps(self.catalog_copy_source, p) for p in protected):
+                    raise Error("Catalog copy/source must be separate from manager storage")
+                if overlaps(storage, self.catalog_copy_source):
+                    raise Error("Catalog copy storage overlaps its source")
+            elif isinstance(value, dict):
                 if set(value) - {"type", "repository", "branch", "path"} or value.get("type", "git") != "git":
                     raise Error("Git catalog accepts only type, repository, branch, and path")
                 self._validate_repository(value, "Catalog")
@@ -224,6 +243,9 @@ class Config(MachineFile):
                 if self.catalog_source:
                     from .catalog import local_entry
                     local_entry(self)
+                if self.catalog_copy_source is not None:
+                    from .settings import regular
+                    regular(self.catalog_path)
                 document = tomlkit.parse(self.catalog_path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:
             raise Error(f"Cannot read skill catalog {self.catalog_path}: {exc}") from exc
@@ -306,6 +328,8 @@ class Config(MachineFile):
         protected = [self.path, self.state_dir, self.checkout_root]
         if self.catalog_path:
             protected.append(self.catalog_source.path if self.catalog_source else self.catalog_path)
+        if self.catalog_copy_source is not None:
+            protected.extend([self.catalog_path.parent, self.catalog_copy_source])
         paths = list(external_paths.values())
         for i, path in enumerate(paths):
             if any(overlaps(path, other) for other in protected + paths[:i]):
@@ -488,6 +512,8 @@ class Config(MachineFile):
         protected = [s.path for s in self.sources.values()] + [self.state_dir, self.path]
         if self.catalog_path:
             protected.extend([self.catalog_source.path if self.catalog_source else self.catalog_path, self.checkout_root])
+        if self.catalog_copy_source is not None:
+            protected.extend([self.catalog_path.parent, self.catalog_copy_source])
         if any(overlaps(target, path) for path in protected):
             raise Error(f"Target overlaps source, inventory, or manager state: {target}")
         return target

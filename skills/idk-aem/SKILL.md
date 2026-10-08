@@ -99,7 +99,10 @@ aem publish NAME -m "Clarify guidance"
 Publication acts on the entire selected repository, including files outside the selected content directory.
 Supplying a message stages all nonignored changes; without a message, `aem publish NAME` pushes existing commits from a clean checkout.
 Review unrelated edits and outgoing commits before selecting that scope.
-For catalog edits, locate with `aem --json catalog locate`, edit the reported entry, and use `aem catalog publish --dry-run` followed by the authorized `aem catalog publish -m "Update catalog"`.
+For Git catalog edits, locate with `aem --json catalog locate`, edit the reported entry, and use `aem catalog publish --dry-run` followed by the authorized `aem catalog publish -m "Update catalog"`.
+For offline use of an external catalog, register its local file with `bootstrap PATH --catalog-copy`; later commands read the managed copy, and only explicit `catalog update` refreshes it.
+Return edited catalog copies with `catalog publish --from-copy --dry-run`, then authorized `catalog publish --from-copy` without a commit message.
+Use `catalog locate --source` to distinguish the external original; reconcile competing edits rather than overwriting either side.
 Publication does not install content, and a request to locate or edit does not itself authorize publication.
 External-source synchronization remains the responsibility of its existing service.
 A preview is offline and cannot confirm remote state; a remote failure does not establish an empty remote.
