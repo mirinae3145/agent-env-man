@@ -28,6 +28,7 @@ from ..updates import TRIGGERS, startup_briefing, startup_skills_changed
 @click.option("--update-bin-dir", help="uv executable directory.")
 @click.option("--automation", type=click.Choice(device_automation.MODES))
 @click.option("--automation-trigger", multiple=True, type=click.Choice(("manual", *TRIGGERS)), help="Replace device triggers; repeat for multiple events.")
+@click.option("--automation-skip-unsupported/--no-automation-skip-unsupported", default=None, help="Save whether full automation excludes platform-unsupported items (default: no); omission preserves the saved value. Shared-source guards still apply.")
 @click.option("--automation-interval", type=INTERVAL, help="Minimum seconds between device attempts.")
 @click.option("--automation-git-timeout", "--automation-timeout", "automation_timeout", type=SECONDS, help="Seconds per Git phase in device automation.")
 @click.option("--startup-hook-timeout", type=SECONDS, help="Seconds the agent waits for the startup callback (default: 10); updates saved agent hooks. Git phase limits are separate.")

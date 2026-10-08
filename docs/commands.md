@@ -15,6 +15,11 @@ Ordinary operation errors use stderr and exit `1`, argument parsing errors exit 
 Invalid numeric CLI durations (non-finite values, nonpositive timeouts, or negative intervals) are argument errors and exit `2` before configuration reads or filesystem effects.
 Help exits `0`; invoking a command group without a required subcommand shows usage/help and exits `2`.
 Successful operations exit `0`; status also exits `0` when its report contains conflicts or unavailable sources.
+Platform-unsupported directory policies appear as item `status = "unavailable"` with `error`; detached items retain `status = "detached"` and include the limitation as `error`.
+Their presence does not invalidate the catalog or prevent independent supported item operations.
+Explicit content commands preflight the complete selected operation and its shared-source consumers before content changes; unsupported policies fail rather than being silently skipped.
+Bootstrap performs this preflight after reading the catalog and before saving the machine binding or preparing content.
+`sync --item` still updates all sources; use `update NAME` and `apply --item NAME` for independent work.
 Callbacks have the exceptions described below.
 Documented commands, behavior, exit codes, and JSON fields are covered by the package's [compatibility policy](compatibility.md).
 JSON consumers must ignore unknown object fields; field additions may appear in compatible feature releases.
@@ -70,6 +75,10 @@ Saved TOML `timeout` keys and effective JSON policy fields retain their names.
 
 ## setup
 
+`--automation-skip-unsupported` and `--no-automation-skip-unsupported` save a Boolean machine policy for full automation, defaulting to false and preserving the saved value when omitted.
+They can be used in policy-only setup without changing integrations; the installer accepts both flags.
+See [full automation](automation.md#device-automation-modes) for exclusion reporting, shared-source constraints, and preview limits.
+
 ```text
 aem setup [--shell SHELL ...] [--agent AGENT ...]
           [--remove-shell NAME ...] [--remove-agent NAME ...]
@@ -80,6 +89,7 @@ aem setup [--shell SHELL ...] [--agent AGENT ...]
           [--catalog-git-timeout SECONDS] [--startup-hook-timeout SECONDS]
           [--automation off|policies|full] [--automation-trigger EVENT ...]
           [--automation-interval SECONDS] [--automation-git-timeout SECONDS]
+          [--automation-skip-unsupported | --no-automation-skip-unsupported]
 ```
 
 Shell choices are `bash`, `zsh`, and `powershell`.

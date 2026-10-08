@@ -71,9 +71,6 @@ def validate(document):
                 enabled = data.get("preserve_symlinks", False)
                 if not isinstance(enabled, bool):
                     raise Error(f"{kind}.{name}.preserve_symlinks: expected Boolean")
-                if enabled:
-                    from .payload_links import require_posix
-                    require_posix()
             source = data.get("source")
             if not isinstance(source, str) or source not in sources:
                 raise Error(f"{kind}.{name}: source must name a declared source")

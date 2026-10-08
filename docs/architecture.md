@@ -48,6 +48,9 @@ Use pinned non-following POSIX descriptors for enabled payload traversal and ent
 Save the policy and logical source-relative path with ownership and recovery observations; absent fields retain the old rejection behavior.
 Catalog policy removal cannot disable saved detach/recovery support.
 A shared checkout must satisfy every affected consumer's policy, including orphaned active links.
+Keep catalog schema validation platform-independent; check selected items and affected source consumers for platform support before content mutations.
+Do not put execution capability checks in general selection or catalog validation: inspection and catalog delivery must remain usable.
+Saved ownership and recovery policies retain their execution requirements even when current declarations change.
 
 ### Catalog and maintenance boundaries
 
@@ -222,6 +225,10 @@ Validate and fast-forward the catalog before loading full content selection; ski
 Full mode opts in otherwise unconfigured skills but preserves explicit or inherited empty-trigger exclusions using the existing precedence.
 Prepare/update eligible sources before applying selected items, with no adoption, replacement, reattachment, deletion, publication, or hook trust granting.
 Keep shared-checkout validation and live-link side effects intact, including excluded consumers; document this boundary.
+Full mode refuses unsupported payload requirements before its content stage unless the machine explicitly enables `skip_unsupported`.
+That option excludes only known platform limitations, reports every exclusion, and never suppresses shared-source guards or ordinary errors.
+Include it in the saved automation settings used to cancel obsolete worker requests.
+Policy-based automation keeps independent attempts and failure throttling; previews report unsupported due work without recording attempts.
 Stop later stages on failure without claiming cross-repository rollback; preserve ordinary per-target journals and recovery.
 
 ## Ownership and safety

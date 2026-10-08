@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Platform-independent catalog reading and delivery for directory link-preservation declarations, with item-level Windows diagnostics and preflight refusal before unsupported content operations.
+Independent supported items remain usable; shared-source and saved ownership protection remain enforced.
+- Explicit full-automation exclusion of platform-unsupported items through machine `automation.skip_unsupported` and installer/setup `--automation-skip-unsupported` / `--no-automation-skip-unsupported` options.
+The default remains refusal; previews and full results report exclusions, while policy-based automation retains independent failures and throttling.
+
 ## [1.2.0-beta] &mdash; 2026-10-08
 
 First beta of 1.2.0; Git tag `v1.2.0-beta` corresponds to Python package version `1.2.0b0`; based on `v1.1.1`.

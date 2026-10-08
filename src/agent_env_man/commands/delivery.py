@@ -104,6 +104,7 @@ def bootstrap_skills(config, state, args):
             if value.partition("=")[0] not in candidate._settings:
                 raise Error("--setting-target must name a catalog setting")
         manager = Manager(candidate, state)
+        manager.require_sources_supported(args.item)
     atomic_write(config.path, tomlkit.dumps(candidate.doc).encode("utf-8"))
     report, failed = manager.prepare_skills(args.item, timeout=args.timeout)
     result = {"skills": report, "config": str(config.path), "next": "apply --dry-run"}

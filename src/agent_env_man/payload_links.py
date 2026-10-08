@@ -15,6 +15,20 @@ import shutil
 from .model import Error
 
 
+def unsupported_reason(value):
+    """Describe a platform limitation without inspecting or following payloads."""
+    enabled = value.get('preserve_symlinks', False) if isinstance(value, dict) else value.preserve_symlinks
+    if enabled and os.name == 'nt':
+        return 'preserve_symlinks is unsupported on Windows'
+    return None
+
+
+def require_supported(value, label):
+    reason = unsupported_reason(value)
+    if reason:
+        raise Error(f'{label}: {reason}')
+
+
 def options(value):
     """Read optional payload policy from a current item or saved ownership."""
     if isinstance(value, dict):

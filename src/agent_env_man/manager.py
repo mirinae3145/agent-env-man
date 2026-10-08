@@ -12,7 +12,7 @@ import uuid
 from .agents import profile, suffix
 from .git_source import Git, now
 from .model import Config, MachineFile, Error, Item, identifier, overlaps, relative
-from .payload_links import options as payload_options, replace as replace_link_entry, remove as remove_link_entry
+from .payload_links import require_supported, unsupported_reason, options as payload_options, replace as replace_link_entry, remove as remove_link_entry
 from .storage import State, copy_payload, exists, fingerprint, is_reparse, observation, remove, saved_path, link_matches
 
 
@@ -41,6 +41,27 @@ class Manager:
             return replace(source, branch=branch)
         return source
 
+    def require_items_supported(self, items):
+        """Check desired and saved policies before any selected payload changes."""
+        for item in items:
+            require_supported(item, item.key)
+            old = self.state.data['items'].get(item.key, {})
+            if not old.get('detached'):
+                require_supported(old, item.key)
+
+    def require_sources_supported(self, names=(), *, sources=None):
+        """Shared delivery must satisfy even unselected consumers and orphaned links."""
+        sources = self.config.sources if sources is None else sources
+        paths = {source.path for name, source in sources.items() if not names or name in names}
+        for source in self.config.sources.values():
+            if source.path in paths:
+                self.require_items_supported(self.config.declarations(source))
+        for key, old in self.state.data['items'].items():
+            if old.get('detached') or old.get('mode') != 'link':
+                continue
+            if any(old.get('source') == str(path / old.get('relative', '.')) for path in paths):
+                require_supported(old, key)
+
     def prepare_skills(self, names=(), *, timeout=30, defer_payloads=False):
         """Clone listed repositories, validating consumers before publishing a checkout.
 
@@ -55,6 +76,7 @@ class Manager:
         if set(names) - sources.keys():
             raise Error("Unknown catalog source selection")
         self.check_destinations([i for s in sources.values() for i in self.config.declarations(s)])
+        self.require_sources_supported(names)
         report, failed = [], False
         groups = {}
         for name, source in sources.items():
@@ -823,6 +845,7 @@ class Manager:
         if (adopt or replace) and not requested:
             raise Error("--adopt and --replace require explicit --item selections")
         items = self.selected(requested, reattach=reattach, agent=agent)
+        self.require_items_supported(items)
         from .settings import Settings, transaction
         settings = Settings(self)
         setting_items = [i for i in items if i.kind == "setting"]
@@ -955,6 +978,9 @@ class Manager:
             hook_key = f"{old.get('source_name')}:hook{suffix(old.get('agent', 'codex'))}"
             if old.get("kind") == "instruction-entry" and hook_key in self.state.data["items"] and hook_key not in keys:
                 keys.append(hook_key)
+        for key in keys:
+            if not records[key].get("detached"):
+                require_supported(records[key], key)
         plans, untouched = [], []
         for key in keys:
             old = self.state.data["items"].get(key)
@@ -1010,6 +1036,7 @@ class Manager:
         groups = {}
         for name, source in sources.items():
             groups.setdefault(source.path, []).append((name, source))
+        self.require_sources_supported(names)
         results, failed = [], False
         for path, members in groups.items():
             selected = sorted(name for name, _ in members if name in names)
@@ -1102,6 +1129,7 @@ class Manager:
                 if not members:
                     sources[source.name] = source
                     selected_names.add(source.name)
+        self.require_sources_supported(selected_names, sources=sources)
         results, failed = [], False
         groups = {}
         for name, source in sources.items():
@@ -1290,6 +1318,12 @@ class Manager:
                         continue
                     if old:
                         item_entry["installation"] = self.installed_status(old)
+                    reason = unsupported_reason(item) or unsupported_reason(old or {})
+                    if reason:
+                        item_entry.update(status="detached" if old and old.get("detached") else "unavailable",
+                                          error=reason)
+                        report["items"].append(item_entry)
+                        continue
                     try:
                         status, note = self.item_status(item, old)
                         item_entry.update(status=status)

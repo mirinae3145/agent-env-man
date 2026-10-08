@@ -228,6 +228,14 @@ class OriginalWorker(unittest.TestCase):
                 perform.assert_not_called()
                 run.assert_not_called()
 
+    def test_changed_full_skip_policy_cancels_worker(self):
+        self.request.update({'full': True, 'saved_automation': {'mode': 'full'}})
+        self.document['automation'] = {'mode': 'full', 'skip_unsupported': True}
+        result, perform, run = self.run_worker()
+        self.assertEqual(result['status'], 'cancelled')
+        perform.assert_not_called()
+        run.assert_not_called()
+
     def test_replacement_failures_do_not_persist_subprocess_credentials(self):
         errors = (ValueError('metadata mismatch'), OSError('secret credential'),
                   subprocess.CalledProcessError(1, ['secret credential'], stderr='secret credential'))

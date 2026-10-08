@@ -107,7 +107,7 @@ General directories use Git or external sources and require no entry document, s
 | --- | --- | --- |
 | `source` | String | Required name in `sources`; Git or external. |
 | `subdir` | String | Source directory; defaults to `"."`. |
-| `preserve_symlinks` | Boolean | `false`; opt in to opaque symbolic links on POSIX, for this directory only. Unsupported on Windows. |
+| `preserve_symlinks` | Boolean | `false`; require opaque symbolic link preservation for this directory only. Execution is supported on POSIX. |
 | `install` | Table | Optional installation settings below. |
 | `update` | Table | Optional policy selection and overrides, using the same rules as skills. |
 
@@ -126,7 +126,14 @@ Path and mode changes require detach before reconfiguration.
 The selected source must be a directory; its root and selected ancestry cannot redirect through links.
 By default its payload accepts only regular files and directories.
 Set `preserve_symlinks = true` directly under `directories.NAME` to preserve nested symbolic links in either installation mode on POSIX.
-Windows rejects the opt-in; AEM never substitutes junctions, ordinary text files, or copies of referents.
+The declaration is valid on every platform; native Windows execution is unsupported and is not planned.
+AEM never substitutes junctions, ordinary text files, or copies of referents.
+Windows can read and update a catalog containing the declaration and operate on independent supported items.
+Selecting the opted-in directory fails before content changes, even if it currently contains no links and regardless of installation mode.
+Shared-source preparation, updates, and publication still check every affected consumer, including unselected declarations and orphaned active links.
+Ordinary machine bindings, destination checks, and saved ownership requirements remain in force.
+Use explicit item selection for independent operations; `sync --item` still updates all sources.
+Full automation can explicitly exclude unsupported items through the machine's `automation.skip_unsupported` setting below.
 Other reparse points, special files, and Git submodules remain unsupported.
 This option does not enable links in skills, instructions, settings, or hooks.
 
@@ -413,6 +420,7 @@ The policy does not register startup hooks or an OS scheduler; use setup's exist
 
 Manage the machine-owned `automation` table through installer/setup options.
 Use `--automation MODE`, repeated `--automation-trigger EVENT`, `--automation-interval SECONDS`, and `--automation-git-timeout SECONDS`.
+Use `--automation-skip-unsupported` or `--no-automation-skip-unsupported` to save the full-mode platform exclusion policy.
 Omitted fields retain saved values; a supplied trigger list replaces the saved list.
 Policy-only setup uses the machine journal and does not rewrite profiles or require integration selections.
 Unknown fields are rejected.
@@ -423,6 +431,7 @@ Unknown fields are rejected.
 | `trigger` | String or array of strings | Defaults to `shell-start` and `agent-start`. May contain unique supported events or only `manual`. Used in full mode. |
 | `min_interval` | Integer or float | `3600` seconds, finite and nonnegative; full runs share one clock across events, including failures. |
 | `timeout` | Integer or float | `30` seconds per content/catalog Git phase, finite and positive; used in full mode. |
+| `skip_unsupported` | Boolean | `false`; explicitly exclude platform-unsupported items from full content selection and report their reasons. Stored but inactive in other modes. |
 
 Boolean numeric values are rejected.
 `policies` retains the independent self-update, catalog-update, and skill policies and their clocks.
@@ -436,7 +445,7 @@ A resulting explicit or inherited `[]` excludes a skill or directory; other trig
 Instruction groups with detached components are excluded together; remaining bundles participate without introducing instruction-specific policy tables.
 A shared repository can still advance live links of excluded consumers.
 Local or unbound catalogs skip Git delivery and use the existing local declarations.
-Mode, schedule, or runtime changes cancel queued work; the fresh continuation also verifies the saved request binding before advancing content.
+Mode, schedule, exclusion-policy, or runtime changes cancel queued work; the fresh continuation also verifies the saved request binding before advancing content.
 
 ## Application settings declarations and bindings
 
