@@ -219,7 +219,7 @@ Operational failures are returned in this report on stdout, including with `--js
 ## bootstrap
 
 ```text
-aem bootstrap [CATALOG | --catalog PATH] [--checkout-root PATH]
+aem bootstrap [CATALOG | --catalog PATH] [--catalog-copy] [--checkout-root PATH]
               [--catalog-repository URL --catalog-path RELATIVE_PATH [--catalog-branch BRANCH]]
               [--root NAME=PATH ...] [--external NAME=PATH ...]
               [--setting-target NAME=PATH ...] [--runtime NAME=PATH ...]

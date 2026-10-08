@@ -122,7 +122,8 @@ Resolve entry-relative references from its parent directory and supplemental ref
 Do not infer applicability or reading order from bundle placement or the entry filename.
 Keep `installed_root` and `detached` in locator diagnostics so a preserved copy cannot be mistaken for the live entry's source tree.
 Preserve original documents and use the existing per-target conflict/recovery machinery.
-Guard the saved entry path of active Git bundles even when their catalog declarations disappear or a shared skill initiates update.
+Guard the saved entry path of active linked Git bundles even when their catalog declarations disappear or a shared skill initiates update.
+Entry links into installed copies do not consume the delivery checkout and must not block its updates as live-source links.
 Instruction-specific automatic policies are not supported; skill policies may still advance shared checkouts.
 Explicit full device automation may prepare/update/apply instruction bundles, excluding an agent group if any of its saved components is detached.
 

@@ -522,9 +522,9 @@ class Manager:
         if not record.get("detached") and not link_matches(observation(target), record.get("link_target", record["source"])):
             raise Error(f"{name}: global entry link was replaced; inspect status")
         if found["detached"] and not record.get("detached"):
-            # A directory can be detached independently while AGENTS.md still
-            # links to the live original. Its references must use that original
-            # tree until the entry is materialized too, not the frozen copy.
+            # Partial detach keeps the global entry linked to its recorded
+            # destination: the original for link mode, or the installed tree
+            # for copy mode. Resolve references against that same version.
             source_entry = Path(record.get("link_target", record["source"]))
             source_root = source_entry
             for _ in relative(record["entry"]).parts:
@@ -661,6 +661,9 @@ class Manager:
                 try:
                     stage.symlink_to(item.link_destination, target_is_directory=item.source.is_dir())
                 except OSError as exc:
+                    if item.kind == "instruction-entry":
+                        raise Error("Cannot create the instruction entry symbolic link; enable Windows "
+                                    "Developer Mode/link privileges. Instruction entries require links.") from exc
                     raise Error("Cannot create a symbolic link; enable Windows Developer Mode/link privileges "
                                 "or explicitly configure this item as copy") from exc
             elif item.mode == "copy":

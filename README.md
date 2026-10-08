@@ -352,6 +352,14 @@ Tags may use Python notation or `-alpha`/`-beta`/`-rc` with optional `.N` number
 The current branch and release tag are published to `origin` with atomic push.
 See [release publication](docs/commands.md#self-publish) for prerequisites and preview limits.
 
+## Retain an external catalog offline
+
+Register a local catalog with `aem bootstrap /path/to/catalog.toml --catalog-copy` to keep a managed editable copy.
+Commands always read that copy; `aem catalog update` explicitly receives original changes.
+To return edits, preview `aem catalog publish --from-copy --dry-run`, then publish with `aem catalog publish --from-copy`.
+Conflicting changes stop without overwriting; the external synchronization service remains responsible for transport.
+See [copied local catalog bindings](docs/configuration.md#copied-local-catalog-binding) for storage and recovery details.
+
 ## Conflicts, detach, and recovery
 
 AEM refuses unmanaged targets and locally modified copies unless explicitly authorized.
@@ -381,11 +389,3 @@ executes scripts or grants product trust. See [Personal hooks](docs/personal-hoo
 ## AI disclosure
 
 OpenAI Codex assisted with design, implementation, documentation, and automated tests.
-
-### Retain an external catalog offline
-
-Register a local catalog with `aem bootstrap /path/to/catalog.toml --catalog-copy` to keep a managed editable copy.
-Commands always read that copy; `aem catalog update` explicitly receives original changes.
-To return edits, preview `aem catalog publish --from-copy --dry-run`, then publish with `aem catalog publish --from-copy`.
-Conflicting changes stop without overwriting; the external synchronization service remains responsible for transport.
-See [copied local catalog bindings](docs/configuration.md#copied-local-catalog-binding) for storage and recovery details.
