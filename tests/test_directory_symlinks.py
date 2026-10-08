@@ -510,22 +510,25 @@ class DirectorySymlinks(unittest.TestCase):
 
     def test_catalog_boolean_scope_and_windows_refusal(self):
         self.enable()
-        with patch.object(payload_links, 'require_posix', side_effect=Error('preserve_symlinks is unsupported on Windows')):
-            self.assertIn('Windows', str(self.run_cli('bootstrap', self.catalog, code=1)))
+        from types import SimpleNamespace
+        with patch.object(payload_links, 'os', SimpleNamespace(name='nt')):
+            self.assertIn('Windows', str(self.run_cli('bootstrap', self.catalog, '--root',
+                          f'personal={self.destination}', code=1)))
         self.document['directories']['cases']['preserve_symlinks'] = 'true'
         self.write()
         self.assertIn('Boolean', str(self.run_cli('bootstrap', self.catalog, code=1)))
 
 
 class LinkPolicyValidation(unittest.TestCase):
-    def test_windows_rejects_opt_in_without_rejecting_ordinary_catalogs(self):
+    def test_windows_accepts_declarations_but_refuses_payload_execution(self):
         from types import SimpleNamespace
         from agent_env_man.catalog_schema import validate
         document = {'version': 2, 'sources': {'files': {'type': 'external'}},
                     'directories': {'files': {'source': 'files', 'preserve_symlinks': True}}}
         with patch.object(payload_links, 'os', SimpleNamespace(name='nt')):
+            validate(document)
             with self.assertRaisesRegex(Error, 'unsupported on Windows'):
-                validate(document)
+                payload_links.options({'preserve_symlinks': True})
             document['directories']['files']['preserve_symlinks'] = False
             validate(document)
 

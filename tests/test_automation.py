@@ -115,6 +115,19 @@ class FullAutomation(SetupFixture):
             self.run_cli('catalog', 'auto', '--trigger', 'interval', code=1)
         self_update.close_workers()
 
+    def test_full_skip_setting_reaches_worker_and_invalidates_continuation(self):
+        self.register()
+        self.run_cli('setup', '--automation-skip-unsupported')
+        manager = Manager(Config(self.config), State(self.configuration.state_dir))
+        with patch.object(self_update, 'launch', return_value={'status': 'queued'}) as launch:
+            automation.schedule(manager.config, 'interval')
+        self.assertTrue(launch.call_args.kwargs['extra']['saved_automation']['skip_unsupported'])
+        saved = {'token': 'test', 'status': 'continuing',
+                 'binding': self_update.full_binding(manager.config.doc)}
+        self_update.write_json(automation.result_path(manager.config), saved)
+        self.run_cli('setup', '--no-automation-skip-unsupported')
+        self.assertIn('No matching', str(self.run_cli('_full-run', '--token', 'test', code=1)))
+
     def test_policy_only_setup_preserves_fields_and_invalid_settings_fail(self):
         self.configure()
         self.run_cli('setup', '--automation', 'off', '--automation-interval', '60')

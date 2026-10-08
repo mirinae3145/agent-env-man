@@ -23,6 +23,8 @@ def main(argv=None):
     parser.add_argument('--update-repository', help='release Git repository (default: the AEM upstream)')
     parser.add_argument('--automation', choices=['off', 'policies', 'full'])
     parser.add_argument('--automation-trigger', action='append', choices=['manual', 'shell-start', 'agent-start', 'interval'])
+    parser.add_argument('--automation-skip-unsupported', action=argparse.BooleanOptionalAction, default=None,
+                        help='save platform-unsupported item exclusion for full automation (default: off)')
     parser.add_argument('--automation-interval', type=float)
     parser.add_argument('--automation-git-timeout', '--automation-timeout', dest='automation_timeout', type=float)
     parser.add_argument('--startup-hook-timeout', type=float,
@@ -77,7 +79,7 @@ def main(argv=None):
         command += ['setup', '--executable', str(executable)]
         removal_only = (args.remove_shell or args.remove_agent) and not (args.shell or args.agent)
         if removal_only and (args.startup_hook_timeout is not None or args.self_update is not None or args.update_repository is not None or selected_automation is not None
-                            or any(getattr(args, 'automation_' + field) is not None for field in ('trigger', 'interval', 'timeout'))):
+                            or any(getattr(args, 'automation_' + field) is not None for field in ('trigger', 'interval', 'timeout', 'skip_unsupported'))):
             raise RuntimeError('Change self-update settings separately from removal-only setup')
         if not removal_only:
             command += ['--update-python', sys.executable, '--update-uv', uv,
@@ -90,6 +92,8 @@ def main(argv=None):
                 command += ['--startup-hook-timeout', str(args.startup_hook_timeout)]
             if selected_automation is not None:
                 command += ['--automation', selected_automation]
+            if args.automation_skip_unsupported is not None:
+                command += ['--automation-skip-unsupported' if args.automation_skip_unsupported else '--no-automation-skip-unsupported']
             for trigger in args.automation_trigger or []:
                 command += ['--automation-trigger', trigger]
             for field in ('interval', 'timeout'):

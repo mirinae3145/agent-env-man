@@ -12,7 +12,7 @@ import uuid
 from .agents import profile, suffix
 from .git_source import Git, now
 from .model import Config, MachineFile, Error, Item, identifier, overlaps, relative
-from .payload_links import options as payload_options, replace as replace_link_entry, remove as remove_link_entry
+from .payload_links import require_supported, unsupported_reason, options as payload_options, replace as replace_link_entry, remove as remove_link_entry
 from .storage import State, copy_payload, exists, fingerprint, is_reparse, observation, remove, saved_path, link_matches
 
 
@@ -41,6 +41,27 @@ class Manager:
             return replace(source, branch=branch)
         return source
 
+    def require_items_supported(self, items):
+        """Check desired and saved policies before any selected payload changes."""
+        for item in items:
+            require_supported(item, item.key)
+            old = self.state.data['items'].get(item.key, {})
+            if not old.get('detached'):
+                require_supported(old, item.key)
+
+    def require_sources_supported(self, names=(), *, sources=None):
+        """Shared delivery must satisfy even unselected consumers and orphaned links."""
+        sources = self.config.sources if sources is None else sources
+        paths = {source.path for name, source in sources.items() if not names or name in names}
+        for source in self.config.sources.values():
+            if source.path in paths:
+                self.require_items_supported(self.config.declarations(source))
+        for key, old in self.state.data['items'].items():
+            if old.get('detached') or old.get('mode') != 'link':
+                continue
+            if any(old.get('source') == str(path / old.get('relative', '.')) for path in paths):
+                require_supported(old, key)
+
     def prepare_skills(self, names=(), *, timeout=30, defer_payloads=False):
         """Clone listed repositories, validating consumers before publishing a checkout.
 
@@ -55,6 +76,7 @@ class Manager:
         if set(names) - sources.keys():
             raise Error("Unknown catalog source selection")
         self.check_destinations([i for s in sources.values() for i in self.config.declarations(s)])
+        self.require_sources_supported(names)
         report, failed = [], False
         groups = {}
         for name, source in sources.items():
@@ -238,7 +260,8 @@ class Manager:
         for item in items:
             old = self.state.data["items"].get(item.key)
             if old and not old.get("detached") and (old["target"] != str(item.target) or old["mode"] != item.mode
-                                                    or old["source"] != str(item.source)):
+                                                    or old["source"] != str(item.source)
+                                                    or old.get("link_target", old["source"]) != str(item.link_destination)):
                 raise Error(f"{item.key}: path or mode changed; detach before reconfiguration")
             for key, target in owners.items():
                 if key != item.key and overlaps(item.target, target):
@@ -477,8 +500,8 @@ class Manager:
     def locate_instruction(self, name, agent="codex"):
         """Resolve a saved installation without loading its catalog or fetching sources.
 
-        Detached bundles resolve to their preserved directory; active bundles
-        must still have the recorded link so an unrelated replacement is not read.
+        Managed copies and detached bundles resolve to their installed directory;
+        active links must retain their recorded destination.
         """
         self.state.ready()
         key = f"{identifier(name)}:bundle{suffix(agent)}"
@@ -486,10 +509,11 @@ class Manager:
         if not record or record.get("kind") != "instruction":
             raise Error(f"{name}: instruction bundle has not been installed")
         target = Path(record["target"])
-        if record.get("detached"):
+        if record.get("detached") or record.get("mode") == "copy":
+            saved_path(str(target))
             if target.is_symlink() or is_reparse(target):
-                raise Error(f"{name}: detached bundle directory was replaced by a link")
-        elif not target.is_symlink() or not link_matches(observation(target), record["source"]):
+                raise Error(f"{name}: copied/detached bundle directory was replaced by a link")
+        elif not target.is_symlink() or not link_matches(observation(target), record.get("link_target", record["source"])):
             raise Error(f"{name}: installed bundle link was replaced; inspect status")
         root = target.resolve(strict=True)
         if not root.is_dir():
@@ -517,13 +541,13 @@ class Manager:
             raise Error(f"{name}: installed global entry is unavailable")
         if record.get("detached") and (target.is_symlink() or is_reparse(target)):
             raise Error(f"{name}: detached global entry was replaced by a link")
-        if not record.get("detached") and not link_matches(observation(target), record["source"]):
+        if not record.get("detached") and not link_matches(observation(target), record.get("link_target", record["source"])):
             raise Error(f"{name}: global entry link was replaced; inspect status")
         if found["detached"] and not record.get("detached"):
-            # A directory can be detached independently while AGENTS.md still
-            # links to the live original. Its references must use that original
-            # tree until the entry is materialized too, not the frozen copy.
-            source_entry = Path(record["source"])
+            # Partial detach keeps the global entry linked to its recorded
+            # destination: the original for link mode, or the installed tree
+            # for copy mode. Resolve references against that same version.
+            source_entry = Path(record.get("link_target", record["source"]))
             source_root = source_entry
             for _ in relative(record["entry"]).parts:
                 source_root = source_root.parent
@@ -567,6 +591,8 @@ class Manager:
                   "directory": item.source.is_dir(), "detached": False, "kind": item.kind,
                   "exclude_git": item.kind in ("skill", "directory", "instruction", "instruction-hook") and item.relative == ".",
                   "entry": item.entry, "agent": item.agent, "agents": list(item.agents or (item.agent,))}
+        if item.link_target is not None:
+            record["link_target"] = str(item.link_target)
         if item.kind == "directory":
             record["preserve_symlinks"] = item.preserve_symlinks
             record.pop("agent")
@@ -586,7 +612,7 @@ class Manager:
             changed = not present or item.target.read_bytes() != content
             return Plan(item, before, record, changed, content=content)
         if item.mode == "link":
-            correct = link_matches(before, str(item.source))
+            correct = link_matches(before, str(item.link_destination))
             if old:
                 safe = correct or not present
             else:
@@ -655,8 +681,11 @@ class Manager:
                 pass  # Removal stages absence; the backup and journal allow rollback.
             elif item.mode == "link":
                 try:
-                    stage.symlink_to(item.source, target_is_directory=item.source.is_dir())
+                    stage.symlink_to(item.link_destination, target_is_directory=item.source.is_dir())
                 except OSError as exc:
+                    if item.kind == "instruction-entry":
+                        raise Error("Cannot create the instruction entry symbolic link; enable Windows "
+                                    "Developer Mode/link privileges. Instruction entries require links.") from exc
                     raise Error("Cannot create a symbolic link; enable Windows Developer Mode/link privileges "
                                 "or explicitly configure this item as copy") from exc
             elif item.mode == "copy":
@@ -737,7 +766,7 @@ class Manager:
             from .copy_publication import recover
             recover(self.state)
             return
-        if pending.get("operation") == "settings-group":
+        if pending.get("operation") in ("settings-group", "catalog-copy"):
             from .settings import recover_group
             recover_group(self.state)
             return
@@ -823,6 +852,7 @@ class Manager:
         if (adopt or replace) and not requested:
             raise Error("--adopt and --replace require explicit --item selections")
         items = self.selected(requested, reattach=reattach, agent=agent)
+        self.require_items_supported(items)
         from .settings import Settings, transaction
         settings = Settings(self)
         setting_items = [i for i in items if i.kind == "setting"]
@@ -955,6 +985,9 @@ class Manager:
             hook_key = f"{old.get('source_name')}:hook{suffix(old.get('agent', 'codex'))}"
             if old.get("kind") == "instruction-entry" and hook_key in self.state.data["items"] and hook_key not in keys:
                 keys.append(hook_key)
+        for key in keys:
+            if not records[key].get("detached"):
+                require_supported(records[key], key)
         plans, untouched = [], []
         for key in keys:
             old = self.state.data["items"].get(key)
@@ -1010,6 +1043,7 @@ class Manager:
         groups = {}
         for name, source in sources.items():
             groups.setdefault(source.path, []).append((name, source))
+        self.require_sources_supported(names)
         results, failed = [], False
         for path, members in groups.items():
             selected = sorted(name for name, _ in members if name in names)
@@ -1102,6 +1136,7 @@ class Manager:
                 if not members:
                     sources[source.name] = source
                     selected_names.add(source.name)
+        self.require_sources_supported(selected_names, sources=sources)
         results, failed = [], False
         groups = {}
         for name, source in sources.items():
@@ -1207,7 +1242,7 @@ class Manager:
         current = observation(item.target, **payload_options(item))
         if old is None:
             return "unmanaged-existing" if current["kind"] != "missing" else "not-installed", None
-        if old["target"] != str(item.target) or old["mode"] != item.mode or old["source"] != str(item.source):
+        if old["target"] != str(item.target) or old["mode"] != item.mode or old["source"] != str(item.source) or old.get("link_target", old["source"]) != str(item.link_destination):
             return "configuration-changed", None
         if current["kind"] == "missing":
             return "missing", None
@@ -1225,7 +1260,7 @@ class Manager:
             return ("stale" if profile(item.agent).current(item.target, old["hook_marker"], old["hook_group"])
                     else "modified-locally"), None
         if item.mode == "link":
-            good = link_matches(current, str(item.source))
+            good = link_matches(current, str(item.link_destination))
             return ("current" if good else "modified-locally"), ("changed-live" if desired != old["hash"] else None)
         if item.mode == "copy":
             if current["kind"] not in ("file", "directory"):
@@ -1290,6 +1325,12 @@ class Manager:
                         continue
                     if old:
                         item_entry["installation"] = self.installed_status(old)
+                    reason = unsupported_reason(item) or unsupported_reason(old or {})
+                    if reason:
+                        item_entry.update(status="detached" if old and old.get("detached") else "unavailable",
+                                          error=reason)
+                        report["items"].append(item_entry)
+                        continue
                     try:
                         status, note = self.item_status(item, old)
                         item_entry.update(status=status)
@@ -1348,7 +1389,7 @@ class Manager:
                 from .settings import Settings
                 return Settings(self).status(record)["status"]
             if record["mode"] == "link":
-                if not link_matches(actual, record["source"]):
+                if not link_matches(actual, record.get("link_target", record["source"])):
                     return "modified-locally"
                 return "linked" if target.exists() else "broken-link"
             if record["mode"] == "agent-hook":

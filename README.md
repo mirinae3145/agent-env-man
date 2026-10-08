@@ -277,7 +277,7 @@ Selection covers the whole repository, including files outside declared skills.
 The optional dry run is offline; publication fetches first and leaves behind/diverged histories for explicit reconciliation.
 A failed push retains the local commit for retry.
 For copy installations, edit the checkout and apply after committing; installed-copy edits are not collected automatically.
-To share edits made in a managed skill or directory copy, use:
+To share edits made in a managed skill, directory, or instruction bundle copy, use:
 
 ```bash
 aem publish report --from-copy --dry-run
@@ -351,6 +351,14 @@ Prepare a clean committed checkout and its matching `vVERSION` tag with Git firs
 Tags may use Python notation or `-alpha`/`-beta`/`-rc` with optional `.N` numbers; for example, `v1.0.0-beta` matches package version `1.0.0b0`.
 The current branch and release tag are published to `origin` with atomic push.
 See [release publication](docs/commands.md#self-publish) for prerequisites and preview limits.
+
+## Retain an external catalog offline
+
+Register a local catalog with `aem bootstrap /path/to/catalog.toml --catalog-copy` to keep a managed editable copy.
+Commands always read that copy; `aem catalog update` explicitly receives original changes.
+To return edits, preview `aem catalog publish --from-copy --dry-run`, then publish with `aem catalog publish --from-copy`.
+Conflicting changes stop without overwriting; the external synchronization service remains responsible for transport.
+See [copied local catalog bindings](docs/configuration.md#copied-local-catalog-binding) for storage and recovery details.
 
 ## Conflicts, detach, and recovery
 

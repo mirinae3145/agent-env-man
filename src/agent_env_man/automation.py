@@ -2,27 +2,31 @@
 import time
 
 from .model import Error
+from .payload_links import unsupported_reason
 from .updates import TRIGGERS, policy_fields, run_updates, run_settings_updates
 from . import catalog, self_update
 
 MODES = ('off', 'policies', 'full')
 FIELDS = (('mode', 'automation'), ('trigger', 'automation_trigger'),
-          ('min_interval', 'automation_interval'), ('timeout', 'automation_timeout'))
+          ('min_interval', 'automation_interval'), ('timeout', 'automation_timeout'),
+          ('skip_unsupported', 'automation_skip_unsupported'))
 
 
 def policy(value):
-    if not isinstance(value, dict) or set(value) - {'mode', 'trigger', 'min_interval', 'timeout'}:
-        raise Error('automation accepts only mode, trigger, min_interval, and timeout')
+    if not isinstance(value, dict) or set(value) - {'mode', 'trigger', 'min_interval', 'timeout', 'skip_unsupported'}:
+        raise Error('automation accepts only mode, trigger, min_interval, timeout, and skip_unsupported')
     if value.get('mode', 'policies') not in MODES:
         raise Error('automation.mode must be off, policies, or full')
-    fields = {k: v for k, v in value.items() if k != 'mode'}
-    return {'mode': value.get('mode', 'policies'),
+    if not isinstance(value.get('skip_unsupported', False), bool):
+        raise Error('automation.skip_unsupported must be Boolean')
+    fields = {k: v for k, v in value.items() if k not in ('mode', 'skip_unsupported')}
+    return {'mode': value.get('mode', 'policies'), 'skip_unsupported': value.get('skip_unsupported', False),
             **policy_fields({'trigger': ['shell-start', 'agent-start'], 'min_interval': 3600, 'timeout': 30}, 'automation defaults'),
             **policy_fields(fields, 'automation')}
 
 
 def set_options(document, args):
-    values = {field: getattr(args, option) for field, option in FIELDS if getattr(args, option) is not None}
+    values = {field: getattr(args, option) for field, option in FIELDS if getattr(args, option, None) is not None}
     if values:
         document.setdefault('automation', {}).update(values)
         policy(document['automation'])
@@ -70,7 +74,13 @@ def run(manager, trigger, *, dry_run=False):
         return {'mode': mode, 'status': 'disabled', 'outcomes': [], 'failed': False}
     state.ready()
     if mode == 'full':
-        return schedule(config, trigger, dry_run=dry_run)
+        report = schedule(config, trigger, dry_run=dry_run)
+        if dry_run and report['status'] == 'planned':
+            report['content'], failed = full_content(manager, config.automation['timeout'], dry_run=True)
+            report['failed'] = failed
+            if failed:
+                report['status'] = 'failed'
+        return report
     result = {'mode': mode, 'outcomes': [], 'failed': False}
     try:
         result['self_update'] = self_update.schedule(config, automatic=True, dry_run=dry_run)
@@ -93,7 +103,7 @@ def run(manager, trigger, *, dry_run=False):
     return result
 
 
-def full_content(manager, timeout):
+def full_content(manager, timeout, *, dry_run=False):
     """Prepare/update eligible sources, then apply only after delivery succeeds.
 
     Explicit manual policies remain excluded. Instruction components sharing
@@ -120,12 +130,24 @@ def full_content(manager, timeout):
         if not selected:
             excluded.append({'source': name, 'reason': 'detached'})
             continue
+        unsupported = [(item.key, unsupported_reason(item)) for item in declarations if item.key in selected]
+        unsupported = [(key, reason) for key, reason in unsupported if reason]
+        if unsupported and manager.config.automation['skip_unsupported']:
+            excluded.extend({'source': name, 'item': key, 'reason': reason} for key, reason in unsupported)
+            continue
         sources.append(name)
         items.extend(selected)
     report = {'sources': sources, 'excluded': excluded}
     if not sources:
         return {**report, 'status': 'skipped'}, False
-    manager.selected(items)  # Ownership preflight before cloning content.
+    try:
+        manager.require_items_supported(manager.selected(items))
+        manager.require_sources_supported(sources)
+    except (Error, OSError, ValueError) as exc:
+        return {**report, 'status': 'failed', 'error': str(exc)}, True
+    if dry_run:
+        return {**report, 'status': 'planned', 'network': False,
+                'notice': 'Local catalog only; content is checked again after catalog update.'}, False
     report['prepare'], failed = manager.prepare_skills(sources, timeout=timeout, defer_payloads=True)
     if failed:
         return {**report, 'status': 'failed'}, True

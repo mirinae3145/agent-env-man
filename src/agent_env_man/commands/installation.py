@@ -143,4 +143,4 @@ def recover(runtime):
     def operation(session):
         session.manager.recover()
         return {"status": "recovered"}, False
-    return runtime.run(operation, maintenance=True)
+    return runtime.run(operation, maintenance=True, missing_ok=True)

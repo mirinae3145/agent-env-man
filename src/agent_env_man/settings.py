@@ -208,6 +208,8 @@ def declaration(config, source, data):
     protected = [s.path for s in config.sources.values()] + [config.path, config.state_dir, config.checkout_root, stage_root]
     if config.catalog_path:
         protected.append(config.catalog_source.path if config.catalog_source else config.catalog_path)
+    if config.catalog_copy_source is not None:
+        protected.extend([config.catalog_path.parent, config.catalog_copy_source])
     if any(overlaps(target, p) for p in protected):
         raise Error(f"Setting target overlaps sources or manager storage: {target}")
     if any(overlaps(stage_root, p) for p in protected if p != stage_root):
@@ -220,14 +222,25 @@ def metadata_path(path):
     return path.with_name(path.name + ".aem.toml")
 
 
-def transaction(state, writes, records, *, dry_run=False):
+def transaction(state, writes, records, *, dry_run=False, state_updates=None, guards=(), operation="settings-group"):
     """Commit multiple files and records with one rollback journal.
 
     Backups stay next to their files for same-filesystem renames. The durable
     state update commits the group; until then recovery restores every member.
     All observations are validated before any rollback, preserving later edits.
+    Catalog delivery also commits its baseline and guards unchanged inputs;
+    these optional additions leave existing settings ownership unchanged.
     """
     state.ready()
+    if operation not in ("settings-group", "catalog-copy"):
+        raise Error("Unsupported grouped file operation")
+    guards = list(guards)
+    def check_guards():
+        for path, before in guards:
+            regular(path, missing=True)
+            if observation(path) != before:
+                raise Error(f"Input changed during transaction: {path}")
+    check_guards()
     paths = [path for path, _, _ in writes]
     if len(set(paths)) != len(paths):
         raise Error("Duplicate grouped settings write")
@@ -242,6 +255,7 @@ def transaction(state, writes, records, *, dry_run=False):
     try:
         for path, content, before in writes:
             if exists(path) and path.read_bytes() == content:
+                guards.append((path, before))
                 continue
             path.parent.mkdir(parents=True, exist_ok=True)
             regular(path, missing=True)
@@ -251,7 +265,8 @@ def transaction(state, writes, records, *, dry_run=False):
             atomic_write(stage, content, mode=mode)
             entries.append({"target": str(path), "stage": str(stage), "backup": str(backup),
                             "before": before, "after": observation(stage)})
-        state.data["pending"] = {"operation": "settings-group", "files": entries}
+        check_guards()
+        state.data["pending"] = {"operation": operation, "files": entries}
         state.save()
         for entry in entries:
             path = Path(entry["target"])
@@ -263,20 +278,21 @@ def transaction(state, writes, records, *, dry_run=False):
         for entry in entries:
             if observation(Path(entry["target"])) != entry["after"]:
                 raise Error("Settings file changed before state commit")
-        old_records = deepcopy(state.data["items"])
+        check_guards()
+        old_data = deepcopy(state.data)
         state.data["items"].update(records)
+        state.data.update(state_updates or {})
         state.data["pending"] = None
         try:
             state.save()
         except Exception:
-            state.data["items"] = old_records
-            state.data["pending"] = {"operation": "settings-group", "files": entries}
+            state.data = old_data
             raise
     except Exception:
         if state.path.exists():
             durable = json.loads(state.path.read_text(encoding="utf-8"))
             state.data = durable
-        if state.data.get("pending") and state.data["pending"].get("operation") == "settings-group":
+        if state.data.get("pending") and state.data["pending"].get("operation") == operation:
             recover_group(state)
         else:
             for entry in entries:

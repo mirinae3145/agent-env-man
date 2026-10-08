@@ -48,6 +48,9 @@ Use pinned non-following POSIX descriptors for enabled payload traversal and ent
 Save the policy and logical source-relative path with ownership and recovery observations; absent fields retain the old rejection behavior.
 Catalog policy removal cannot disable saved detach/recovery support.
 A shared checkout must satisfy every affected consumer's policy, including orphaned active links.
+Keep catalog schema validation platform-independent; check selected items and affected source consumers for platform support before content mutations.
+Do not put execution capability checks in general selection or catalog validation: inspection and catalog delivery must remain usable.
+Saved ownership and recovery policies retain their execution requirements even when current declarations change.
 
 ### Catalog and maintenance boundaries
 
@@ -91,9 +94,12 @@ Persist them in the selected or default machine file, and reuse saved bindings w
 Default agent, skills, and home roots only when absent; validate declarations and existing ownership before saving bindings or contacting content repositories.
 Support explicit `--config`, `--catalog`, and root and storage overrides.
 Do not parse document policy, applicability, or reading order.
-A Codex instruction bundle owns a directory link, a link directly to the original entry, and one `SessionStart` group in the entry root's `hooks.json`.
+A Codex instruction bundle owns a linked or copied directory, a global entry link, and one `SessionStart` group in the entry root's `hooks.json`.
+For copy mode, the entry points inside the installed directory; preserve its delivery source separately from its link destination.
+Preflight validates the original payload before the installed copy exists.
+Install the bundle before its entry, retaining per-target recovery and completed targets after later failures.
 Bootstrap only prepares and validates sources.
-Apply installs links and merges the hook without granting Codex trust or modifying `config.toml`.
+Apply installs the selected bundle mode, links its entry, and merges the hook without granting Codex trust or modifying `config.toml`.
 Preserve unrelated JSON events, groups, and metadata; malformed or redirected hook files must fail preflight.
 Own the complete AEM group identified by its saved marker, not the whole hooks file, and aggregate selected groups into one replacement per target file to avoid competing transactions.
 Entry selection includes bundle and hook installation, but never extends replacement permission to an implicitly selected bundle.
@@ -101,7 +107,7 @@ Report the required `/hooks` trust review after apply; preview must show the pla
 Detach materializes both links and releases hook ownership while retaining its configuration, so saved locator records still support preserved documents.
 Default bundle installation to `<machine-file>.bundles/<bundle-name>` without requiring a configured rules root; preserve explicit location overrides and relocation guards.
 Resolve roots from saved installation records and actual filesystem links, not from prompt text or the current catalog.
-Saved location lookup must remain offline, avoid updating ownership records, work for detached copies without a catalog, and reject missing or redirected entries and replaced active links.
+Saved location lookup must remain offline, avoid updating ownership records, work for managed and detached copies without a catalog or source, and reject missing or redirected entries and replaced active links.
 User-facing `locate` also supports saved skills and current catalog source lookup for uninstalled content or explicit `--source` requests.
 Keep callbacks on saved instruction lookup only; never fall back from a broken saved installation to a different source.
 Source lookup validates paths and Git identity without requiring a clean checkout, fetching, or installing content.
@@ -119,13 +125,22 @@ Resolve entry-relative references from its parent directory and supplemental ref
 Do not infer applicability or reading order from bundle placement or the entry filename.
 Keep `installed_root` and `detached` in locator diagnostics so a preserved copy cannot be mistaken for the live entry's source tree.
 Preserve original documents and use the existing per-target conflict/recovery machinery.
-Guard the saved entry path of active Git bundles even when their catalog declarations disappear or a shared skill initiates update.
+Guard the saved entry path of active linked Git bundles even when their catalog declarations disappear or a shared skill initiates update.
+Entry links into installed copies do not consume the delivery checkout and must not block its updates as live-source links.
 Instruction-specific automatic policies are not supported; skill policies may still advance shared checkouts.
 Explicit full device automation may prepare/update/apply instruction bundles, excluding an agent group if any of its saved components is detached.
 
 ## Catalog delivery contracts
 
-Preserve compatibility for local catalog path strings, and keep Git bindings in machine configuration.
+Preserve compatibility for local catalog path strings, and keep Git and explicit local copy bindings in machine configuration.
+A local copy binding separates the external original from the managed file always consumed by catalog readers.
+Keep its common content hash and binding in separate `catalog_copy` state, never content ownership or Git observations.
+Initial registration and rebinding validate candidates before journaling the managed file and machine binding together.
+Reuse an existing binding without reading the original; refresh and reverse publication are explicit.
+Local update and publication use a common baseline, preserve one-sided edits in the opposite direction, and refuse competing changes.
+Only `catalog publish --from-copy` writes the external original; require an existing regular file and never invoke its synchronization service.
+Use grouped file recovery with input observations and separate baseline updates; recovery must work without parsing the catalog.
+Reject redirected paths, overlapping storage/targets, unmanaged copy replacement, and rebinding over copy edits.
 Bootstrap accepts the catalog repository, relative entry path, and optional branch without requiring a hand-written machine file; persist the resolved branch for subsequent operations.
 Catalog delivery precedes content delivery and must not depend on declarations inside the catalog itself.
 Use a separate checkout even when catalog and content share a remote, so content updates cannot implicitly change the inventory or automatic policies.
@@ -170,7 +185,7 @@ Push only the registered branch to the registered origin, without force or impli
 Preserve staged changes and commits after failures, report each repository's outcome independently, and never claim atomicity across repositories.
 External synchronization and fork/PR workflows remain outside this command's scope.
 Ordinary publication never collects installed-copy edits.
-Explicit `--from-copy` requires owned, non-detached skill or directory copies for every selected name and collects only their payloads; Git publication still selects whole checkouts.
+Explicit `--from-copy` requires owned, non-detached skill, directory, or instruction bundle copies for every selected name and collects only their payloads; Git publication still selects whole checkouts.
 Use the existing ownership hash as the last common baseline, updating it after successful collection or agreement; source observation/update alone never advances it.
 Source-only changes leave stale copies untouched; competing source/copy changes or differing overlapping exports stop the group before writing.
 Root collection excludes only top-level `.git`, retaining ignored regular payloads and executable bits without copying Git administration.
@@ -222,6 +237,10 @@ Validate and fast-forward the catalog before loading full content selection; ski
 Full mode opts in otherwise unconfigured skills but preserves explicit or inherited empty-trigger exclusions using the existing precedence.
 Prepare/update eligible sources before applying selected items, with no adoption, replacement, reattachment, deletion, publication, or hook trust granting.
 Keep shared-checkout validation and live-link side effects intact, including excluded consumers; document this boundary.
+Full mode refuses unsupported payload requirements before its content stage unless the machine explicitly enables `skip_unsupported`.
+That option excludes only known platform limitations, reports every exclusion, and never suppresses shared-source guards or ordinary errors.
+Include it in the saved automation settings used to cancel obsolete worker requests.
+Policy-based automation keeps independent attempts and failure throttling; previews report unsupported due work without recording attempts.
 Stop later stages on failure without claiming cross-repository rollback; preserve ordinary per-target journals and recovery.
 
 ## Ownership and safety

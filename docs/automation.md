@@ -41,6 +41,17 @@ Its defaults are shell/agent startup, 3600 seconds between attempts, and 30 seco
 It replaces individual automatic triggers, intervals, and check/sync actions for this run.
 Skills and directories without an explicit trigger policy participate; explicit `manual` exclusions resolve through catalog defaults, named policy, and item fields.
 Detached skills, directories, and instruction groups remain excluded.
+By default, a platform-unsupported item stops the content stage before preparation, source updates, or installation.
+On native Windows this includes directories declaring `preserve_symlinks = true`, even when their current contents contain no links.
+To explicitly exclude these items from subsequent full runs on this machine, use `aem setup --automation full --automation-skip-unsupported` (full mode still requires registered runtime paths).
+Use `aem setup --no-automation-skip-unsupported` to restore refusal; omitting the option preserves its saved value.
+The installer accepts the same options.
+Exclusions appear with item names and reasons in the content result's `excluded` list; an entirely excluded content selection is `skipped`.
+This option does not suppress invalid bindings, conflicts, or filesystem errors, and does not authorize link conversion.
+An excluded item sharing a source with a remaining item still participates in source validation and can stop the content stage.
+The check uses the updated catalog; earlier tool and catalog stages are not rolled back.
+Dry run reports support and exclusions against the local catalog without fetching or recording attempts; actual execution checks again after catalog delivery.
+In policies mode, unsupported due items fail independently while other independent items continue, retaining normal failure throttling.
 Shared checkout updates can still change linked consumers excluded from installation, including manual skills; this is the existing shared-source contract.
 It never adopts conflicts, replaces user edits, reattaches detached content, removes undeclared targets, or grants agent hook trust.
 New valid catalog declarations can be prepared and installed in full mode.

@@ -415,3 +415,29 @@ Older state and generated-guide installations are not upgraded in place; follow 
 The offline tests cover bootstrap/preview without registration, exact original-entry links, preserved unrelated hooks, idempotence, local edits, failed writes and recovery, detached copies, missing sources, and command quoting.
 Native Windows tests also execute the generated hook in PowerShell and verify literal-path shell navigation in temporary environments.
 Delivery into a real approved model session remains unverified.
+
+## Keep a managed copy for offline reading
+
+Set `mode = "copy"` under `[instructions.personal.install.bundle]`, or set `personal = "copy"` under the machine `[modes]` table.
+The bundle is copied on apply and the global entry links to its entry inside that copy.
+All referenced documents remain together when the external source disappears; `locate personal` and the instruction hook resolve the installed tree without reading the catalog.
+`locate personal --source` still selects the original for source editing.
+Windows still needs symbolic link capability for the global entry; there is no automatic fallback to an entry copy.
+
+Existing linked installations require an explicit transition:
+
+```bash
+aem detach personal:bundle personal:entry
+# Set the bundle mode to copy in the catalog or machine configuration.
+aem apply --item personal:bundle --reattach --adopt
+aem apply --item personal:entry --reattach --replace
+```
+
+Adoption requires the preserved bundle to match the source; reconcile differing contents first.
+The entry replacement preserves the detached entry in a backup and re-registers its hook.
+For multiple agents these selectors cover each agent destination; use `--agent` for a single agent.
+
+Source updates reach the copy only on apply, which refuses to overwrite local edits without explicit replacement.
+To return installed edits, preview `aem publish personal --from-copy --dry-run`, then use `aem publish personal --from-copy` for an external source or add `-m "Update instructions"` for Git.
+Competing source/copy changes and differing exports from multiple agent copies stop collection.
+External publication confirms writing the local original, not synchronization by its external service.

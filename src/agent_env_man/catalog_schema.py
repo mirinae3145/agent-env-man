@@ -71,9 +71,6 @@ def validate(document):
                 enabled = data.get("preserve_symlinks", False)
                 if not isinstance(enabled, bool):
                     raise Error(f"{kind}.{name}.preserve_symlinks: expected Boolean")
-                if enabled:
-                    from .payload_links import require_posix
-                    require_posix()
             source = data.get("source")
             if not isinstance(source, str) or source not in sources:
                 raise Error(f"{kind}.{name}: source must name a declared source")
@@ -87,7 +84,7 @@ def validate(document):
             else:
                 table(install, {"bundle", "entry"}, f"instructions.{name}.install")
                 for part in ("bundle", "entry"):
-                    table(install.get(part, {}), {"root", "destination"}, f"instructions.{name}.install.{part}")
+                    table(install.get(part, {}), {"root", "destination", "mode"} if part == "bundle" else {"root", "destination"}, f"instructions.{name}.install.{part}")
     settings = document.get("settings", {})
     if not isinstance(settings, dict):
         raise Error("Catalog settings must be a table")

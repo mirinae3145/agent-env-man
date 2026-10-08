@@ -15,6 +15,11 @@ Ordinary operation errors use stderr and exit `1`, argument parsing errors exit 
 Invalid numeric CLI durations (non-finite values, nonpositive timeouts, or negative intervals) are argument errors and exit `2` before configuration reads or filesystem effects.
 Help exits `0`; invoking a command group without a required subcommand shows usage/help and exits `2`.
 Successful operations exit `0`; status also exits `0` when its report contains conflicts or unavailable sources.
+Platform-unsupported directory policies appear as item `status = "unavailable"` with `error`; detached items retain `status = "detached"` and include the limitation as `error`.
+Their presence does not invalidate the catalog or prevent independent supported item operations.
+Explicit content commands preflight the complete selected operation and its shared-source consumers before content changes; unsupported policies fail rather than being silently skipped.
+Bootstrap performs this preflight after reading the catalog and before saving the machine binding or preparing content.
+`sync --item` still updates all sources; use `update NAME` and `apply --item NAME` for independent work.
 Callbacks have the exceptions described below.
 Documented commands, behavior, exit codes, and JSON fields are covered by the package's [compatibility policy](compatibility.md).
 JSON consumers must ignore unknown object fields; field additions may appear in compatible feature releases.
@@ -70,6 +75,10 @@ Saved TOML `timeout` keys and effective JSON policy fields retain their names.
 
 ## setup
 
+`--automation-skip-unsupported` and `--no-automation-skip-unsupported` save a Boolean machine policy for full automation, defaulting to false and preserving the saved value when omitted.
+They can be used in policy-only setup without changing integrations; the installer accepts both flags.
+See [full automation](automation.md#device-automation-modes) for exclusion reporting, shared-source constraints, and preview limits.
+
 ```text
 aem setup [--shell SHELL ...] [--agent AGENT ...]
           [--remove-shell NAME ...] [--remove-agent NAME ...]
@@ -80,6 +89,7 @@ aem setup [--shell SHELL ...] [--agent AGENT ...]
           [--catalog-git-timeout SECONDS] [--startup-hook-timeout SECONDS]
           [--automation off|policies|full] [--automation-trigger EVENT ...]
           [--automation-interval SECONDS] [--automation-git-timeout SECONDS]
+          [--automation-skip-unsupported | --no-automation-skip-unsupported]
 ```
 
 Shell choices are `bash`, `zsh`, and `powershell`.
@@ -219,7 +229,7 @@ Operational failures are returned in this report on stdout, including with `--js
 ## bootstrap
 
 ```text
-aem bootstrap [CATALOG | --catalog PATH] [--checkout-root PATH]
+aem bootstrap [CATALOG | --catalog PATH] [--catalog-copy] [--checkout-root PATH]
               [--catalog-repository URL --catalog-path RELATIVE_PATH [--catalog-branch BRANCH]]
               [--root NAME=PATH ...] [--external NAME=PATH ...]
               [--setting-target NAME=PATH ...] [--runtime NAME=PATH ...]
@@ -229,6 +239,9 @@ aem bootstrap [CATALOG | --catalog PATH] [--checkout-root PATH]
 ```
 
 Omit the catalog argument to reuse the saved binding.
+For an explicit local file, add `--catalog-copy` to prepare an editable managed copy; this flag cannot be combined with Git registration.
+Reusing a copy binding never refreshes from the external original; use `catalog update` explicitly.
+A copied catalog and its machine binding are published together only after validation, with recovery through `recover`.
 A positional catalog and `--catalog` cannot both be supplied.
 Bootstrap accepts the same catalog policy options as setup, allowing initial Git registration and automatic policy selection in one call.
 Omitted options retain saved policy fields, and repeated triggers replace the saved list.
@@ -269,10 +282,10 @@ For Git bindings it also includes `catalog`, with `status` (`cloned` or `already
 
 ```text
 aem catalog status [--git-timeout TIMEOUT]
-aem catalog locate [--git-timeout TIMEOUT] [--cd]
+aem catalog locate [--git-timeout TIMEOUT] [--source] [--cd]
 aem catalog update [--git-timeout TIMEOUT]
 aem catalog auto --trigger EVENT [--dry-run]
-aem catalog publish [-m MESSAGE | --message MESSAGE] [--dry-run] [--git-timeout TIMEOUT]
+aem catalog publish [-m MESSAGE | --message MESSAGE] [--from-copy] [--dry-run] [--git-timeout TIMEOUT]
 ```
 
 These commands select the bound catalog, independently of the skill/instruction namespace.
@@ -283,8 +296,27 @@ For Git catalogs it also reports the branch, current revision, local changes, tr
 Catalog reading/inspection failures appear as `error` with status `unavailable` and exit 0; machine/state loading failures still exit 1.
 `locate` returns absolute `entry`, `checkout`, and `repository`; the latter two are null for a local catalog.
 Locate validates Git identity and the tracked file but does not parse its TOML or require cleanliness, so it can locate a malformed file for repair.
+`--source` selects a copied catalog's external original, including when unavailable; other binding types keep their existing entry.
+`--cd` uses the selected entry directory through the existing shell integration.
 
-`update` requires a Git binding and a clean checkout on the recorded branch with the expected origin.
+For a [local copy binding](configuration.md#copied-local-catalog-binding), `catalog update` validates and receives the original without installing its declarations.
+`catalog publish --from-copy` validates and returns copy edits to that external file; omitting `--from-copy` or supplying `--message` is an error.
+Direct local bindings still do not support update/publication; Git bindings reject `--from-copy`.
+Source-only changes leave a stale copy untouched during publication; copy-only changes are preserved during update.
+Different changes on both sides stop with source/copy paths and comparison arguments; reconcile manually and retry.
+Publication `--dry-run` is read-only, including the common baseline.
+The external original must exist; AEM does not recreate missing originals or contact a synchronization service.
+
+Copy reports add `source` and `copy` absolute paths, while `checkout` and `repository` remain null in status/location results.
+Copy bootstrap reports `catalog.status = prepared` with `entry`, `source`, and `copy`.
+Status keeps `ready` for a usable copy even without its original, reporting `source_available` and, on failure, `source_error` separately.
+Available comparison fields are `baseline_hash`, `source_hash`, `copy_hash`, `source_modified`, `copy_modified`, and `conflict`; missing baseline metadata is reported as `baseline_error`.
+Update/publication report `planned` for previews, `updated`/`published` for writes, `unchanged` for no write, or `failed` with `error` and exit 1.
+Their comparison includes `changed`, `stale` (source-only changes), `local_edits` (copy-only changes), and `compare` arguments when observations succeed.
+Successful publication reports `collection_complete = true` and `transport_complete = false`; it confirms local handoff only.
+
+
+For Git catalogs, `update` requires a clean checkout on the recorded branch with the expected origin.
 It fetches that branch, validates the incoming tracked UTF-8 TOML, declarations, machine bindings, target paths, and existing ownership, then fast-forwards only after all checks pass.
 Dirty, local-ahead, diverged, misidentified, detached, or unfinished checkouts are refused without reset or merge reconciliation.
 Validation failures leave the previous HEAD and working catalog intact, although fetched references and observations may change.
@@ -293,7 +325,7 @@ Use `bootstrap`, then `apply --dry-run` / `apply`, after adding declarations.
 Removed declarations leave existing installations and ownership intact; path/mode changes for owned items require detach first.
 New required external paths must be bound in the machine file before the catalog update can pass validation.
 
-`publish` uses the [content publication rules](#publish), but selects the whole catalog repository.
+For Git catalogs, `publish` uses the [content publication rules](#publish), but selects the whole catalog repository.
 The working catalog must pass declaration and ownership validation before publication.
 Dry run reports the checkout, entry, repository, branch, changed files, tracked diff, outgoing commits, and last-fetched relation without fetching, staging, committing, pushing, or recording attempts.
 With a message it commits all nonignored changes, including files outside the catalog path; without a message it pushes existing commits from a clean worktree.
@@ -394,7 +426,7 @@ Publication does not install content or update automatic-policy attempt clocks.
 Without `--from-copy`, copy edits are not collected and external publication remains unsupported.
 Detached content is never collected.
 
-Use `--from-copy` to collect selected installed, managed skill or directory copies into their source before publication:
+Use `--from-copy` to collect selected installed, managed skill, directory, or instruction bundle copies into their source before publication:
 
 ```bash
 aem publish report --from-copy --dry-run
@@ -402,7 +434,9 @@ aem publish report --from-copy -m "Share copy edits"
 aem --json publish external-files --from-copy
 ```
 
-Every selected name must identify skill or directory copies, including all of its agent destinations; settings retain their separate collect/export workflow.
+Every selected name must identify skill, directory, or instruction bundle copies, including all of its agent destinations; settings retain their separate collect/export workflow.
+Instruction collection includes the bundle only, validates its required entry, and excludes the global entry link and hook file.
+Different edits from agent copies targeting the same source conflict; reconcile them before retrying.
 Collection is explicit, never automatic, and introduces no editable stage.
 It compares the saved last common hash, current source, and current copy.
 Copy-only changes are collected, including additions, deletions, empty directories, executable bits, and opted-in directory symbolic links; source-only changes leave the copy and its baseline untouched and report `stale = true`.

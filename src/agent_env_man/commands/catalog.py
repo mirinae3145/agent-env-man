@@ -30,18 +30,21 @@ def status(runtime, timeout):
 
 @catalog.command()
 @timeout_option
+@click.option("--source", is_flag=True, help="Locate the external original of a copied catalog, even when unavailable.")
 @click.option("--cd", is_flag=True, help="Change directory with the installed shell integration; otherwise print the entry directory.")
 @pass_runtime
-def locate(runtime, timeout, cd):
+def locate(runtime, timeout, cd, source):
     """Locate the bound catalog entry offline.
 
+    For copied catalogs the default is the managed entry; --source selects
+    the original even when missing. Other bindings use the same entry.
     --cd uses the shell integration installed by setup --shell; reload the
     profile after setup. Without it, print the entry directory. --cd cannot
     be combined with global --json.
     """
     if cd and runtime.json_output:
         raise click.UsageError("--cd cannot be combined with --json")
-    return run(runtime, "locate", timeout=timeout,
+    return run(runtime, "locate", timeout=timeout, source=source,
                output=(lambda report: click.echo(str(Path(report["entry"]).parent))) if cd else None)
 
 
@@ -49,24 +52,33 @@ def locate(runtime, timeout, cd):
 @timeout_option
 @pass_runtime
 def update(runtime, timeout):
-    """Validate and fast-forward the catalog without installing content."""
+    """Validate and update the catalog without installing content.
+
+    Git catalogs fast-forward. Copied local catalogs receive their external
+    original; local edits are preserved and competing edits require reconciliation.
+    """
     return run(runtime, "update", timeout=timeout)
 
 
 @catalog.command()
+@click.option("--from-copy", is_flag=True, help="Explicitly return managed local catalog edits to the external file; conflicts stop without overwriting.")
 @click.option("-m", "--message", help="Commit all nonignored catalog checkout changes.")
 @preview_option
 @timeout_option
 @pass_runtime
-def publish(runtime, message, dry_run, timeout):
-    """Publish the whole catalog repository.
+def publish(runtime, message, dry_run, timeout, from_copy):
+    """Publish the whole Git catalog repository, or return local copy edits.
+
+    Local copy bindings require --from-copy and reject --message. Only the
+    external local file is written; synchronization remains external. Different
+    edits on both sides stop publication for manual reconciliation.
 
     With --message, commit all nonignored checkout changes. Without it, require
     a clean worktree and push existing commits. --dry-run is offline and does
     not verify remote state. First publication requires a successfully verified
     empty remote; remote errors stop publication.
     """
-    return run(runtime, "publish", message=message, dry_run=dry_run, timeout=timeout)
+    return run(runtime, "publish", message=message, dry_run=dry_run, timeout=timeout, from_copy=from_copy)
 
 
 @catalog.command()

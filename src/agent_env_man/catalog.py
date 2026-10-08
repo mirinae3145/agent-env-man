@@ -62,6 +62,9 @@ def validate(config, state):
 
 
 def protect_storage(config, state):
+    if config.catalog_copy_source is not None:
+        from .local_catalog import protect_storage as protect_copy
+        protect_copy(config, state)
     if config.catalog_source:
         for record in state.data["items"].values():
             if overlaps(config.catalog_source.path, Path(record["target"])):
@@ -82,6 +85,11 @@ def prepare(config, state, *, timeout=30):
     Existing checkouts are never pulled/reset. Persisting the machine binding is
     the caller's next step; an interrupted save can retry the validated checkout.
     """
+    if config.catalog_copy_source is not None:
+        from .local_catalog import prepare as prepare_copy
+        with prepare_copy(config, state) as prepared:
+            yield prepared
+        return
     source = config.catalog_source
     if source is None:
         yield config, None
@@ -132,6 +140,11 @@ def command(config, state, args):
     source = config.catalog_source
     if action == "auto":
         return run_auto(config, state, args.trigger, dry_run=args.dry_run)
+    if config.catalog_copy_source is not None and action != "auto":
+        from .local_catalog import command as copy_command
+        return copy_command(config, state, args)
+    if getattr(args, "from_copy", False):
+        raise Error("--from-copy requires a local copy catalog binding")
     if action == "locate":
         if source:
             local_entry(config, Git(args.timeout))

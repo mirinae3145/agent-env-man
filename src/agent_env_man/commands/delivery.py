@@ -19,6 +19,9 @@ def bootstrap_skills(config, state, args):
     state.ready()
     document = tomlkit.parse(tomlkit.dumps(config.doc))
     set_catalog_policy(document, args)
+    copy_catalog = getattr(args, "catalog_copy", False)
+    if copy_catalog and (args.catalog_repository is not None or (args.catalog_path is None and args.catalog is None)):
+        raise Error("--catalog-copy requires an explicit local catalog path and cannot be combined with Git registration")
     if args.catalog_repository is not None:
         if args.catalog_path is not None or args.catalog is not None:
             raise Error("Git catalog registration cannot be combined with a local catalog path")
@@ -40,7 +43,12 @@ def bootstrap_skills(config, state, args):
             raise Error("Specify the catalog either positionally or with --catalog, not both")
         args.catalog = Path(args.catalog_path)
     if args.catalog is not None:
-        document["catalog"] = str(args.catalog.expanduser().resolve())
+        if copy_catalog:
+            # Keep lexical ancestry so redirected source paths are rejected.
+            location = args.catalog.expanduser().absolute()
+            document["catalog"] = {"type": "local", "path": str(location), "mode": "copy"}
+        else:
+            document["catalog"] = str(args.catalog.expanduser().resolve())
     if "catalog" not in document:
         raise Error("Use bootstrap /path/to/catalog.toml or --catalog-repository URL --catalog-path PATH")
     if args.checkout_root is not None:
@@ -104,7 +112,9 @@ def bootstrap_skills(config, state, args):
             if value.partition("=")[0] not in candidate._settings:
                 raise Error("--setting-target must name a catalog setting")
         manager = Manager(candidate, state)
-    atomic_write(config.path, tomlkit.dumps(candidate.doc).encode("utf-8"))
+        manager.require_sources_supported(args.item)
+    if candidate.catalog_copy_source is None:
+        atomic_write(config.path, tomlkit.dumps(candidate.doc).encode("utf-8"))
     report, failed = manager.prepare_skills(args.item, timeout=args.timeout)
     result = {"skills": report, "config": str(config.path), "next": "apply --dry-run"}
     if catalog_report:
@@ -115,6 +125,7 @@ def bootstrap_skills(config, state, args):
 @click.command()
 @click.argument("catalog_path", required=False, type=click.Path(path_type=Path), metavar="CATALOG")
 @click.option("--catalog", type=click.Path(path_type=Path), help="Local catalog file; alternative to CATALOG.")
+@click.option("--catalog-copy", is_flag=True, help="Keep a managed local copy of the explicit local catalog; refresh with catalog update, return edits with catalog publish --from-copy.")
 @click.option("--catalog-repository", help="Git catalog URL or absolute local repository path.")
 @click.option("--catalog-path", "catalog_entry", help="Catalog entry relative to its Git repository.")
 @click.option("--catalog-branch", help="Catalog branch; otherwise record the remote default.")
@@ -161,7 +172,7 @@ def update(runtime, source, timeout):
 @click.command()
 @click.argument("source", nargs=-1, required=True, metavar="NAME...")
 @click.option("-m", "--message", help="Commit all nonignored checkout changes with this message.")
-@click.option("--from-copy", is_flag=True, help="Collect selected managed skill/directory copies before publication; conflicts stop the source group.")
+@click.option("--from-copy", is_flag=True, help="Collect selected managed skill/directory/instruction copies before publication; conflicts stop the source group.")
 @preview_option
 @timeout_option
 @pass_runtime
@@ -171,7 +182,7 @@ def publish(runtime, source, message, from_copy, dry_run, timeout):
     NAME selects a catalog skill, directory, instruction, setting or personal
     hook, not a repository or installation component ID. Settings export
     their stage before publication; actual application edits are not collected.
-    --from-copy requires installed skill/directory copies for each selected
+    --from-copy requires installed skill/directory/instruction copies for each selected
     name and compares their saved baseline before writing the source. External
     copies publish into their local source folder; transport stays outside AEM.
     Collection preserves affected active links' required paths and file kinds;

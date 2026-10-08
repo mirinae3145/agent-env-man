@@ -30,6 +30,8 @@ General directories are independent of agent integrations and default to links u
 Bootstrap records the user's home directory when that binding is absent; use `--root home=/absolute/parent` to choose another initial path, or bind another catalog root with `--root NAME=/absolute/parent`.
 Use a link when writes at the installed path should reach the publish source; copy edits reach it only through explicit `publish --from-copy`.
 General directories can opt into nested symbolic links on POSIX; consult the directory configuration reference before enabling them.
+Native Windows can read these declarations but cannot execute their preservation policy; select independent supported items explicitly.
+Full automation refuses unsupported items by default; only enable its machine-level skip policy when the user requests exclusion, and keep shared-source guards intact.
 Copy and detach preserve their target text, so relative referents may change after relocation; they do not produce dependency-free copies.
 Bootstrap prepares sources without updating existing checkouts or installing targets; apply installs from local prepared paths without fetching.
 
@@ -83,10 +85,10 @@ Read relevant guidance and follow its referenced documents according to their st
 Installed copies and detached contents can differ from the source; ordinary publishing does not collect their edits.
 Editing through an active link changes the source immediately.
 For copies, edit the source and apply after committing to refresh the installation.
-To share edits made in an installed, managed skill or directory copy, use `aem publish NAME --from-copy --dry-run`, then authorized `aem publish NAME --from-copy -m "Share copy edits"` for Git, or omit the message for an external source.
+To share edits made in an installed, managed skill, directory, or instruction bundle copy, use `aem publish NAME --from-copy --dry-run`, then authorized `aem publish NAME --from-copy -m "Share copy edits"` for Git, or omit the message for an external source.
 Collection refuses differing changes on both sides and reports source/copy paths and Git comparison arguments; inspect and reconcile them rather than replacing content to bypass the conflict.
 It also preserves affected active links' required paths and file kinds, including saved links removed from the catalog; reconcile the copy or explicitly detach the affected item before intentional removal.
-External completion confirms local source handoff only; detached content, instruction bundles, hooks, and actual settings are not collected by this option.
+External completion confirms local source handoff only; detached content, entry links, hooks, and actual settings are not collected by this option.
 `locate --cd` requires registered shell integration and a reloaded profile; do not assume shell navigation persists between tool subprocesses.
 
 When publication is requested, inspect all changes in the reported repository, then review and publish:
@@ -99,7 +101,10 @@ aem publish NAME -m "Clarify guidance"
 Publication acts on the entire selected repository, including files outside the selected content directory.
 Supplying a message stages all nonignored changes; without a message, `aem publish NAME` pushes existing commits from a clean checkout.
 Review unrelated edits and outgoing commits before selecting that scope.
-For catalog edits, locate with `aem --json catalog locate`, edit the reported entry, and use `aem catalog publish --dry-run` followed by the authorized `aem catalog publish -m "Update catalog"`.
+For Git catalog edits, locate with `aem --json catalog locate`, edit the reported entry, and use `aem catalog publish --dry-run` followed by the authorized `aem catalog publish -m "Update catalog"`.
+For offline use of an external catalog, register its local file with `bootstrap PATH --catalog-copy`; later commands read the managed copy, and only explicit `catalog update` refreshes it.
+Return edited catalog copies with `catalog publish --from-copy --dry-run`, then authorized `catalog publish --from-copy` without a commit message.
+Use `catalog locate --source` to distinguish the external original; reconcile competing edits rather than overwriting either side.
 Publication does not install content, and a request to locate or edit does not itself authorize publication.
 External-source synchronization remains the responsibility of its existing service.
 A preview is offline and cannot confirm remote state; a remote failure does not establish an empty remote.

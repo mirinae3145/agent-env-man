@@ -419,7 +419,12 @@ class Installer(SetupFixture):
             self.assertFalse(any('install' in call for call in calls))
             calls.clear()
             self.assertEqual(module.main(['--shell', 'bash', '--config', str(self.config),
+                                          '--startup-hook-timeout', '60', '--automation-git-timeout', '15',
+                                          '--automation-skip-unsupported']), 0)
+            self.assertIn('--automation-skip-unsupported', calls[-1])
+            self.assertEqual(module.main(['--config', str(self.config), '--no-automation-skip-unsupported',
                                           '--startup-hook-timeout', '60', '--automation-git-timeout', '15']), 0)
+            self.assertIn('--no-automation-skip-unsupported', calls[-1])
         self.assertIn('--startup-hook-timeout', calls[-1])
         self.assertEqual(calls[-1][calls[-1].index('--startup-hook-timeout') + 1], '60.0')
         self.assertIn('--automation-git-timeout', calls[-1])

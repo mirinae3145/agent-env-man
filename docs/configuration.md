@@ -107,7 +107,7 @@ General directories use Git or external sources and require no entry document, s
 | --- | --- | --- |
 | `source` | String | Required name in `sources`; Git or external. |
 | `subdir` | String | Source directory; defaults to `"."`. |
-| `preserve_symlinks` | Boolean | `false`; opt in to opaque symbolic links on POSIX, for this directory only. Unsupported on Windows. |
+| `preserve_symlinks` | Boolean | `false`; require opaque symbolic link preservation for this directory only. Execution is supported on POSIX. |
 | `install` | Table | Optional installation settings below. |
 | `update` | Table | Optional policy selection and overrides, using the same rules as skills. |
 
@@ -126,7 +126,14 @@ Path and mode changes require detach before reconfiguration.
 The selected source must be a directory; its root and selected ancestry cannot redirect through links.
 By default its payload accepts only regular files and directories.
 Set `preserve_symlinks = true` directly under `directories.NAME` to preserve nested symbolic links in either installation mode on POSIX.
-Windows rejects the opt-in; AEM never substitutes junctions, ordinary text files, or copies of referents.
+The declaration is valid on every platform; native Windows execution is unsupported and is not planned.
+AEM never substitutes junctions, ordinary text files, or copies of referents.
+Windows can read and update a catalog containing the declaration and operate on independent supported items.
+Selecting the opted-in directory fails before content changes, even if it currently contains no links and regardless of installation mode.
+Shared-source preparation, updates, and publication still check every affected consumer, including unselected declarations and orphaned active links.
+Ordinary machine bindings, destination checks, and saved ownership requirements remain in force.
+Use explicit item selection for independent operations; `sync --item` still updates all sources.
+Full automation can explicitly exclude unsupported items through the machine's `automation.skip_unsupported` setting below.
 Other reparse points, special files, and Git submodules remain unsupported.
 This option does not enable links in skills, instructions, settings, or hooks.
 
@@ -165,7 +172,8 @@ External transport remains outside AEM; copy publication only hands content to t
 | `entry` | String | Required relative path to a regular entry document inside the selected bundle directory. |
 | `install` | Table | Optional `bundle` and `entry` tables below. |
 
-`install.bundle` accepts only optional `root` and `destination`.
+`install.bundle` accepts optional `root`, `destination`, and `mode` (`"link"` by default, or `"copy"`).
+Machine `modes.NAME` overrides the bundle mode; the global entry always remains a link.
 `root` names a machine root for bundle installation; omission uses `<machine-file>.bundles`.
 `destination` is a relative bundle destination and defaults to the instruction name.
 `install.entry` accepts only optional `root` and `destination`.
@@ -174,10 +182,12 @@ External transport remains outside AEM; copy publication only hands content to t
 
 An explicit `install.entry.root` selects one destination; without it at least one machine agent must be selected.
 Bootstrap supplies `roots.agent`, but an instruction declaration must either refer to it or use an agent binding.
-Codex is the only shipped agent profile.
+Codex and Claude use their respective entry filenames and hook formats.
 An instruction creates `NAME:bundle`, `NAME:entry`, and `NAME:hook` ownership IDs.
-The bundle and entry are links; the hook owns one group in `hooks.json` under the entry root.
-Instruction copy modes and per-bundle automatic policies are not supported.
+A linked bundle exposes the original entry; a copied bundle links the global entry to the installed copy.
+The hook owns one agent-specific group under the entry root and resolves the same installed reading tree.
+Copied bundles stay usable without their external source; explicit apply refreshes them while protecting local edits.
+Instruction-specific automatic policies are not supported.
 Explicitly selected full device automation may prepare, update, and apply instruction bundles, while preserving detached groups.
 Changing a managed source path, target path, or mode requires detach before reconfiguration.
 AEM does not interpret document contents, reading order, or applicability.
@@ -229,13 +239,13 @@ Explicit commands ignore these policies and clocks.
 | Field/table | Type | Meaning/default |
 | --- | --- | --- |
 | `version` | Integer | Required, exactly `1`. |
-| `catalog` | String or table | Optional local catalog path or Git binding described below; required for bootstrap/content preparation. One binding per machine file. |
+| `catalog` | String or table | Optional direct local path, local copy binding, or Git binding described below; required for bootstrap/content preparation. One binding per machine file. |
 | `checkout_root` | String | Managed Git storage; defaults to sibling `<machine-file>.checkouts`. |
 | `roots` | Table of paths | User-named installation roots; bootstrap defaults missing `skills`, `agent`, and `home`. |
 | `agents` | Table | Agent selections and path bindings, normally written by setup. |
 | `runtimes` | Table of paths | Personal hook interpreter bindings; bootstrap never installs executables. |
 | `external_paths` | Table of paths | Logical external source bindings; every used external must be bound. |
-| `modes` | Table of strings | Catalog skill or directory names mapped to `"link"` or `"copy"`. Unknown names fail catalog validation. |
+| `modes` | Table of strings | Catalog skill, directory, or instruction names mapped to `"link"` or `"copy"`. Unknown names fail catalog validation. |
 | `setup` | Table | Saved startup selections; normally written by setup. |
 | `automation` | Table | Device orchestration mode and full-run schedule; omission preserves individual policy behavior. |
 | `catalog_update` | Table | Device-local automatic policy for a Git catalog; defaults to manual. |
@@ -264,6 +274,36 @@ report = "copy"
 Machine selection defaults to `$XDG_CONFIG_HOME/agent-env-man/machine.toml` or `~/.config/agent-env-man/machine.toml` on Linux/WSL.
 On Windows it uses `%LOCALAPPDATA%/agent-env-man/machine.toml`, falling back to `~/AppData/Local/agent-env-man/machine.toml`.
 Pass `--config PATH` before the command to select another file.
+
+### Copied local catalog binding
+
+Use `bootstrap /absolute/external/catalog.toml --catalog-copy` (or `--catalog PATH --catalog-copy`) to retain a managed local file:
+
+```toml
+[catalog]
+type = "local"
+path = "/absolute/external/catalog.toml"
+mode = "copy"
+```
+
+`path` identifies the original regular file; relative paths and redirected ancestry are rejected in this machine table.
+The managed entry is `<machine-file>.catalog-copy/catalog.toml`.
+Ordinary catalog operations always consume that copy, even when the original is available.
+The copied file remains editable; valid edits are used on the next command, while malformed edits require repair before content operations.
+`catalog locate` finds the editable copy without parsing its TOML, and `catalog locate --source` reports the original even when absent.
+
+`catalog update` explicitly receives original changes, and `catalog publish --from-copy` explicitly returns copy edits.
+Both compare a saved common content hash: one-sided changes flow only in their selected direction, equal contents advance the baseline, and competing changes stop without overwriting.
+No automatic merge, force publication, or local catalog automatic refresh is provided.
+Source absence does not prevent use of the copy, but update/publication require an existing regular original and never recreate it.
+External synchronization remains outside AEM.
+
+Bootstrap with an unchanged binding reuses the copy without refreshing it.
+Rebinding can replace only an unchanged owned copy; preserve and reconcile local edits first.
+Unowned files at the managed location are not adopted implicitly.
+Registration, refresh, and publication retain recoverable backups and commit the file and comparison state together.
+Copy storage and the original must not overlap manager storage, content roots, or installation targets.
+Existing string bindings remain direct local file bindings unless explicitly registered with `--catalog-copy`.
 
 ### Git catalog binding
 
@@ -413,6 +453,7 @@ The policy does not register startup hooks or an OS scheduler; use setup's exist
 
 Manage the machine-owned `automation` table through installer/setup options.
 Use `--automation MODE`, repeated `--automation-trigger EVENT`, `--automation-interval SECONDS`, and `--automation-git-timeout SECONDS`.
+Use `--automation-skip-unsupported` or `--no-automation-skip-unsupported` to save the full-mode platform exclusion policy.
 Omitted fields retain saved values; a supplied trigger list replaces the saved list.
 Policy-only setup uses the machine journal and does not rewrite profiles or require integration selections.
 Unknown fields are rejected.
@@ -423,6 +464,7 @@ Unknown fields are rejected.
 | `trigger` | String or array of strings | Defaults to `shell-start` and `agent-start`. May contain unique supported events or only `manual`. Used in full mode. |
 | `min_interval` | Integer or float | `3600` seconds, finite and nonnegative; full runs share one clock across events, including failures. |
 | `timeout` | Integer or float | `30` seconds per content/catalog Git phase, finite and positive; used in full mode. |
+| `skip_unsupported` | Boolean | `false`; explicitly exclude platform-unsupported items from full content selection and report their reasons. Stored but inactive in other modes. |
 
 Boolean numeric values are rejected.
 `policies` retains the independent self-update, catalog-update, and skill policies and their clocks.
@@ -436,7 +478,7 @@ A resulting explicit or inherited `[]` excludes a skill or directory; other trig
 Instruction groups with detached components are excluded together; remaining bundles participate without introducing instruction-specific policy tables.
 A shared repository can still advance live links of excluded consumers.
 Local or unbound catalogs skip Git delivery and use the existing local declarations.
-Mode, schedule, or runtime changes cancel queued work; the fresh continuation also verifies the saved request binding before advancing content.
+Mode, schedule, exclusion-policy, or runtime changes cancel queued work; the fresh continuation also verifies the saved request binding before advancing content.
 
 ## Application settings declarations and bindings
 
