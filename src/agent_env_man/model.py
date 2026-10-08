@@ -68,6 +68,11 @@ class Item:
     agent: str = "codex"
     agents: tuple[str, ...] = ()
     preserve_symlinks: bool = False
+    link_target: Path | None = None
+
+    @property
+    def link_destination(self) -> Path:
+        return self.link_target if self.link_target is not None else self.source
 
     @property
     def key(self) -> str:
@@ -196,7 +201,7 @@ class Config(MachineFile):
             runtime(self.doc.get('self_update', {}))
         self.modes = self.doc.get("modes", {})
         if not isinstance(self.modes, dict) or any(v not in ("link", "copy") for v in self.modes.values()):
-            raise Error("Machine modes must map skill or directory names to link or copy")
+            raise Error("Machine modes must map skill, directory, or instruction names to link or copy")
         for name in self.modes:
             identifier(name)
 
@@ -270,6 +275,8 @@ class Config(MachineFile):
             if data.get("mode", "link") not in ("link", "copy"):
                 raise Error(f"Skill {name}: expected link or copy mode")
         for name, data in instructions.items():
+            if data.get("mode", "link") not in ("link", "copy"):
+                raise Error(f"Instruction {name}: expected link or copy mode")
             field = "repo" if "repo" in data else "external"
             if field == "external" and data[field] not in bindings:
                 raise Error(f"Instruction {name}: missing machine external_paths.{data[field]}")
@@ -309,8 +316,8 @@ class Config(MachineFile):
         self._settings = settings
         self._hooks = declared_hooks
         self._directories = directories
-        if self.modes.keys() - (skills.keys() | directories.keys()):
-            raise Error("Machine mode override does not name a skill or directory in the catalog")
+        if self.modes.keys() - (skills.keys() | directories.keys() | instructions.keys()):
+            raise Error("Machine mode override does not name a skill, directory, or instruction in the catalog")
         from .updates import resolve_policies
 
         self._update_policies = resolve_policies(document.get("updates", {}), skills)
@@ -436,6 +443,7 @@ class Config(MachineFile):
             data = self._instructions[source.name]
             subdir = data.get("subdir", ".")
             payload = source.path / subdir
+            mode = self.modes.get(source.name, data.get("mode", "link"))
             entry_relative = data["entry"] if subdir == "." else subdir + "/" + data["entry"]
             result = []
             for agent in self.instruction_agents(data):
@@ -446,9 +454,10 @@ class Config(MachineFile):
                 entry_target = self.target(root, relative(data.get("entry_destination", adapter.entry_name)))
                 hook_target = self.target(root, relative(adapter.hook_name))
                 result.extend([
-                    Item(source.name, "bundle" + tail, subdir, payload, target, "link", "instruction", data["entry"], agent),
+                    Item(source.name, "bundle" + tail, subdir, payload, target, mode, "instruction", data["entry"], agent),
                     Item(source.name, "entry" + tail, entry_relative, payload / data["entry"], entry_target,
-                         "link", "instruction-entry", data["entry"], agent),
+                         "link", "instruction-entry", data["entry"], agent,
+                         link_target=target / data["entry"] if mode == "copy" else None),
                     Item(source.name, "hook" + tail, subdir, payload, hook_target, "agent-hook",
                          "instruction-hook", data["entry"], agent)])
             return result

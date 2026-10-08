@@ -210,6 +210,8 @@ class Git:
 
     def guard_links(self, source: Source, revision: str, records: dict):
         for key, record in records.items():
+            if record.get("link_target") is not None:
+                continue
             shared_item = (record.get("kind") in ("skill", "directory", "instruction", "instruction-entry")
                             and record.get("source") == str(source.path / record["relative"]))
             if (record.get("source_name") != source.name and not shared_item) or record.get("detached") or record["mode"] != "link":

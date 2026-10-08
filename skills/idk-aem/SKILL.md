@@ -83,10 +83,10 @@ Read relevant guidance and follow its referenced documents according to their st
 Installed copies and detached contents can differ from the source; ordinary publishing does not collect their edits.
 Editing through an active link changes the source immediately.
 For copies, edit the source and apply after committing to refresh the installation.
-To share edits made in an installed, managed skill or directory copy, use `aem publish NAME --from-copy --dry-run`, then authorized `aem publish NAME --from-copy -m "Share copy edits"` for Git, or omit the message for an external source.
+To share edits made in an installed, managed skill, directory, or instruction bundle copy, use `aem publish NAME --from-copy --dry-run`, then authorized `aem publish NAME --from-copy -m "Share copy edits"` for Git, or omit the message for an external source.
 Collection refuses differing changes on both sides and reports source/copy paths and Git comparison arguments; inspect and reconcile them rather than replacing content to bypass the conflict.
 It also preserves affected active links' required paths and file kinds, including saved links removed from the catalog; reconcile the copy or explicitly detach the affected item before intentional removal.
-External completion confirms local source handoff only; detached content, instruction bundles, hooks, and actual settings are not collected by this option.
+External completion confirms local source handoff only; detached content, entry links, hooks, and actual settings are not collected by this option.
 `locate --cd` requires registered shell integration and a reloaded profile; do not assume shell navigation persists between tool subprocesses.
 
 When publication is requested, inspect all changes in the reported repository, then review and publish:

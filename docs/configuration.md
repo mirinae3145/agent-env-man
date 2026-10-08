@@ -165,7 +165,8 @@ External transport remains outside AEM; copy publication only hands content to t
 | `entry` | String | Required relative path to a regular entry document inside the selected bundle directory. |
 | `install` | Table | Optional `bundle` and `entry` tables below. |
 
-`install.bundle` accepts only optional `root` and `destination`.
+`install.bundle` accepts optional `root`, `destination`, and `mode` (`"link"` by default, or `"copy"`).
+Machine `modes.NAME` overrides the bundle mode; the global entry always remains a link.
 `root` names a machine root for bundle installation; omission uses `<machine-file>.bundles`.
 `destination` is a relative bundle destination and defaults to the instruction name.
 `install.entry` accepts only optional `root` and `destination`.
@@ -174,10 +175,12 @@ External transport remains outside AEM; copy publication only hands content to t
 
 An explicit `install.entry.root` selects one destination; without it at least one machine agent must be selected.
 Bootstrap supplies `roots.agent`, but an instruction declaration must either refer to it or use an agent binding.
-Codex is the only shipped agent profile.
+Codex and Claude use their respective entry filenames and hook formats.
 An instruction creates `NAME:bundle`, `NAME:entry`, and `NAME:hook` ownership IDs.
-The bundle and entry are links; the hook owns one group in `hooks.json` under the entry root.
-Instruction copy modes and per-bundle automatic policies are not supported.
+A linked bundle exposes the original entry; a copied bundle links the global entry to the installed copy.
+The hook owns one agent-specific group under the entry root and resolves the same installed reading tree.
+Copied bundles stay usable without their external source; explicit apply refreshes them while protecting local edits.
+Instruction-specific automatic policies are not supported.
 Explicitly selected full device automation may prepare, update, and apply instruction bundles, while preserving detached groups.
 Changing a managed source path, target path, or mode requires detach before reconfiguration.
 AEM does not interpret document contents, reading order, or applicability.
@@ -235,7 +238,7 @@ Explicit commands ignore these policies and clocks.
 | `agents` | Table | Agent selections and path bindings, normally written by setup. |
 | `runtimes` | Table of paths | Personal hook interpreter bindings; bootstrap never installs executables. |
 | `external_paths` | Table of paths | Logical external source bindings; every used external must be bound. |
-| `modes` | Table of strings | Catalog skill or directory names mapped to `"link"` or `"copy"`. Unknown names fail catalog validation. |
+| `modes` | Table of strings | Catalog skill, directory, or instruction names mapped to `"link"` or `"copy"`. Unknown names fail catalog validation. |
 | `setup` | Table | Saved startup selections; normally written by setup. |
 | `automation` | Table | Device orchestration mode and full-run schedule; omission preserves individual policy behavior. |
 | `catalog_update` | Table | Device-local automatic policy for a Git catalog; defaults to manual. |

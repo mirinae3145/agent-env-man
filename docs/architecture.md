@@ -91,9 +91,12 @@ Persist them in the selected or default machine file, and reuse saved bindings w
 Default agent, skills, and home roots only when absent; validate declarations and existing ownership before saving bindings or contacting content repositories.
 Support explicit `--config`, `--catalog`, and root and storage overrides.
 Do not parse document policy, applicability, or reading order.
-A Codex instruction bundle owns a directory link, a link directly to the original entry, and one `SessionStart` group in the entry root's `hooks.json`.
+A Codex instruction bundle owns a linked or copied directory, a global entry link, and one `SessionStart` group in the entry root's `hooks.json`.
+For copy mode, the entry points inside the installed directory; preserve its delivery source separately from its link destination.
+Preflight validates the original payload before the installed copy exists.
+Install the bundle before its entry, retaining per-target recovery and completed targets after later failures.
 Bootstrap only prepares and validates sources.
-Apply installs links and merges the hook without granting Codex trust or modifying `config.toml`.
+Apply installs the selected bundle mode, links its entry, and merges the hook without granting Codex trust or modifying `config.toml`.
 Preserve unrelated JSON events, groups, and metadata; malformed or redirected hook files must fail preflight.
 Own the complete AEM group identified by its saved marker, not the whole hooks file, and aggregate selected groups into one replacement per target file to avoid competing transactions.
 Entry selection includes bundle and hook installation, but never extends replacement permission to an implicitly selected bundle.
@@ -101,7 +104,7 @@ Report the required `/hooks` trust review after apply; preview must show the pla
 Detach materializes both links and releases hook ownership while retaining its configuration, so saved locator records still support preserved documents.
 Default bundle installation to `<machine-file>.bundles/<bundle-name>` without requiring a configured rules root; preserve explicit location overrides and relocation guards.
 Resolve roots from saved installation records and actual filesystem links, not from prompt text or the current catalog.
-Saved location lookup must remain offline, avoid updating ownership records, work for detached copies without a catalog, and reject missing or redirected entries and replaced active links.
+Saved location lookup must remain offline, avoid updating ownership records, work for managed and detached copies without a catalog or source, and reject missing or redirected entries and replaced active links.
 User-facing `locate` also supports saved skills and current catalog source lookup for uninstalled content or explicit `--source` requests.
 Keep callbacks on saved instruction lookup only; never fall back from a broken saved installation to a different source.
 Source lookup validates paths and Git identity without requiring a clean checkout, fetching, or installing content.
@@ -170,7 +173,7 @@ Push only the registered branch to the registered origin, without force or impli
 Preserve staged changes and commits after failures, report each repository's outcome independently, and never claim atomicity across repositories.
 External synchronization and fork/PR workflows remain outside this command's scope.
 Ordinary publication never collects installed-copy edits.
-Explicit `--from-copy` requires owned, non-detached skill or directory copies for every selected name and collects only their payloads; Git publication still selects whole checkouts.
+Explicit `--from-copy` requires owned, non-detached skill, directory, or instruction bundle copies for every selected name and collects only their payloads; Git publication still selects whole checkouts.
 Use the existing ownership hash as the last common baseline, updating it after successful collection or agreement; source observation/update alone never advances it.
 Source-only changes leave stale copies untouched; competing source/copy changes or differing overlapping exports stop the group before writing.
 Root collection excludes only top-level `.git`, retaining ignored regular payloads and executable bits without copying Git administration.

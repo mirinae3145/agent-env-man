@@ -49,8 +49,10 @@ def plan(manager, names):
     for name in names:
         items = manager.config.declarations(manager.config.sources[name])
         for item in items:
-            if item.kind not in ('skill', 'directory') or item.mode != 'copy':
-                raise Error(f'{name}: --from-copy requires installed skill or directory copies')
+            if item.kind in ('instruction-entry', 'instruction-hook'):
+                continue
+            if item.kind not in ('skill', 'directory', 'instruction') or item.mode != 'copy':
+                raise Error(f'{name}: --from-copy requires installed skill, directory, or instruction copies')
             record = manager.state.data['items'].get(item.key)
             if not record:
                 raise Error(f'{item.key}: copy is not installed; run apply first')
@@ -70,6 +72,8 @@ def plan(manager, names):
             copy_hash = fingerprint(item.target, exclude_git=record.get('exclude_git', False), **payload_options(item))
             if item.kind == 'skill' and not (item.target / 'SKILL.md').is_file():
                 raise Error(f'{item.key}: collected skill requires SKILL.md')
+            if item.kind == 'instruction':
+                manager.locate_entry(item.target, item.target / item.entry)
             baseline = record['hash']
             conflict = source_hash != baseline and copy_hash != baseline and source_hash != copy_hash
             changed = copy_hash != baseline and copy_hash != source_hash
@@ -132,7 +136,7 @@ def guard_links(writes, records):
     for key, record in records.items():
         if record.get('mode') != 'link' or record.get('detached'):
             continue
-        source = Path(record['source'])
+        source = Path(record.get('link_target', record['source']))
         if not any(overlaps(source, write.item.source) for write in writes):
             continue
         required = [(source, record['directory'])]

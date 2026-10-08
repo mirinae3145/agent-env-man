@@ -43,7 +43,7 @@ They reject tracked changes, nonignored untracked files, unfinished operations, 
 Git-ignored regular files such as `__pycache__` may remain in managed checkouts; an incoming revision that would overwrite them is refused without deleting the local files.
 Ignored files remain visible through directory links and are included in directory copies and detach, which preserve the complete payload except root Git metadata.
 Changes made inside an installed copy, including newly generated caches, still count as local modifications and prevent automatic replacement.
-For managed skill/directory copies, explicit [copy publication](commands.md#publish) can preserve those changes in the source and advance their common baseline; otherwise intentional replacement remains explicit.
+For managed skill/directory/instruction copies, explicit [copy publication](commands.md#publish) can preserve those changes in the source and advance their common baseline; otherwise intentional replacement remains explicit.
 Interrupted copy collection is recovered with `aem recover`, using the source-group journal and retained backups outside the source root; later source/stage/backup edits stop recovery.
 Updates also guard active link sources and instruction entries against removal or unsupported type changes, even after declarations disappear.
 Nested payload symbolic links require the general directory's POSIX [opt-in policy](configuration.md#directoriesname); junctions, other special files, and submodules remain unsupported.

@@ -394,7 +394,7 @@ Publication does not install content or update automatic-policy attempt clocks.
 Without `--from-copy`, copy edits are not collected and external publication remains unsupported.
 Detached content is never collected.
 
-Use `--from-copy` to collect selected installed, managed skill or directory copies into their source before publication:
+Use `--from-copy` to collect selected installed, managed skill, directory, or instruction bundle copies into their source before publication:
 
 ```bash
 aem publish report --from-copy --dry-run
@@ -402,7 +402,9 @@ aem publish report --from-copy -m "Share copy edits"
 aem --json publish external-files --from-copy
 ```
 
-Every selected name must identify skill or directory copies, including all of its agent destinations; settings retain their separate collect/export workflow.
+Every selected name must identify skill, directory, or instruction bundle copies, including all of its agent destinations; settings retain their separate collect/export workflow.
+Instruction collection includes the bundle only, validates its required entry, and excludes the global entry link and hook file.
+Different edits from agent copies targeting the same source conflict; reconcile them before retrying.
 Collection is explicit, never automatic, and introduces no editable stage.
 It compares the saved last common hash, current source, and current copy.
 Copy-only changes are collected, including additions, deletions, empty directories, executable bits, and opted-in directory symbolic links; source-only changes leave the copy and its baseline untouched and report `stale = true`.

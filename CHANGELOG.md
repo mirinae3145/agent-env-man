@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Managed instruction bundle copies with global entries linked into the installed reading tree, offline location and hook lookup, machine mode overrides, and explicit `publish --from-copy` collection with conflict protection.
+
 ## [1.2.0-beta] &mdash; 2026-10-08
 
 First beta of 1.2.0; Git tag `v1.2.0-beta` corresponds to Python package version `1.2.0b0`; based on `v1.1.1`.

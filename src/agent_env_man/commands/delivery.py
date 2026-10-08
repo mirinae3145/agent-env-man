@@ -161,7 +161,7 @@ def update(runtime, source, timeout):
 @click.command()
 @click.argument("source", nargs=-1, required=True, metavar="NAME...")
 @click.option("-m", "--message", help="Commit all nonignored checkout changes with this message.")
-@click.option("--from-copy", is_flag=True, help="Collect selected managed skill/directory copies before publication; conflicts stop the source group.")
+@click.option("--from-copy", is_flag=True, help="Collect selected managed skill/directory/instruction copies before publication; conflicts stop the source group.")
 @preview_option
 @timeout_option
 @pass_runtime
@@ -171,7 +171,7 @@ def publish(runtime, source, message, from_copy, dry_run, timeout):
     NAME selects a catalog skill, directory, instruction, setting or personal
     hook, not a repository or installation component ID. Settings export
     their stage before publication; actual application edits are not collected.
-    --from-copy requires installed skill/directory copies for each selected
+    --from-copy requires installed skill/directory/instruction copies for each selected
     name and compares their saved baseline before writing the source. External
     copies publish into their local source folder; transport stays outside AEM.
     Collection preserves affected active links' required paths and file kinds;
