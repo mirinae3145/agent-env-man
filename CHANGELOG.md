@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.0-rc] &mdash; 2026-10-08
+
+First release candidate of 1.2.0; Git tag `v1.2.0-rc` corresponds to Python package version `1.2.0rc0`; based on `v1.2.0-beta`.
+
 ### Added
 
 - Global `--verbose` for detailed text reports.
@@ -310,7 +314,8 @@ Maintenance commands can still inspect, detach, recover, and remove saved integr
 - Linux/WSL and native Windows path handling, with Python 3.11 or later and Git required.
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
-[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0-beta...HEAD
+[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0-rc...HEAD
+[1.2.0-rc]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0-beta...v1.2.0-rc
 [1.2.0-beta]: https://github.com/mirinae3145/agent-env-man/compare/v1.1.1...v1.2.0-beta
 [1.1.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/mirinae3145/agent-env-man/compare/v1.0.1...v1.1.0
