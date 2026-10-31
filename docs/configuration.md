@@ -224,18 +224,22 @@ General directories use Git or external sources and require no entry document, s
 | `exclude` | Array of strings | Additional [payload exclusions](#payload-exclusions); defaults to `[]`. |
 | `subdir` | String | Source directory; defaults to `"."`. |
 | `preserve_symlinks` | Boolean | `false`; require opaque symbolic link preservation for this directory only. Execution is supported on POSIX. |
+| `agent` | String | Optional destination name such as `claude-lab`; binds the directory to that destination. |
 | `install` | Table | Optional installation settings below. |
 | `update` | Table | Optional policy selection and overrides, using the same rules as skills. |
 
 - `directories.NAME.install` accepts `root`, `destination`, and `mode`.
-- `root` is a machine root name, defaulting to `"home"` when omitted.
+- With `agent`, a machine that has not registered that destination skips the declaration, as for `settings.NAME.agent`.
+  A registered machine installs below that destination's root unless `install.root` names another root, and `--agent` selects the item only for that destination.
+  Older AEM versions reject the field.
+- `root` is a machine root name, defaulting to `"home"` when omitted and no `agent` is declared.
   Bootstrap preserves a saved `roots.home`, or records the current user's absolute home directory when the binding is absent.
   Use `--root home=PATH` for an explicit initial binding, or `--root NAME=PATH` to bind another declared root.
 - An explicitly named root without a machine binding is an error; it never falls back to `home`.
 - `destination` is a literal relative directory path below that root, defaulting to the item name.
 - `mode` is `"link"` by default or explicit `"copy"`; machine `modes.NAME` overrides it.
 - The entire `install` table may be omitted to use these defaults.
-- Each declaration creates one agent-independent target and ownership ID `NAME:directory`; commands also accept the catalog name.
+- Each declaration creates one target and ownership ID `NAME:directory`, agent-independent unless it declares `agent`; commands also accept the catalog name.
 - The target cannot own an entire configured root or overlap sources, other targets, catalog, stages, or manager storage.
 - Path and mode changes require detach before reconfiguration.
 
@@ -368,8 +372,9 @@ Explicit commands ignore these policies and clocks.
 | `catalog` | String or table | Optional direct local path, local copy binding, or Git binding described below; required for bootstrap/content preparation. One binding per machine file. |
 | `checkout_root` | String | Managed Git storage; defaults to sibling `<machine-file>.checkouts`. |
 | `roots` | Table of paths | User-named installation roots; bootstrap defaults missing `skills`, `agent`, and `home`. |
-| `agents` | Table | Agent selections and path bindings, normally written by setup. |
+| `agents` | Table | Product destinations and named instance path bindings, normally written by setup. |
 | `runtimes` | Table of paths | Personal hook interpreter bindings; bootstrap never installs executables. |
+| `tool_hooks` | Table | Hooks that other tools install for themselves and that `aem check-tool-hooks` expects; see below. |
 | `external_paths` | Table of paths | Logical external source bindings; every used external must be bound. |
 | `modes` | Table of strings | Catalog skill, directory, or instruction names mapped to `"link"` or `"copy"`. Unknown names fail catalog validation. |
 | `setup` | Table | Saved startup selections; normally written by setup. |
@@ -477,13 +482,47 @@ See [catalog commands](commands.md#catalog) for validation, publication, and fai
 
 ### Roots and agents
 
-`agents.codex` accepts only `root` and `skills` path strings.
-Omitted fields default to `CODEX_HOME` (or `~/.codex`) and `~/.agents/skills`, respectively.
+`agents.codex`, `agents.claude`, and named instances such as `agents.codex-lab` and `agents.claude-lab` accept only `root` and `skills` path strings.
+Named instances default to `~/.NAME` and `~/.NAME/skills`, independently of default-profile environment overrides.
+Their roots cannot overlap another configured instance root.
+See [named instances](agent-profiles.md#named-instances) for setup, selection, discovery limits, and removal.
+
+For the original Codex destination, omitted fields default to `CODEX_HOME` (or `~/.codex`) and `~/.agents/skills`, respectively.
 Setup persists resolved defaults; saved values take precedence over later environment changes.
 Setup initially respects existing `roots.agent` and `roots.skills` when adding Codex.
 Bootstrap root overrides for `agent` and `skills` also update an existing Codex binding.
 Custom roots must be declared explicitly.
 AEM derives `aem-agent-codex` and `aem-skills-codex` roots from the agent binding; conflicting manual definitions are rejected.
+
+Machine `settings.NAME` accepts `target` and optional `agent`.
+The agent names a destination and restricts installation selection to that instance; preparing or applying an active setting requires that destination to be configured, with the target inside its root.
+Detached associations may remain after instance removal.
+Omission preserves the setting's existing behavior without an agent selector or with the original product selectors; named selectors exclude unbound settings.
+Changing an active setting's association requires detach first.
+Each catalog setting name still has exactly one stage and target; use distinct declarations sharing one source/path to deploy common fields independently.
+
+### Tool hooks
+
+A tool hook is a hook a tool such as herdr installs for itself in a Claude Code profile.
+AEM does not own, install, edit or remove it; the machine declares what to expect, and `aem check-tool-hooks` reports when it is missing.
+
+```toml
+[tool_hooks.herdr]
+command = "herdr"
+event = "SessionStart"
+contains = "herdr-agent-state.sh"
+agents = ["claude", "claude-lab"]
+```
+
+| Field | Meaning |
+| --- | --- |
+| `command` | Executable looked up on `PATH`. When it is not found, the tool is skipped without checking any profile. |
+| `event` | Claude Code hook event that must carry the hook. |
+| `contains` | Text that one hook command under that event must contain. |
+| `agents` | Optional registered Claude Code agents to check; omitted means every registered Claude Code agent. |
+
+The declaration is per machine, so a tool installed on one machine does not make another machine report a missing hook.
+Older AEM versions reject a machine file that contains `tool_hooks`.
 
 ### Saved setup
 
@@ -624,7 +663,7 @@ Mode, schedule, exclusion-policy, or runtime changes cancel queued work; the fre
 
 ## Application settings declarations and bindings
 
-Catalog `[settings.NAME]` requires `source` (a declared Git/external source), `path` (a literal source-relative settings file), and `format` (`"toml"` or `"json"`).
+Catalog `[settings.NAME]` requires `source` (a declared Git/external source), `path` (a literal source-relative settings file), and `format` (`"toml"` or `"json"`), and optionally accepts `agent`.
 JSON settings require a strict top-level object with unique keys; comments and trailing commas are unsupported.
 See [Settings management](settings-management.md) for field ownership, exact numeric comparison, and preserving edits.
 Its optional `update` table defines a separate automatic sync policy:
@@ -640,7 +679,14 @@ Every automatic settings attempt receives shared changes and applies the stage a
 Full mode includes settings with omitted triggers and replaces their individual schedule with the full-run schedule.
 Attempt observations are generated under `sources.NAME.settings_automation` in saved state; full runs do not change this clock.
 No other item fields are accepted; names cannot collide with skills or instructions.
-Machine `[settings.NAME]` requires only `target`, an absolute application-file path or `~/...`.
+Machine `[settings.NAME]` requires `target`, an absolute application-file path or `~/...`, and optionally accepts `agent`.
+An associated setting has one stage and target and is selected only for that destination.
+Preparing or applying an active association requires a configured destination and a target inside its root.
+Detached associations can remain recorded after instance removal.
+For common settings in multiple profiles, use distinct catalog declarations with the same source/path/format and separate target bindings.
+A catalog declaration with `agent = "claude-lab"` belongs to that destination: a machine that has not registered it skips the declaration without a binding, while a machine that has registered it must bind a target and name the same `agent`.
+A binding for a skipped declaration is refused. A declaration without `agent` still needs a binding on every machine.
+Older AEM versions reject the catalog field.
 Bootstrap `--setting-target NAME=PATH` persists these bindings and preserves omitted values.
 
 Catalog version remains 2, machine version 1, and state envelope version 2.

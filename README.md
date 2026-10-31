@@ -41,6 +41,9 @@ It does not bind a catalog or install user catalog content.
 Open a new selected shell to use the updated PATH.
 Supported integrations are Bash, Zsh, PowerShell, Codex, and Claude Code; use `--agent claude` for Claude or repeat `--agent` to select both.
 Windows and WSL should use separate machine configurations, checkouts, and targets.
+For additional accounts of the same product, use named instances such as `aem setup --agent claude-lab --agent codex-lab`.
+Each named instance has independent destination paths and ownership; see [named instances](docs/agent-profiles.md#named-instances).
+Setup never logs in, copies credentials, or installs product plugins.
 
 A new installation defaults to `policies` automation with AEM tool updates off; content automation requires opt-in.
 See [Automation](docs/automation.md) to choose another mode and [setup](docs/commands.md#setup) to change or remove integrations.

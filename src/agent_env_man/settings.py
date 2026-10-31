@@ -216,7 +216,8 @@ def declaration(config, source, data):
     if any(overlaps(stage_root, p) for p in protected if p != stage_root):
         raise Error("Settings stage storage overlaps sources or manager storage")
     path = relative(data["path"])
-    return Item(source.name, "settings", data["path"], source.path / path, target, "settings", "setting", agent="", agents=())
+    return Item(source.name, "settings", data["path"], source.path / path, target, "settings", "setting", agent=config.doc["settings"][source.name].get("agent", ""),
+                agents=(config.doc["settings"][source.name]["agent"],) if "agent" in config.doc["settings"][source.name] else ())
 
 
 def metadata_path(path):
@@ -447,6 +448,8 @@ class Settings:
             if exists(metadata_path(item.source)):
                 git.tracked_payload(prepared, item.relative + ".aem.toml")
         existing = self.record(item.source_name, required=False)
+        if item.agent and not (existing and existing.get("detached")):
+            self.manager.validate_agent(item.agent)
         if existing:
             self.working(existing, conflicts=True)
             return {"setting": item.source_name, "status": "already-prepared"}
@@ -456,7 +459,7 @@ class Settings:
             raise Error(f"Unmanaged settings stage exists: {root}")
         record = {"kind": "setting", "mode": item.mode, "id": "settings", "source_name": item.source_name,
                   "source": str(item.source), "relative": item.relative, "target": str(item.target),
-                  "stage_root": str(root), "format": self.config._settings[item.source_name]["format"], "detached": False, "agent": "", "agents": [],
+                  "stage_root": str(root), "format": self.config._settings[item.source_name]["format"], "detached": False, "agent": item.agent, "agents": list(item.agents),
                   "applied": None, "shared": source.snapshot(), "published": source.snapshot(), "working": source.snapshot(), "conflicts": []}
         self.save_stage(record, source, dry_run=dry_run)
         return {"setting": item.source_name, "status": "planned" if dry_run else "prepared", "stage": str(root)}
@@ -612,7 +615,8 @@ class Settings:
             # endings from existing content or TOML-generated blank lines.
             if text != actual.adapter.dump(actual.document) and b"\r\n" in raw:
                 text = text.replace("\r\n", "\n").replace("\n", "\r\n")
-        record.update(detached=False, applied=desired.snapshot(), working=desired.snapshot(),
+        record.update(detached=False, agent=item.agent, agents=list(item.agents),
+                      applied=desired.snapshot(), working=desired.snapshot(),
                       target=str(item.target), source=str(item.source), relative=item.relative)
         config, meta = self.stage_paths(record)
         snapshot = desired.snapshot()

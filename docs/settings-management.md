@@ -48,6 +48,12 @@ The corresponding machine table is:
 target = "/absolute/app/config.toml"
 ```
 
+To associate a setting with a named destination, add `agent = "claude-lab"` to its machine binding.
+The active destination must be configured, and the target must be inside its root.
+`apply --agent claude-lab` selects its associated settings and excludes unbound settings.
+Existing invocations without an agent selector or with the original product selectors retain the unbound-setting behavior.
+Use distinct catalog setting names sharing one source/path/format for independent stages and targets; see [named instances](agent-profiles.md#independent-settings-from-one-source).
+
 ### Stage storage and ownership
 
 Bootstrap prepares the source and initializes `<machine-file>.stages/editor/config.toml` (or `config.json`) and `management.toml` without writing the application file.
