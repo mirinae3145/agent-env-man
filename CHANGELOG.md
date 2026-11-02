@@ -7,6 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.1] &mdash; 2026-11-03
+
+Git tag `v1.2.1` corresponds to Python package version `1.2.1`; based on `v1.2.0`.
+
+### Fixed
+
+- Deliver instruction reading locations to Codex and Claude Code subagents through owned `SubagentStart` callbacks.
+  Ordinary apply adds the missing registration while preserving existing session callbacks, user hooks, saved ownership, and recovery behavior.
+
+## [1.3.0-beta.1] &mdash; 2026-11-03
+
+Git tag `v1.3.0-beta.1` corresponds to Python package version `1.3.0b1`; based on `v1.2.0`.
+
 ### Added
 
 - Named Claude and Codex destinations such as `claude-lab` and `codex-lab`, with independent roots, hooks, content ownership, selection and recovery.
@@ -22,15 +35,6 @@ Copies include settings, instructions, output styles, skill links and hook scrip
 Credentials, sessions, plugins and AEM-managed hooks and links are excluded; plugin reinstall commands are reported for manual execution.
 - `aem check-tool-hooks` and optional machine `tool_hooks` declarations to report missing tool-owned hooks across Claude Code profiles without modifying them.
 Older AEM versions reject machine files containing `tool_hooks`.
-
-## [1.2.1] &mdash; 2026-11-03
-
-Git tag `v1.2.1` corresponds to Python package version `1.2.1`; based on `v1.2.0`.
-
-### Fixed
-
-- Deliver instruction reading locations to Codex and Claude Code subagents through owned `SubagentStart` callbacks.
-  Ordinary apply adds the missing registration while preserving existing session callbacks, user hooks, saved ownership, and recovery behavior.
 
 ## [1.2.0] &mdash; 2026-10-25
 
@@ -396,6 +400,7 @@ Maintenance commands can still inspect, detach, recover, and remove saved integr
 
 [Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.1...HEAD
 [1.2.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0...v1.2.1
+[1.3.0-beta.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0...v1.3.0-beta.1
 [1.2.0]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0-rc.3...v1.2.0
 [1.2.0-rc.3]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0-rc.2...v1.2.0-rc.3
 [1.2.0-rc.2]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0-rc.1...v1.2.0-rc.2
