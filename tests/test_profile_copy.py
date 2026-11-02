@@ -125,6 +125,12 @@ class Write(Copy):
         self.assertIn('denied', errors)
         self.assertEqual(sorted(p.name for p in self.tmp.iterdir() if p.name.startswith(('copy', '.aem-copy'))), [])
 
+    def test_set_with_a_literal_backslash_is_expected_in_verification(self):
+        result = self.report('--set', r'env.a\b=changed', '--write')
+        self.assertEqual(self.settings(self.target)['env'][r'a\b'], 'changed')
+        self.assertEqual(result['verification']['expected'], 1)
+        self.assertEqual(result['verification']['unexpected'], [])
+
     def test_sibling_paths_numbers_and_permissions_survive_the_copy(self):
         data = self.settings(self.left)
         sibling = str(self.left) + '-lab/hooks/run.sh'

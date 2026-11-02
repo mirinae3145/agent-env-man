@@ -79,13 +79,18 @@ def _normalize(value, root, replacement=ROOT):
     return value
 
 
+def _field_name(keys):
+    """Escape literal separators so each JSON key path has a distinct label."""
+    return '.'.join(key.replace('\\', '\\\\').replace('.', '\\.') for key in keys)
+
+
 def _leaves(value, prefix=()):
     """Yield (dotted path, value) for scalar leaves; arrays and empty objects are atomic."""
     if isinstance(value, dict) and value:
         for key, item in value.items():
             yield from _leaves(item, prefix + (key,))
     elif prefix:  # an empty document has no field to report
-        yield '.'.join(prefix), value
+        yield _field_name(prefix), value
 
 
 def _canonical(value):
@@ -140,7 +145,8 @@ def _settings(profile):
     document = _read_json(profile.root / CLAUDE.hook_name)
     if document is None:
         return {}, {}
-    hooks = document.pop('hooks', {})
+    hooks = _hook_events(document, profile.root / CLAUDE.hook_name)
+    document.pop('hooks', None)
     return _normalize(hooks, profile.root), {
         path: _normalize(value, profile.root) for path, value in _leaves(document)}
 
@@ -214,7 +220,11 @@ def _entry(profile):
 
 def _expects(expectation, name):
     """An expectation names an item or, for a settings object, every field below it."""
-    return name == expectation or name.startswith(expectation + '.')
+    if name == expectation:
+        return True
+    # A dot after an odd number of backslashes belongs to the key itself.
+    trailing = len(expectation) - len(expectation.rstrip('\\'))
+    return trailing % 2 == 0 and name.startswith(expectation + '.')
 
 
 def _status(name, expected):

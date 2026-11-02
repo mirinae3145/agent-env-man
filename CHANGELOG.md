@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Refuse malformed hook structures in profile comparisons and distinguish literal dots and backslashes in settings keys from nested paths, including `--expect` selection.
+
 ## [1.2.1] &mdash; 2026-11-03
 
 Git tag `v1.2.1` corresponds to Python package version `1.2.1`; based on `v1.2.0`.

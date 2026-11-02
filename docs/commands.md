@@ -760,6 +760,8 @@ The comparison covers the settings fields outside `hooks`, hook groups by owner,
 It never opens credentials, sessions, project history or plugin data.
 
 - Settings fields are compared leaf by leaf; arrays and empty objects are atomic, numbers compare by exact value and stay apart from booleans, and a missing field is distinct from `null`.
+  In reported field names, literal dots and backslashes in JSON keys are escaped as `\.` and `\\`; nested fields still use an unescaped dot.
+  For example, the literal key `a.b` is reported as `a\.b`, separately from the nested field `a.b`; use that reported spelling with `--expect`.
 - A hook command is AEM-owned when it carries `--aem-hook-id` or an AEM personal-hook identity marker, including inside the encoded PowerShell command AEM writes on Windows; this is the same rule `copy-profile` uses.
   A group's AEM-owned commands and its other commands are compared as separate items, each reporting its `owner`.
   An AEM-owned item with `--aem-hook-id` names its own machine configuration, so only its presence is compared.
@@ -774,6 +776,7 @@ Each item is `same`, `different`, or `expected` when `--expect ITEM` names it as
 A difference shows a short digest of each value, because settings can hold secrets; `--values` shows the values.
 Plugin versions and the entry are always shown.
 Exit status is 0 whether or not differences exist; scripts read the totals from `--json`.
+Malformed hook event or group structures are refused with an error instead of being treated as absent hooks.
 
 ## check-tool-hooks
 

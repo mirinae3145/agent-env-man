@@ -83,6 +83,42 @@ class Roots(unittest.TestCase):
 
 
 class Compare(Roots):
+    def test_malformed_hooks_are_refused_on_either_side_without_writes(self):
+        for root in (self.left, self.right):
+            path = root / 'settings.json'
+            original = path.read_bytes()
+            for hooks in ([], {'Stop': {}}, {'Stop': [{'hooks': None}]}):
+                with self.subTest(root=root.name, hooks=hooks):
+                    path.write_text(json.dumps({'hooks': hooks}))
+                    before = self.snapshot()
+                    code, output, errors = self.run_compare('--json')
+                    self.assertEqual(code, 1)
+                    self.assertEqual(output, '')
+                    self.assertIn('hooks must map each event to a list of hook groups', errors)
+                    self.assertEqual(self.snapshot(), before)
+            path.write_bytes(original)
+
+    def test_literal_dots_and_backslashes_do_not_hide_settings_differences(self):
+        left = {'a.b': 1, 'a': {'b': 2}, r'a\.b': 3}
+        right = {'a.b': 9, 'a': {'b': 8}, r'a\.b': 7}
+        for root, data in ((self.left, left), (self.right, right)):
+            (root / 'settings.json').write_text(json.dumps(data))
+        names = {r'a\.b', 'a.b', r'a\\\.b'}
+        result = self.report('--values')
+        rows = self.items(result, 'settings')
+        self.assertEqual(set(rows), names)
+        self.assertTrue(all(row['status'] == 'different' for row in rows.values()))
+        self.assertEqual((rows[r'a\.b']['left'], rows[r'a\.b']['right']), (1, 9))
+        for selected in names | {'a'}:
+            with self.subTest(selected=selected):
+                result = self.report('--expect', selected)
+                expected = {row['item'] for row in result['sections']['settings'] if row['status'] == 'expected'}
+                self.assertEqual(expected, {'a.b'} if selected == 'a' else {selected})
+                self.assertEqual(result['unmatched_expect'], [])
+        result = self.report('--expect', 'a' + chr(92))
+        self.assertEqual(result['totals']['expected'], 0)
+        self.assertEqual(result['unmatched_expect'], ['a' + chr(92)])
+
     def test_profile_specific_paths_are_not_drift(self):
         report = self.report()
         self.assertEqual(report['totals']['different'], 0, report)

@@ -21,7 +21,7 @@ import tempfile
 
 from .hooks import generated
 from .model import Error, absolute, overlaps
-from .profile_compare import CLAUDE, Profile, _hook_events, _normalize, _read_json, _target, compare
+from .profile_compare import CLAUDE, Profile, _field_name, _hook_events, _normalize, _read_json, _target, compare
 from .profile_json import dumps
 
 
@@ -66,7 +66,7 @@ def _assign(document, spec):
         if not isinstance(node, dict):
             raise Error(f'--set {field}: {key} is not an object')
     node[keys[-1]] = value
-    return field
+    return _field_name(keys)
 
 
 def _link(path, source, target):
