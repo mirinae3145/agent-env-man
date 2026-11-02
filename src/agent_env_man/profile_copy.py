@@ -22,6 +22,7 @@ import tempfile
 from .hooks import generated
 from .model import Error, absolute, overlaps
 from .profile_compare import CLAUDE, Profile, _hook_events, _normalize, _read_json, _target, compare
+from .profile_json import dumps
 
 
 @dataclass
@@ -48,19 +49,6 @@ def _without_aem(group):
 
 def _no_constant(name):
     raise ValueError(f'{name} is not valid JSON')
-
-
-def _json(value, level=0):
-    """JSON text indented like json.dumps(indent=2), writing Decimal numbers with their exact digits."""
-    if isinstance(value, Decimal):
-        return str(value)
-    if isinstance(value, (dict, list)) and value:
-        inner, outer = '  ' * (level + 1), '  ' * level
-        items = ([json.dumps(key, ensure_ascii=False) + ': ' + _json(item, level + 1) for key, item in value.items()]
-                 if isinstance(value, dict) else [_json(item, level + 1) for item in value])
-        opening, closing = ('{', '}') if isinstance(value, dict) else ('[', ']')
-        return opening + '\n' + inner + (',\n' + inner).join(items) + '\n' + outer + closing
-    return json.dumps(value, ensure_ascii=False)
 
 
 def _assign(document, spec):
@@ -203,7 +191,7 @@ def apply(plan):
         staging.chmod(plan.mode)
         if plan.settings is not None:
             written = staging / CLAUDE.hook_name
-            written.write_text(_json(plan.settings) + '\n', encoding='utf-8')
+            written.write_text(dumps(plan.settings, ensure_ascii=False) + '\n', encoding='utf-8')
             original = plan.source.root / CLAUDE.hook_name
             # Settings can hold secrets in env, so the copy keeps the source file's permissions.
             written.chmod(original.stat().st_mode & 0o777 if original.is_file() else 0o600)

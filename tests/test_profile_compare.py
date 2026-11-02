@@ -6,6 +6,7 @@ import os
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from decimal import Decimal
 from pathlib import Path
 from unittest import mock
 
@@ -123,6 +124,23 @@ class Compare(Roots):
         (self.right / 'settings.json').write_text(json.dumps(base)[:-1] + ', "interval": 1e1, "ratio": 5e-1}')
         items = self.items(self.report(), 'settings')
         self.assertEqual((items['interval']['status'], items['ratio']['status']), ('same', 'same'))
+
+    def test_json_values_preserve_exact_numbers_in_fields_and_nested_arrays(self):
+        left_number = '0.12345678901234567890123456789012'
+        right_number = '0.12345678901234567890123456789013'
+        for root, number in ((self.left, left_number), (self.right, right_number)):
+            (root / 'settings.json').write_text(
+                '{"ratio": ' + number + ', "samples": [{"value": ' + number +
+                ', "enabled": true}, null, "text"]}', encoding='utf-8')
+        code, output, errors = self.run_compare('--json', '--values')
+        self.assertEqual(code, 0, errors)
+        items = self.items(json.loads(output, parse_float=Decimal), 'settings')
+        for side, number in (('left', left_number), ('right', right_number)):
+            self.assertEqual(items['ratio'][side], Decimal(number))
+            self.assertEqual(items['samples'][side],
+                             [{'value': Decimal(number), 'enabled': True}, None, 'text'])
+        self.assertEqual(items['ratio']['status'], 'different')
+        self.assertEqual(items['samples']['status'], 'different')
 
     def test_hook_groups_are_compared_by_owner(self):
         data = json.loads((self.right / 'settings.json').read_text())

@@ -1,11 +1,10 @@
 """Read-only comparison of two agent profiles."""
 
-import json
-
 import click
 
 from ..cli_runtime import pass_runtime
 from ..profile_compare import compare as compare_profiles, render, resolve
+from ..profile_json import dumps
 
 
 @click.command()
@@ -33,6 +32,6 @@ def compare(runtime, left, right, expect, show_values):
         return report, False
 
     def output(report):
-        click.echo(json.dumps(report, indent=2, ensure_ascii=True) if runtime.json_output else render(report))
+        click.echo(dumps(report) if runtime.json_output else render(report))
 
     return runtime.run(operation, maintenance=True, missing_ok=True, preview=True, output=output)
