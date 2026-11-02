@@ -18,7 +18,7 @@ class WindowsLock(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="aem-windows-lock-")
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.api = SimpleNamespace(LK_NBLCK=1, LK_UNLCK=2, locking=Mock())
         # Replace only this module's OS view: changing os.name globally also
         # changes pathlib's concrete path class on a non-Windows host.
@@ -66,7 +66,7 @@ class WindowsLock(unittest.TestCase):
 class SharedInstallationLock(unittest.TestCase):
     def test_readers_coexist_and_replacement_waits_for_all_readers(self):
         with tempfile.TemporaryDirectory(prefix='aem-shared-lock-') as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             with process_lock.lock(root, shared=True):
                 with process_lock.lock(root, shared=True):
                     with self.assertRaises(RuntimeError):
@@ -86,7 +86,7 @@ class PosixProcesses(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='aem-posix-lock-')
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         (self.root / 'lock').write_bytes(b'persistent user bytes')
         self.identity = (self.root / 'lock').stat().st_ino
 

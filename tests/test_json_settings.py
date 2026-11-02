@@ -26,7 +26,7 @@ class JsonFixture:
     def temporary_root(self):
         temporary = tempfile.TemporaryDirectory(prefix='aem-json-')
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.machine = self.root / 'machine.toml'
         self.catalog = self.root / 'catalog.toml'
         self.target = self.root / 'app/config.json'

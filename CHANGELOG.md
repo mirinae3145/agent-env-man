@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Allow multiple hook groups to share a target file when the system temporary directory uses a path alias.
 - Compare equivalent Windows link destinations consistently when one uses an extended path prefix, including verification after copying a profile with relative links.
+- Make source-test fixtures portable to Windows temporary directories with short path aliases and escaped configuration paths.
 
 ## [1.3.0-beta.2] &mdash; 2026-11-03
 

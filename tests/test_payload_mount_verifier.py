@@ -22,7 +22,7 @@ class PayloadMountVerifier(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='aem-verifier-test-')
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.marker = self.root / 'outside-fixture'
         self.marker.write_bytes(b'preserve existing file')
         patcher = patch.object(sys, 'argv', ['verify_payload_mount.py', '--root', str(self.root)])

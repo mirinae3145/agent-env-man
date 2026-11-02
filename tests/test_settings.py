@@ -24,7 +24,7 @@ class StagedSettings(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory(prefix='aem-settings-')
         self.addCleanup(temp.cleanup)
-        self.root = Path(temp.name)
+        self.root = Path(temp.name).resolve()
         self.source = self.root / 'source'
         self.source.mkdir()
         self.payload = self.source / 'editor.toml'
@@ -584,7 +584,7 @@ class GitSettings(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory(prefix='aem-settings-git-')
         self.addCleanup(temp.cleanup)
-        self.root = Path(temp.name)
+        self.root = Path(temp.name).resolve()
         self.work = self.root / 'work'
         self.work.mkdir()
         self.git(self.work, 'init', '-b', 'main')

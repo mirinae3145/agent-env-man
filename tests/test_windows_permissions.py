@@ -22,7 +22,7 @@ class WindowsPermissions(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='aem-windows-permissions-')
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.source = self.root / 'source'
         (self.source / 'nested').mkdir(parents=True)
         (self.source / 'nested/value').write_bytes(b'payload')

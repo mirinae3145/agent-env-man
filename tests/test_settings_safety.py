@@ -18,7 +18,7 @@ class SettingsSafety(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="aem-settings-safety-")
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.state = State(self.root / "state")
         self.state.data["items"]["unselected"] = {"mode": "copy", "opaque": "keep"}
         self.state.save()
@@ -368,7 +368,7 @@ class SettingsMetadataSafety(unittest.TestCase):
 
     def test_read_race_rejected_without_changing_source(self):
         with tempfile.TemporaryDirectory(prefix="aem-settings-read-") as directory:
-            path = Path(directory) / "config.toml"
+            path = Path(directory).resolve() / "config.toml"
             path.write_bytes(b"count = 1\n")
             with patch("agent_env_man.settings.observation", side_effect=[observation(path), {"kind": "missing"}]):
                 with self.assertRaisesRegex(Error, "changed while reading"):

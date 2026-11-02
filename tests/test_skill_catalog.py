@@ -23,7 +23,7 @@ class SkillCatalog(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="aem-skills-")
         self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
+        self.root = Path(self.temporary.name).resolve()
         self.config = self.root / "machine.toml"
         self.catalog = self.root / "inventory/skills.toml"
         self.catalog.parent.mkdir()
