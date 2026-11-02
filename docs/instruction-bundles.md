@@ -14,7 +14,8 @@ The canonical field and command definitions are in [TOML configuration](configur
 | Shared catalog | Which bundle to use, its entry file, and logical installation destinations | You; the same declaration can be used on different devices |
 | Machine configuration | Where this device keeps the catalog, external folders, checkouts, and installation roots | You; paths can differ on each device |
 
-AEM reads the two TOML files, chooses the bundle installation directory, links the document tree and original entry, and registers a Codex SessionStart hook.
+AEM reads the two TOML files, chooses the bundle installation directory, and links the document tree and original entry.
+It registers Codex SessionStart and SubagentStart hooks for session and child-agent reading locations.
 The hook discovers the actual bundle root and original entry file using AEM's local locator; it supplies path metadata to Codex without embedding commands or changing the original document.
 It does not supply the personal instructions or decide when development, research, or workspace guidance applies.
 
@@ -86,7 +87,7 @@ destination = "AGENTS.md"
 `subdir`, `entry`, `install.bundle.destination`, and `install.entry.destination` use literal `/`-separated relative paths, not shell expressions.
 Traversal such as `../` and absolute paths are rejected; only `subdir` permits `.`.
 The three installed targets must not overlap: the entry and `hooks.json` must be outside the directory owned by `personal:bundle`.
-Within one machine configuration, one instruction bundle can own the AEM hook group in a given hooks file; use distinct Codex home roots for distinct bundles.
+Each instruction bundle owns its marked event groups in the hooks file; unrelated registrations remain intact.
 
 ## Bootstrap arguments and saved machine configuration
 
@@ -181,7 +182,7 @@ After successful apply:
 
 `/home/me/.codex/AGENTS.md` now reads exactly the original `start.md` contents.
 No locator command is inserted into that document.
-Instead, AEM appends a group like the following to `hooks.json`, keeping other events, groups and metadata:
+Instead, AEM appends groups like the following to `hooks.json`, keeping unrelated events, groups and metadata:
 
 ```json
 {
@@ -193,6 +194,19 @@ Instead, AEM appends a group like the following to `hooks.json`, keeping other e
           {
             "type": "command",
             "command": "/absolute/path/to/python -m agent_env_man --config /home/me/.config/agent-env-man/machine.toml agent-hook personal --agent codex",
+            "timeout": 10,
+            "statusMessage": "AEM instruction roots [generated-identity]",
+            "additionalContextLimit": 1000
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/absolute/path/to/python -m agent_env_man --config /home/me/.config/agent-env-man/machine.toml agent-hook personal --agent codex --hook-event SubagentStart",
             "timeout": 10,
             "statusMessage": "AEM instruction roots [generated-identity]",
             "additionalContextLimit": 1000
@@ -214,8 +228,14 @@ Apply includes this notice in its JSON result:
 
 AEM registration is not Codex approval.
 Do not bypass hook trust: review the generated command in Codex before trusting it.
-Codex requires review for new/changed non-managed hooks and supplies SessionStart output as extra developer context; AEM supplies only path metadata, not the personal instruction text.
+Codex requires review for new or changed non-managed hooks.
+Both events supply extra developer context containing path metadata, not personal instruction text.
 See the [official hook documentation](https://learn.chatgpt.com/docs/hooks).
+
+For an existing installation, run `aem apply --item personal:entry` to add the SubagentStart group, then review it through `/hooks`.
+Existing SessionStart callbacks keep working; no catalog edits or ownership reset are needed.
+The child group matches every subagent type and performs only saved-location lookup.
+Startup update automation remains attached to SessionStart.
 
 ### Reading-location metadata
 
@@ -248,14 +268,16 @@ After detaching only the bundle directory, that installed path holds a preserved
 ### Lookup failures and diagnostics
 
 The callback reads saved installation records without fetching, loading the catalog, or rewriting ownership records.
-If lookup fails, it returns a structured `continue: false` stop request and visible error instead of a guessed path.
+If SessionStart lookup fails, it returns a structured `continue: false` stop request and visible error instead of a guessed path.
+SubagentStart lookup failure returns a visible warning without locations; that event cannot stop child creation.
+
 Codex cannot receive that response if the interpreter itself is missing or the hook is disabled/untrusted; verify registration and trust through `/hooks`.
 Keep the machine file and state directory, including after detach.
 For manual diagnostics, run `aem locate personal`.
 
 ```text
 Codex loads the original instructions through ~/.codex/AGENTS.md
-SessionStart hook supplies the actual bundle root and original entry path
+SessionStart and SubagentStart hooks supply the actual bundle root and entry path
   -> reader resolves referenced documents using those locations
   -> e.g. /home/me/Syncthing/agent-documents/guidance/development/conventions.md
 ```
@@ -263,7 +285,6 @@ SessionStart hook supplies the actual bundle root and original entry path
 The hook does not inspect instruction meaning or choose which auxiliary documents apply.
 The presence of `workspaces/project-alpha.md` does not create an automatic workspace rule; your documents define when to read it.
 No repository-local AGENTS.md is generated.
-This version registers root-session events, not a separate SubagentStart hook.
 
 ## The same catalog on a Windows device
 
@@ -295,7 +316,7 @@ C:/Users/me/AppData/Local/agent-env-man/machine.toml.bundles/personal
 C:/Users/me/.codex/AGENTS.md
   -> D:/Synced/agent-documents/guidance/start.md
 C:/Users/me/.codex/hooks.json
-  merged SessionStart group invoking the AEM callback
+  merged SessionStart and SubagentStart groups invoking the AEM callback
 ```
 
 The generated command explicitly invokes an encoded PowerShell command on Windows and uses POSIX quoting on Linux/WSL; paths containing spaces are supported.
@@ -313,7 +334,7 @@ AEM does not transfer the catalog or source documents between these devices.
 | Delete `[instructions.personal]` from the catalog | Existing targets and ownership remain. This is not an uninstall command. |
 | Write through the global AGENTS.md link | The original entry changes immediately. Replace the link with a regular file to keep a separate local edit; apply then reports a conflict. |
 | Detach bundle and entry | AEM materializes both links, releases their ownership and the associated hook ownership, and retains hook configuration for continued root discovery. |
-| Edit/remove the AEM hook group | Ordinary apply reports a conflict. Explicit replacement restores only the owned group and preserves other hooks. |
+| Edit/remove an owned AEM hook group | Ordinary apply reports a conflict. Explicit replacement restores the owned groups and preserves other hooks. |
 
 ### Detach the bundle and entry
 
@@ -410,7 +431,7 @@ Apply installs four managed targets:
 | `report` | `/home/me/.agents/skills/report` | Direct link to `/home/me/.config/agent-env-man/machine.toml.checkouts/.aem-repositories/tools/skills/report` |
 | `personal:bundle` | `/home/me/.config/agent-env-man/machine.toml.bundles/personal` | Direct link to `/home/me/Syncthing/agent-documents/guidance` |
 | `personal:entry` | `/home/me/.codex/AGENTS.md` | Direct link to the original `guidance/start.md` |
-| `personal:hook` | `/home/me/.codex/hooks.json` | One owned SessionStart group; unrelated hooks are preserved |
+| `personal:hook` | `/home/me/.codex/hooks.json` | Owned SessionStart and SubagentStart groups; unrelated hooks are preserved |
 
 The skill is not a prerequisite for the instruction bundle; they simply share one inventory and the same management commands.
 
