@@ -8,3 +8,14 @@ personal-documents = "/home/me/Syncthing/agent-documents"
 
 [roots]
 agent = "/home/me/.codex"
+
+# Optional: a named second Claude Code profile, and a tool-installed hook that
+# aem check-tool-hooks reports on (AEM never installs it).
+# [agents.claude-lab]
+# root = "/home/me/.claude-lab"
+# skills = "/home/me/.claude-lab/skills"
+#
+# [tool_hooks.herdr]
+# command = "herdr"
+# event = "SessionStart"
+# contains = "herdr-agent-state.sh"

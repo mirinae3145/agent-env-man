@@ -52,12 +52,14 @@ class AgentName(click.ParamType):
     name = "agent"
 
     def convert(self, value, param, ctx):
-        if value not in PROFILES:
-            self.fail(f"choose from {', '.join(PROFILES)}", param, ctx)
+        try:
+            profile(value)
+        except Error:
+            self.fail(f"choose from {', '.join(PROFILES)}, or a named instance such as claude-lab", param, ctx)
         return value
 
     def get_metavar(self, param, ctx):
-        return "[" + "|".join(PROFILES) + "]"
+        return "[" + "|".join(PROFILES) + "|PRODUCT-NAME]"
 
     def shell_complete(self, ctx, param, incomplete):
         from click.shell_completion import CompletionItem
@@ -243,7 +245,7 @@ def timeout_option(function):
 
 
 def agent_option(function):
-    return click.option("--agent", type=AGENT, help="Select an agent destination.")(function)
+    return click.option("--agent", type=AGENT, help="Select an agent destination, including a named instance such as claude-lab.")(function)
 
 
 def item_option(function):

@@ -31,7 +31,9 @@ class SetupFixture(InstructionFixture):
         self.home_patch = patch('pathlib.Path.home', return_value=self.home)
         self.home_patch.start()
         self.addCleanup(self.home_patch.stop)
-        self.env_patch = patch.dict(os.environ, {'CODEX_HOME': str(self.home / '.codex'), 'ZDOTDIR': str(self.home)})
+        # Agent root variables from the developer's shell must not redirect fixtures to real profiles.
+        self.env_patch = patch.dict(os.environ, {'CODEX_HOME': str(self.home / '.codex'),
+                                                 'CLAUDE_CONFIG_DIR': str(self.home / '.claude'), 'ZDOTDIR': str(self.home)})
         self.env_patch.start()
         self.addCleanup(self.env_patch.stop)
 

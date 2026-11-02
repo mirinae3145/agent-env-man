@@ -87,7 +87,7 @@ def bootstrap_skills(config, state, args):
         target = Path(location).expanduser()
         if not target.is_absolute():
             raise Error("Setting target must be absolute")
-        document.setdefault("settings", {})[key] = {"target": str(target)}
+        document.setdefault("settings", {}).setdefault(key, {})["target"] = str(target)
     runtime_names = set()
     for value in getattr(args, 'hook_runtime', ()):
         key, separator, location = value.partition('=')

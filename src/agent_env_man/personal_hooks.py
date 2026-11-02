@@ -95,8 +95,8 @@ def guard_revision(git, source, revision, paths):
 
 
 def definition(config, item):
-    from .agents import profile
-    data = validate_binding(config._hooks[item.source_name]['agents'][item.agent], profile(item.agent))
+    from .agents import profile, product_name
+    data = validate_binding(config._hooks[item.source_name]['agents'][product_name(item.agent)], profile(item.agent))
     executable = runtime(config, data['runtime'])
     marker = hooks.marker(config.path, f'{item.source_name}:{item.agent}', 'personal hook')
     command = profile(item.agent).personal_command(marker, [str(executable), str(item.source), *data['args']])

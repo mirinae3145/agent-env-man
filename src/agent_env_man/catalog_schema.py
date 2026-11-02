@@ -74,13 +74,18 @@ def validate(document):
             raise Error(f"Catalog {kind} must be a TOML table")
         for name, data in entries.items():
             identifier(name)
-            table(data, INSTRUCTION_FIELDS if kind == "instructions" else SKILL_FIELDS | ({"preserve_symlinks"} if kind == "directories" else set()), f"{kind}.{name}")
+            table(data, INSTRUCTION_FIELDS if kind == "instructions" else SKILL_FIELDS | ({"preserve_symlinks", "agent"} if kind == "directories" else set()), f"{kind}.{name}")
             patterns(data.get("exclude", []), f"{kind}.{name}.exclude")
             permission_policy(data.get("permissions", "strict"), f"{kind}.{name}.permissions")
             if kind == "directories":
                 enabled = data.get("preserve_symlinks", False)
                 if not isinstance(enabled, bool):
                     raise Error(f"{kind}.{name}.preserve_symlinks: expected Boolean")
+                if "agent" in data:
+                    from .agents import profile
+                    if not isinstance(data["agent"], str):
+                        raise Error(f"{kind}.{name}: agent must be a destination name")
+                    profile(data["agent"])
             source = data.get("source")
             if not isinstance(source, str) or source not in sources:
                 raise Error(f"{kind}.{name}: source must name a declared source")
@@ -112,7 +117,7 @@ def validate(document):
         raise Error("Catalog settings must be a table")
     for name, data in settings.items():
         identifier(name)
-        table(data, {"source", "path", "format", "update"}, f"settings.{name}")
+        table(data, {"source", "path", "format", "update", "agent"}, f"settings.{name}")
         if "update" in data:
             table(data["update"], {"trigger", "min_interval", "timeout"}, f"settings.{name}.update")
             _validate_policy(data["update"], f"settings.{name}.update")
@@ -123,6 +128,11 @@ def validate(document):
         from .settings_formats import FORMATS
         if not isinstance(data.get("format"), str) or data["format"] not in FORMATS:
             raise Error(f"settings.{name}: unsupported format; choose from {', '.join(FORMATS)}")
+        if "agent" in data:
+            from .agents import profile
+            if not isinstance(data["agent"], str):
+                raise Error(f"settings.{name}: agent must be a destination name")
+            profile(data["agent"])
     declared_hooks = document.get('hooks', {})
     if not isinstance(declared_hooks, dict):
         raise Error('Catalog hooks must be a table')
@@ -133,9 +143,11 @@ def validate(document):
             raise Error(f'hooks.{name}: source must name a declared source')
         if not isinstance(data.get('agents'), dict) or not data['agents']:
             raise Error(f'hooks.{name}: agents must be a nonempty table')
-        from .agents import profile
+        from .agents import profile, product_name
         from .personal_hooks import validate_binding
         for agent, binding in data['agents'].items():
+            if product_name(agent) != agent:
+                raise Error('Catalog hooks select products; bind named instances in the machine file')
             validate_binding(binding, profile(agent))
     names = [set(document.get(kind, {})) for kind in ("skills", "directories", "instructions", "settings", "hooks")]
     collision = set().union(*(a & b for i, a in enumerate(names) for b in names[i + 1:]))
@@ -179,7 +191,10 @@ def normalize(document):
             if kind in ("skills", "directories"):
                 entry.update(install)
                 if kind == "directories":
-                    entry.setdefault("root", "home")
+                    if "agent" in data:
+                        entry["agent"] = data["agent"]  # the machine resolves the default root from this profile
+                    else:
+                        entry.setdefault("root", "home")
                     entry["preserve_symlinks"] = data.get("preserve_symlinks", False)
                 if "update" in data:
                     entry["update"] = _policy_model(data["update"])
@@ -191,6 +206,8 @@ def normalize(document):
     for name, data in document.get("settings", {}).items():
         field = "repo" if sources[data["source"]]["type"] == "git" else "external"
         result["settings"][name] = {field: data["source"], "path": data["path"], "format": data["format"]}
+        if "agent" in data:
+            result["settings"][name]["agent"] = data["agent"]
         if "update" in data:
             result["settings"][name]["update"] = _policy_model(data["update"])
     result['hooks'] = {}

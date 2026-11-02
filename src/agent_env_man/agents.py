@@ -3,13 +3,13 @@
 Profiles own product syntax; the manager owns delivery and installation safety.
 The registry is intentionally internal, not a user-loadable plugin mechanism.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import os
 import math
 from pathlib import Path
 
 from . import hooks
-from .model import Error
+from .model import Error, identifier, overlaps, absolute
 
 
 # Source-level choice for Codex startup briefings, independent of machine setup.
@@ -38,6 +38,9 @@ class Codex:
     failure_exit_code: int = 0
 
     def defaults(self):
+        if product_name(self.name) != self.name:
+            root = Path.home() / ('.' + self.name)
+            return {'root': str(root), 'skills': str(root / 'skills')}
         return {'root': str(Path(os.environ.get('CODEX_HOME') or Path.home() / '.codex').expanduser().resolve()),
                 'skills': str(Path.home() / '.agents/skills')}
 
@@ -102,6 +105,9 @@ class Claude:
                    "AEM does not change Claude Code permissions.")
 
     def defaults(self):
+        if product_name(self.name) != self.name:
+            root = Path.home() / ('.' + self.name)
+            return {'root': str(root), 'skills': str(root / 'skills')}
         root = Path(os.environ.get('CLAUDE_CONFIG_DIR') or Path.home() / '.claude').expanduser().resolve()
         return {'root': str(root), 'skills': str(root / 'skills')}
 
@@ -147,11 +153,21 @@ class Claude:
 PROFILES = {'codex': Codex(), 'claude': Claude()}
 
 
+def product_name(name):
+    if name in PROFILES:
+        return name
+    if isinstance(name, str):
+        for product in ('codex', 'claude'):
+            if name.startswith(product + '-'):
+                identifier(name[len(product) + 1:])
+                return product
+    raise Error(f'Unsupported agent: {name}')
+
+
 def profile(name):
-    try:
-        return PROFILES[name]
-    except KeyError:
-        raise Error(f'Unsupported agent: {name}') from None
+    product = product_name(name)
+    adapter = PROFILES[product]
+    return adapter if product == name else replace(adapter, name=name)
 
 
 def bindings(document):
@@ -167,6 +183,14 @@ def bindings(document):
         for path in result[name].values():
             if not isinstance(path, str) or not Path(path).expanduser().is_absolute():
                 raise Error(f'Agent {name} paths must be absolute')
+    # A named instance must never adopt another profile's root implicitly.
+    for name, paths in result.items():
+        if product_name(name) == name:
+            continue
+        root = absolute(paths['root'])
+        for other, binding in result.items():
+            if other != name and overlaps(root, absolute(binding['root'])):
+                raise Error(f'Agent {name} root overlaps agent {other}; use independent profile roots')
     return result
 
 
