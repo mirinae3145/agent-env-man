@@ -20,6 +20,7 @@ import re
 from .agents import PROFILES, bindings, product_name
 from .hooks import HOOK_ID_ARGUMENT, generated, script, without_marker
 from .model import Error
+from .link_paths import destination_key
 
 # Claude Code's file names come from its profile; the rest of its layout is fixed here.
 CLAUDE = PROFILES['claude']
@@ -184,7 +185,7 @@ def _hook_groups(hooks):
 
 def _target(link):
     """A link's target with a relative target resolved against the link's folder, as a copy writes it."""
-    return os.path.normpath(os.path.join(link.parent, os.readlink(link)))
+    return destination_key(os.path.normpath(os.path.join(link.parent, os.readlink(link))))
 
 
 def _links(directory, root):

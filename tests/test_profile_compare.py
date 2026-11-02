@@ -25,7 +25,7 @@ AEM_COMMAND = 'python -m agent_env_man --config {config} startup --aem-hook-id m
 
 class Roots(unittest.TestCase):
     def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp())
+        self.tmp = Path(tempfile.mkdtemp()).resolve()
         self.addCleanup(lambda: __import__('shutil').rmtree(self.tmp, ignore_errors=True))
         self.config = self.tmp / 'aem' / 'machine.toml'
         self.source = self.tmp / 'source'
@@ -250,8 +250,8 @@ class Compare(Roots):
 
     def test_registered_agent_names_resolve_from_the_machine_file(self):
         self.config.parent.mkdir()
-        self.config.write_text(f'version = 1\n[agents.claude]\nroot = "{self.left}"\nskills = "{self.left}/skills"\n'
-                               f'[agents.claude-lab]\nroot = "{self.right}"\nskills = "{self.right}/skills"\n')
+        self.config.write_text(f'version = 1\n[agents.claude]\nroot = {json.dumps(str(self.left))}\nskills = {json.dumps(str(self.left / "skills"))}\n'
+                               f'[agents.claude-lab]\nroot = {json.dumps(str(self.right))}\nskills = {json.dumps(str(self.right / "skills"))}\n')
         code, output, errors = self.run_compare('--json', left='claude', right='claude-lab')
         self.assertEqual(code, 0, errors)
         self.assertEqual(json.loads(output)['totals']['different'], 0)

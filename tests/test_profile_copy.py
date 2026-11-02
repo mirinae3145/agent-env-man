@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import shlex
 import stat
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -56,7 +57,8 @@ class Write(Copy):
         self.assertEqual(commands, [f'bash {self.target}/hooks/herdr.sh session'])
         script = self.target / 'hooks' / 'herdr.sh'
         self.assertEqual(script.read_text(), f'#!/bin/bash\nexec {self.target}/hooks/real.sh\n')
-        self.assertTrue(stat.S_IMODE(script.stat().st_mode) & 0o111)
+        self.assertEqual(stat.S_IMODE(script.stat().st_mode),
+                         stat.S_IMODE((self.left / 'hooks' / 'herdr.sh').stat().st_mode))
 
     def test_personal_hook_markers_are_also_left_out(self):
         data = self.settings(self.left)
@@ -86,9 +88,11 @@ class Write(Copy):
                          ['CLAUDE.md', 'hooks', 'output-styles', 'settings.json', 'skills'])
 
     def test_relative_links_are_resolved_before_copying(self):
-        (self.left / 'skills' / 'rel').symlink_to(os.path.relpath(self.source / 'skill-a', self.left / 'skills'))
-        self.report('--write')
-        self.assertEqual(os.readlink(self.target / 'skills' / 'rel'), str(self.source / 'skill-a'))
+        (self.left / 'skills' / 'rel').symlink_to(os.path.relpath(self.source / 'skill-a', self.left / 'skills'), target_is_directory=True)
+        report = self.report('--write')
+        self.assertEqual(report['verification']['unexpected'], [])
+        self.assertTrue((self.target / 'skills' / 'rel').is_dir())
+        self.assertEqual((self.target / 'skills' / 'rel').resolve(), self.source / 'skill-a')
 
     def test_real_skill_directories_are_reported_not_copied(self):
         (self.left / 'skills' / 'local').mkdir()
@@ -193,7 +197,7 @@ class Write(Copy):
         settings.chmod(0o600)
         (self.left / 'CLAUDE.md').unlink()
         (self.left / 'CLAUDE.md').write_text(f'Rules live in {self.left}/rules and {sibling}.\n')
-        (self.left / 'skills' / 'rel').symlink_to(os.path.relpath(self.source / 'skill-a', self.left / 'skills'))
+        (self.left / 'skills' / 'rel').symlink_to(os.path.relpath(self.source / 'skill-a', self.left / 'skills'), target_is_directory=True)
         report = self.report('--write')
         self.assertEqual(report['verification']['unexpected'], [])
         copied = (self.target / 'settings.json').read_text()
@@ -201,7 +205,8 @@ class Write(Copy):
         self.assertIn('"scale": 1.50', copied)
         self.assertEqual(self.settings(self.target)['env'], {'LAB': sibling, 'OWN': str(self.target / 'hooks')})
         self.assertIn(sibling, (self.target / 'CLAUDE.md').read_text())
-        self.assertEqual(stat.S_IMODE((self.target / 'settings.json').stat().st_mode), 0o600)
+        self.assertEqual(stat.S_IMODE((self.target / 'settings.json').stat().st_mode),
+                         stat.S_IMODE(settings.stat().st_mode))
 
     def test_malformed_hooks_are_refused_without_writing(self):
         for hooks in ([], {'Stop': {}}, {'Stop': ['not a group']}):
@@ -298,7 +303,7 @@ class Refuse(Copy):
         output, errors = io.StringIO(), io.StringIO()
         with redirect_stdout(output), redirect_stderr(errors):
             main(['--config', str(self.config), 'copy-profile', str(self.left), str(self.target)])
-        self.assertIn(f'CLAUDE_CONFIG_DIR={self.target} claude plugin install tool@market --scope user', output.getvalue())
+        self.assertIn(f'CLAUDE_CONFIG_DIR={shlex.quote(str(self.target))} claude plugin install tool@market --scope user', output.getvalue())
 
     def test_text_output_says_settings_are_independent(self):
         output, errors = io.StringIO(), io.StringIO()
