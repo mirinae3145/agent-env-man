@@ -26,7 +26,7 @@ class PersonalHooks(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='aem-personal-')
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.source = self.root / 'source with spaces'
         self.source.mkdir()
         self.script = self.source / 'observer.py'
@@ -644,6 +644,21 @@ class PersonalHooks(unittest.TestCase):
         with patch('os.replace', observe):
             self.call('apply', '--item', 'observer', '--item', 'second', '--agent', 'codex')
         self.assertEqual(len(writes), 1)
+        self.assertEqual(len(self.document()['hooks']['SessionEnd']), 2)
+
+    def test_multiple_groups_apply_with_aliased_temporary_directory(self):
+        directory = self.root / 'temporary'
+        directory.mkdir()
+        alias = self.root / 'temporary-alias'
+        try:
+            alias.symlink_to(directory, target_is_directory=True)
+        except OSError as error:
+            self.skipTest(f'Directory symlink capability unavailable: {error}')
+        self.doc['hooks']['second'] = deepcopy(self.doc['hooks']['observer'])
+        self.save()
+        self.bootstrap()
+        with patch.object(tempfile, 'tempdir', str(alias)):
+            self.call('apply', '--item', 'observer', '--item', 'second', '--agent', 'codex')
         self.assertEqual(len(self.document()['hooks']['SessionEnd']), 2)
 
     def test_native_field_limits_and_match_all_are_validated(self):
