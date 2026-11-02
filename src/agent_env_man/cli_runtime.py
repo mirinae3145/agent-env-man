@@ -143,7 +143,7 @@ class Runtime:
             return self._run(operation, **options)
 
     def _run(self, operation, *, maintenance=False, missing_ok=False, preview=False,
-            status_fallback=False, callback=None, agent=None, output=None):
+            status_fallback=False, callback=None, agent=None, output=None, hook_event='SessionStart'):
         """Run an operation returning (report, failed) under the required locks.
 
         Help and usage parsing finish before this boundary. Preview commands
@@ -218,7 +218,9 @@ class Runtime:
             finish(True)
             if callback == "agent-hook":
                 adapter = profile(agent)
-                failure = adapter.failure(f"AEM instruction root lookup failed: {exc}")
+                message = f"AEM instruction root lookup failed: {exc}"
+                failure = (adapter.failure(message) if hook_event == 'SessionStart'
+                           else adapter.failure(message, event=hook_event))
                 if adapter.failure_to_stderr:
                     click.echo(failure, err=True)
                 else:

@@ -178,11 +178,12 @@ def startup(runtime, trigger, agent, aem_hook_id):
 @click.argument("name")
 @click.option("--agent", required=True, type=AGENT)
 @click.option("--aem-hook-id", hidden=True)
+@click.option("--hook-event", type=click.Choice(['SessionStart', 'SubagentStart']), default='SessionStart', hidden=True)
 @pass_runtime
-def agent_hook(runtime, name, agent, aem_hook_id):
+def agent_hook(runtime, name, agent, aem_hook_id, hook_event):
     """Emit agent-specific saved instruction location context."""
-    return runtime.run(lambda session: (session.manager.hook_context(name, agent), False),
-                       maintenance=True, callback="agent-hook", agent=agent)
+    return runtime.run(lambda session: (session.manager.hook_context(name, agent, hook_event), False),
+                       maintenance=True, callback="agent-hook", agent=agent, hook_event=hook_event)
 
 
 @click.command(name="_full-run", hidden=True)

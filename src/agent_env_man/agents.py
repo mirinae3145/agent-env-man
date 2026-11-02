@@ -24,6 +24,7 @@ class Codex:
     entry_name: str = 'AGENTS.md'
     hook_name: str = 'hooks.json'
     shared_settings_format: str | None = None
+    instruction_events: tuple = ('SessionStart', 'SubagentStart')
     command_events: tuple = ('SessionStart', 'SessionEnd', 'PreToolUse', 'PermissionRequest',
                              'PostToolUse', 'PreCompact', 'PostCompact', 'SubagentStart',
                              'SubagentStop', 'UserPromptSubmit', 'Stop', 'Interrupt')
@@ -44,30 +45,38 @@ class Codex:
         return {'root': str(Path(os.environ.get('CODEX_HOME') or Path.home() / '.codex').expanduser().resolve()),
                 'skills': str(Path.home() / '.agents/skills')}
 
-    def definition(self, config, name, *, startup=False, startup_timeout=10):
+    def definition(self, config, name, *, startup=False, startup_timeout=10, event='SessionStart'):
         timeout = math.ceil(startup_timeout) if startup else 10
         if not 0 < timeout < 2**64:
             raise Error('Codex hook timeout must fit an unsigned 64-bit integer')
         identity = f'{self.name}:startup' if startup else f'{self.name}:{name}'
         args = ['startup', '--trigger', 'agent-start', '--agent', self.name] if startup else ['agent-hook', name, '--agent', self.name]
+        if event != 'SessionStart':
+            args += ['--hook-event', event]
         marker = hooks.marker(config, identity, 'startup' if startup else 'instruction roots')
-        return marker, {'matcher': '^(startup|resume|clear|compact)$', 'hooks': [
+        group = {'hooks': [
             {'type': 'command', 'command': hooks.command(config, args), 'timeout': timeout,
              'statusMessage': marker, 'additionalContextLimit': 1000}]}
+        if event == 'SessionStart':
+            group['matcher'] = '^(startup|resume|clear|compact)$'
+        return marker, group
 
     def render(self, path, marker, group, old, **options):
         return hooks.render(path, marker, group, old, **options)
 
-    def current(self, path, marker, group):
-        return hooks.current(path, marker, group)
+    def current(self, path, marker, group, **options):
+        return hooks.current(path, marker, group, **options)
 
     def remove(self, path, record):
         return hooks.remove(path, record)
 
-    def context(self, text):
-        return {'hookSpecificOutput': {'hookEventName': 'SessionStart', 'additionalContext': text}}
+    def context(self, text, *, event='SessionStart'):
+        return {'hookSpecificOutput': {'hookEventName': event, 'additionalContext': text}}
 
-    def failure(self, message):
+    def failure(self, message, *, event='SessionStart'):
+        if event == 'SubagentStart':
+            # This event reports failures but cannot block child creation.
+            return {'systemMessage': message}
         return {'continue': False, 'stopReason': message, 'systemMessage': message}
 
     def startup_result(self, briefing="", *, skills_changed=False):
@@ -90,6 +99,7 @@ class Claude:
     entry_name: str = 'CLAUDE.md'
     hook_name: str = 'settings.json'
     shared_settings_format: str | None = 'json'
+    instruction_events: tuple = ('SessionStart', 'SubagentStart')
     command_events: tuple = ('SessionStart', 'SessionEnd', 'PreToolUse', 'PermissionRequest',
                              'PostToolUse', 'PostToolUseFailure', 'PreCompact', 'PostCompact',
                              'SubagentStart', 'SubagentStop', 'UserPromptSubmit', 'Stop')
@@ -111,31 +121,38 @@ class Claude:
         root = Path(os.environ.get('CLAUDE_CONFIG_DIR') or Path.home() / '.claude').expanduser().resolve()
         return {'root': str(root), 'skills': str(root / 'skills')}
 
-    def definition(self, config, name, *, startup=False, startup_timeout=10):
+    def definition(self, config, name, *, startup=False, startup_timeout=10, event='SessionStart'):
         identity = f'{self.name}:startup' if startup else f'{self.name}:{name}'
         marker = hooks.marker(config, identity, 'startup' if startup else 'instruction roots')
         args = (['startup', '--trigger', 'agent-start', '--agent', self.name] if startup else
                 ['agent-hook', name, '--agent', self.name])
+        if event != 'SessionStart':
+            args += ['--hook-event', event]
         command = hooks.command(config, [*args, '--aem-hook-id', marker], preserve_exit=True)
-        return marker, {'matcher': '^(startup|resume|clear|compact|fork)$', 'hooks': [
+        group = {'hooks': [
             {'type': 'command', 'command': command, 'timeout': startup_timeout if startup else 10}]}
+        if event == 'SessionStart':
+            group['matcher'] = '^(startup|resume|clear|compact|fork)$'
+        return marker, group
 
     def render(self, path, marker, group, old, **options):
         return hooks.render(path, marker, group, old, marker_field='command', **options)
 
-    def current(self, path, marker, group):
-        return hooks.current(path, marker, group, marker_field='command')
+    def current(self, path, marker, group, **options):
+        return hooks.current(path, marker, group, marker_field='command', **options)
 
 
     def remove(self, path, record):
         return hooks.remove(path, record, marker_field='command')
 
-    def context(self, text):
-        # Claude Code injects SessionStart hook stdout as plain context text.
+    def context(self, text, *, event='SessionStart'):
+        # Plain stdout is context at SessionStart, but not at SubagentStart.
+        if event != 'SessionStart':
+            return {'hookSpecificOutput': {'hookEventName': event, 'additionalContext': text}}
         return text
 
-    def failure(self, message):
-        # Claude Code cannot block SessionStart. The CLI writes this to stderr
+    def failure(self, message, *, event='SessionStart'):
+        # Neither start event can block creation. The CLI writes this to stderr
         # and exits with 2 so the user sees the failure before continuing.
         return message
 
@@ -168,6 +185,15 @@ def profile(name):
     product = product_name(name)
     adapter = PROFILES[product]
     return adapter if product == name else replace(adapter, name=name)
+
+
+def instruction_definition(agent, config, name):
+    """Keep the released SessionStart group alongside additional owned events."""
+    adapter = profile(agent)
+    marker, group = adapter.definition(config, name)
+    additional = {event: adapter.definition(config, name, event=event)[1]
+                  for event in adapter.instruction_events if event != 'SessionStart'}
+    return marker, group, additional
 
 
 def bindings(document):

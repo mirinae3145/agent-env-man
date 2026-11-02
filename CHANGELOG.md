@@ -23,6 +23,15 @@ Credentials, sessions, plugins and AEM-managed hooks and links are excluded; plu
 - `aem check-tool-hooks` and optional machine `tool_hooks` declarations to report missing tool-owned hooks across Claude Code profiles without modifying them.
 Older AEM versions reject machine files containing `tool_hooks`.
 
+## [1.2.1] &mdash; 2026-11-03
+
+Git tag `v1.2.1` corresponds to Python package version `1.2.1`; based on `v1.2.0`.
+
+### Fixed
+
+- Deliver instruction reading locations to Codex and Claude Code subagents through owned `SubagentStart` callbacks.
+  Ordinary apply adds the missing registration while preserving existing session callbacks, user hooks, saved ownership, and recovery behavior.
+
 ## [1.2.0] &mdash; 2026-10-25
 
 ### Fixed
@@ -385,7 +394,8 @@ Maintenance commands can still inspect, detach, recover, and remove saved integr
 - Linux/WSL and native Windows path handling, with Python 3.11 or later and Git required.
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
-[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0-rc.3...v1.2.0
 [1.2.0-rc.3]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0-rc.2...v1.2.0-rc.3
 [1.2.0-rc.2]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0-rc.1...v1.2.0-rc.2

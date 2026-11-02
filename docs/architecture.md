@@ -127,10 +127,13 @@ Persist them in the selected or default machine file, and reuse saved bindings w
 Default agent, skills, and home roots only when absent; validate declarations and existing ownership before saving bindings or contacting content repositories.
 Support explicit `--config`, `--catalog`, and root and storage overrides.
 Do not parse document policy, applicability, or reading order.
-A Codex instruction bundle owns a linked or copied directory, a global entry link, and one `SessionStart` group in the entry root's `hooks.json`.
+
+An instruction bundle owns a linked or copied directory, a global entry link, and groups for `SessionStart` and `SubagentStart`.
+The agent profile selects the hook file and event syntax.
 For copy mode, the entry points inside the installed directory; preserve its delivery source separately from its link destination.
 Preflight validates the original payload before the installed copy exists.
 Install the bundle before its entry, retaining per-target recovery and completed targets after later failures.
+
 Bootstrap only prepares and validates sources.
 Apply installs the selected bundle mode, links its entry, and merges the hook without granting Codex trust or modifying `config.toml`.
 Preserve unrelated JSON events, groups, and metadata; malformed or redirected hook files must fail preflight.
@@ -153,7 +156,12 @@ Default bundle installation to `<machine-file>.bundles/<bundle-name>` without re
 
 Use an absolute interpreter for hook execution, quote POSIX arguments, and explicitly encode a PowerShell command on Windows without evaluating user paths.
 Instruction callbacks emit only path metadata, never document contents.
-Codex uses `additionalContext` and a structured stop; Claude uses plain stdout and stderr with exit 2 on failure, which does not stop SessionStart.
+
+SessionStart retains Codex `additionalContext` and structured-stop responses, and Claude plain stdout with stderr/exit 2 on failure.
+Both profiles use event-specific `additionalContext` JSON for SubagentStart; lookup failure warns without claiming to block child creation.
+Claude's failure transport remains stderr/exit 2 for both events.
+Generated child callbacks select their event explicitly; existing callback commands retain SessionStart behavior without reading stdin.
+
 Instruction callbacks wait at most 5 seconds total for the installation and configuration locks within their 10-second hook limit.
 On POSIX, CLI processes hold a shared installation lock; package-replacement workers retain the exclusive lock.
 Windows retains exclusive installation locking.

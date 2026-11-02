@@ -419,7 +419,6 @@ Update/publication report `planned` for previews, `updated`/`published` for writ
 Their comparison includes `changed`, `stale` (source-only changes), `local_edits` (copy-only changes), and `compare` arguments when observations succeed.
 Successful publication reports `collection_complete = true` and `transport_complete = false`; it confirms local handoff only.
 
-
 ### Git update and publication
 
 For Git catalogs, `update` requires a clean checkout on the recorded branch with the expected origin.
@@ -897,11 +896,17 @@ aem agent-hook NAME --agent AGENT
 
 Callback registered by instruction apply; emits only instruction reading locations and relative-reference guidance.
 It does not update sources or inject document contents.
+Instruction apply registers both `SessionStart` and `SubagentStart`; existing installations gain the child registration through ordinary apply.
+
+Generated child commands use the internal `--hook-event SubagentStart` argument and return event-specific `hookSpecificOutput.additionalContext` JSON for either agent.
+Calls without that argument retain their SessionStart output and failure behavior, regardless of stdin contents.
+Apply reports retain the primary `hook_group` object and add `additional_hook_groups`, an object mapping additional event names to groups.
+New Codex registrations require `/hooks` trust review; AEM never grants trust.
+
 Unrelated machine fields and obsolete unselected state modes do not block lookup; the selected saved entry and bundle must still pass locator checks.
 It waits up to five seconds total for the installation and configuration locks within the installed ten-second hook timeout.
-For Codex, handled lookup errors return a structured stop response with exit `0`; usage errors still exit `2`.
-Trust remains an agent-side decision; AEM never grants it.
-
+For Codex SessionStart, handled lookup errors return a structured stop response with exit `0`; usage errors still exit `2`.
+For SubagentStart, Codex instead returns a `systemMessage` warning with exit `0`; this event cannot prevent child creation.
 Old source registration, `codex-hook`, and throttled `sync` syntax are removed; see [Removed interfaces](removed-interfaces.md).
 
 ## Staged settings commands
@@ -932,8 +937,9 @@ See [Staged settings](settings-management.md) for complete behavior, locate/stat
 
 ## Claude callback behavior
 
-Claude agent-hook emits plain stdout path context.
-Lookup failure uses stderr and exit 2; SessionStart continues.
+Claude agent-hook emits plain stdout path context for SessionStart and event-specific JSON context for SubagentStart.
+Lookup failure uses stderr and exit 2; neither start event blocks creation.
+
 Startup may request reloadSkills after a successful synchronous skill installation or checkout advancement affecting that consumer, including active links indirectly changed through shared checkouts.
 Unapplied copies and detached skills do not request reload.
 An advanced live-link source still requests reload if subsequent application fails.
@@ -941,7 +947,6 @@ No-op/check/throttled runs and failures without a relevant change do not request
 In full asynchronous mode, wait for worker completion and start a fresh session to discover changes.
 The hidden --aem-hook-id identifies supported command-field ownership.
 See [profile contracts](agent-profiles.md).
-
 
 ## hooks remove
 

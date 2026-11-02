@@ -14,19 +14,21 @@ This is an internal extension boundary, not a public plugin API or a general app
 | entry | AGENTS.md | CLAUDE.md |
 | hook file | hooks.json | settings.json; unrelated fields preserved |
 | owned marker | statusMessage | command argument; supported fields only |
-| successful instruction context | SessionStart additionalContext JSON | plain stdout |
-| instruction lookup failure | structured stop, exit 0 | stderr, exit 2; does not stop SessionStart |
+| successful instruction context | event-specific additionalContext JSON | SessionStart plain stdout; SubagentStart additionalContext JSON |
+| instruction lookup failure | SessionStart structured stop; SubagentStart warning; exit 0 | stderr, exit 2; neither start event stops |
 | startup with skill changes | existing briefing | synchronous reloadSkills request |
 | full async startup | worker queues; later changes need fresh session | same limitation |
 | trust and preferences | owned by product/user | owned by product/user |
 
 ## Internal profile interface
 
+Profiles expose these internal capabilities to the shared manager and runtime.
+
 | Interface members | Responsibility |
 | --- | --- |
 | `name`, `entry_name`, `hook_name`, `notice` | Identify the product, entry and hook files, and notices. |
 | `defaults` | Return root and skill destinations. |
-| `definition` | Return an identity marker and hook group. |
+| `instruction_events`, `definition` | Select instruction events and return each event's identity marker and group; startup stays on SessionStart. |
 | `render`, `current`, `remove` | Respect saved ownership and preserve unrelated content. |
 | `context`, `failure`, `startup_result` | Return the product's callback payloads. |
 | `failure_to_stderr`, `failure_exit_code` | Control failure routing independently of payload type. |
@@ -35,6 +37,9 @@ This is an internal extension boundary, not a public plugin API or a general app
 | `command_events`, `hook_timeout_limits`, `unmatched_hook_events`, `personal_command` | Define personal command hook events, limits, and rendering. |
 
 Startup accepts the same `skills_changed` keyword even where the product ignores it.
+Instruction rendering retains `hook_group` for SessionStart and records additional event groups separately.
+Legacy ownership without additional groups remains valid; apply adds new groups without treating them as deleted managed hooks.
+Each event retains conflict checks, and all groups for a target share one replacement transaction.
 
 No manager or command branch tests an agent name to implement product behavior.
 Shared runtime serialization accepts mapping or plain-text callback payloads; failure_to_stderr and failure_exit_code explicitly control failure routing, independently of payload type.
