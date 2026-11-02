@@ -92,6 +92,7 @@ class ClaudeSettings(SetupFixture):
         actual = json.loads(self.target.read_text(encoding='utf-8'))
         self.assertFalse(actual['awaySummaryEnabled'])
         self.assertEqual(len(actual['hooks']['SessionStart']), 2)
+        self.assertEqual(len(actual['hooks']['SubagentStart']), 1)
         records = self.state()['items']
         for key in ('setup:agent-claude', 'rules:hook@claude'):
             self.assertIn(records[key]['hook_group'], actual['hooks']['SessionStart'])

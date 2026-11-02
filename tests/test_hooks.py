@@ -320,6 +320,7 @@ class HookInstallation(InstructionFixture):
         self.run_cli("apply")
         before = self.hook_file().read_bytes()
         self.assertEqual(len(json.loads(before)["hooks"]["SessionStart"]), 2)
+        self.assertEqual(len(json.loads(before)["hooks"]["SubagentStart"]), 2)
         self.run_cli("apply")
         self.assertEqual(self.hook_file().read_bytes(), before)
 

@@ -230,6 +230,7 @@ class ClaudeIntegration(SetupFixture):
         self.run_cli('apply')
         first = path.read_bytes()
         self.assertEqual(len(json.loads(first)['hooks']['SessionStart']), 3)
+        self.assertEqual(len(json.loads(first)['hooks']['SubagentStart']), 2)
         self.run_cli('apply')
         self.setup_cli()
         self.assertEqual(path.read_bytes(), first)

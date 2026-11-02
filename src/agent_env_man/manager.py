@@ -9,7 +9,7 @@ import stat
 import tempfile
 import uuid
 
-from .agents import profile, suffix
+from .agents import profile, suffix, instruction_definition
 from .git_source import Git, now
 from .model import Config, MachineFile, Error, Item, identifier, overlaps, relative
 from .progress import operation, step
@@ -551,7 +551,7 @@ class Manager:
         return {"root": str(root), "entry": str(entry), "installed_root": str(target),
                 "detached": bool(record.get("detached"))}
 
-    def hook_context(self, name, agent="codex"):
+    def hook_context(self, name, agent="codex", event="SessionStart"):
         """Return location metadata only; personal instruction text stays in AGENTS.md."""
         found = self.locate_instruction(name, agent)
         record = self.state.data["items"].get(f"{name}:entry{suffix(agent)}")
@@ -595,7 +595,8 @@ class Manager:
                    "documents, use each referring document's own directory. Use another base only when "
                    "the user documents explicitly specify it. "
                    "Follow those documents for applicability and reading order.")
-        return profile(agent).context(context)
+        return (profile(agent).context(context) if event == 'SessionStart'
+                else profile(agent).context(context, event=event))
 
     def source_observation(self, item, *, modes=None, entries=None):
         return self.payload(item, observe=True, modes=modes, entries=entries)
@@ -665,8 +666,10 @@ class Manager:
                                  adopt=adopt, replace=replace)
                 record.update(hook_event=event, shared_settings_format=profile(item.agent).shared_settings_format)
             else:
-                marker, group = profile(item.agent).definition(self.config.path, item.source_name)
-                content = profile(item.agent).render(item.target, marker, group, old, adopt=adopt, replace=replace)
+                marker, group, additional = instruction_definition(item.agent, self.config.path, item.source_name)
+                content = profile(item.agent).render(item.target, marker, group, old, adopt=adopt, replace=replace,
+                                                    additional_groups=additional)
+                record['additional_hook_groups'] = additional
             record.update(hook_marker=marker, hook_group=group)
             changed = not present or item.target.read_bytes() != content
             return Plan(item, before, record, changed, content=content)
@@ -1031,6 +1034,8 @@ class Manager:
                 entry.update(hook="would-register" if dry_run and plan.change else "registered" if plan.change else "unchanged",
                              trust="not-managed-by-aem", notice=profile(plan.item.agent).notice,
                              hook_group=plan.record["hook_group"])
+                if 'additional_hook_groups' in plan.record:
+                    entry['additional_hook_groups'] = plan.record['additional_hook_groups']
         grouped = self.group_hooks(plans)
         # Shared Claude preferences and hook groups commit one target image and
         # all comparison records, rather than racing two precomputed writes.
@@ -1101,7 +1106,8 @@ class Manager:
                                              plan.record['hook_group'], old, adopt=True, replace=True)
                         else:
                             content = profile(plan.item.agent).render(shadow, plan.record["hook_marker"],
-                                           plan.record["hook_group"], old, adopt=True, replace=True)
+                                           plan.record["hook_group"], old, adopt=True, replace=True,
+                                           additional_groups=plan.record.get('additional_hook_groups'))
                         shadow.write_bytes(content)
                     first.content = shadow.read_bytes()
                 first.change = not exists(target) or first.content != target.read_bytes()
@@ -1426,10 +1432,11 @@ class Manager:
                     return 'current', ('changed-live' if desired != old['hash'] else None)
                 return ('stale' if current(item.target, old['hook_marker'], old['hook_event'], old['hook_group'])
                         else 'modified-locally'), None
-            marker, group = profile(item.agent).definition(self.config.path, item.source_name)
-            if profile(item.agent).current(item.target, marker, group):
+            marker, group, additional = instruction_definition(item.agent, self.config.path, item.source_name)
+            if profile(item.agent).current(item.target, marker, group, additional_groups=additional):
                 return "current", None
-            return ("stale" if profile(item.agent).current(item.target, old["hook_marker"], old["hook_group"])
+            return ("stale" if profile(item.agent).current(item.target, old["hook_marker"], old["hook_group"],
+                                                         additional_groups=old.get('additional_hook_groups'))
                     else "modified-locally"), None
         if item.mode == "link":
             good = link_matches(current, str(item.link_destination))
@@ -1602,7 +1609,8 @@ class Manager:
                     from .personal_hooks import current
                     matches = current(target, record['hook_marker'], record['hook_event'], record['hook_group'])
                 else:
-                    matches = profile(record.get("agent", "codex")).current(target, record["hook_marker"], record["hook_group"])
+                    matches = profile(record.get("agent", "codex")).current(target, record["hook_marker"], record["hook_group"],
+                                                                            additional_groups=record.get('additional_hook_groups'))
             elif record.get("kind") == "setup":
                 block = record.get("block")
                 matches = bool(block) and target.read_bytes().decode("utf-8").count(block) == 1

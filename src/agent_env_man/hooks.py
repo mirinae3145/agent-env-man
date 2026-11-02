@@ -1,4 +1,4 @@
-"""Preserve unrelated agent hooks while owning explicit SessionStart groups."""
+"""Preserve unrelated agent hooks while owning explicit groups per event."""
 
 import base64
 import hashlib
@@ -85,7 +85,7 @@ def serialize(path, doc):
     return adapter.dump(document).encode('utf-8')
 
 
-def matching(doc: dict, marker: str, *, marker_field="statusMessage") -> list[int]:
+def matching(doc: dict, marker: str, *, marker_field="statusMessage", event="SessionStart") -> list[int]:
     def owns(handler):
         value = handler.get(marker_field)
         if marker_field != "command":
@@ -99,7 +99,7 @@ def matching(doc: dict, marker: str, *, marker_field="statusMessage") -> list[in
             except (ValueError, UnicodeError):
                 return False
         return marker in value
-    return [i for i, group in enumerate(doc.get("hooks", {}).get("SessionStart", []))
+    return [i for i, group in enumerate(doc.get("hooks", {}).get(event, []))
             if any(owns(h) for h in group["hooks"])]
 
 
@@ -115,31 +115,51 @@ def saved_matching(doc, marker, group):
     raise Error("Saved hook group has no usable identity marker")
 
 
-def current(path: Path, marker: str, group: dict, *, marker_field="statusMessage") -> bool:
+def event_groups(group, additional_groups=None):
+    """Legacy records own only SessionStart; new records add event ownership."""
+    additional = {} if additional_groups is None else additional_groups
+    if (not isinstance(additional, dict) or 'SessionStart' in additional
+            or any(not isinstance(event, str) or not isinstance(value, dict)
+                   or not isinstance(value.get('hooks'), list) for event, value in additional.items())):
+        raise Error('Invalid additional AEM hook groups')
+    return {'SessionStart': group, **additional}
+
+
+def current(path: Path, marker: str, group: dict, *, marker_field="statusMessage", additional_groups=None) -> bool:
     doc = read(path)
-    indices = matching(doc, marker, marker_field=marker_field)
-    return len(indices) == 1 and doc["hooks"]["SessionStart"][indices[0]] == group
+    for event, desired in event_groups(group, additional_groups).items():
+        indices = matching(doc, marker, marker_field=marker_field, event=event)
+        if len(indices) != 1 or doc['hooks'][event][indices[0]] != desired:
+            return False
+    return True
 
 
 def render(path: Path, marker: str, desired: dict, old: dict | None, *, adopt=False, replace=False,
-           marker_field="statusMessage") -> bytes:
-    """Merge only the saved group, preserving other events, groups and top-level fields."""
+           marker_field="statusMessage", additional_groups=None) -> bytes:
+    """Merge owned event groups in one image, preserving unrelated configuration."""
     doc = read(path)
-    groups = doc.setdefault("hooks", {}).setdefault("SessionStart", [])
-    indices = matching(doc, marker, marker_field=marker_field)
-    if len(indices) > 1:
-        raise Error("Duplicate AEM hook markers; reconcile hook configuration before applying")
-    if indices:
-        index = indices[0]
-        actual = groups[index]
-        safe = (old and actual in (old["hook_group"], desired)) or (adopt and actual == desired)
-        if not safe and not replace:
-            raise Error("Existing or locally modified AEM hook; select its entry with --adopt or --replace")
-        groups[index] = desired
-    else:
-        if old and exists(path) and not replace:
-            raise Error("Managed AEM hook was removed; select its entry with --replace to restore it")
-        groups.append(desired)
+    wanted = event_groups(desired, additional_groups)
+    previous = event_groups(old['hook_group'], old.get('additional_hook_groups')) if old else {}
+    if previous.keys() - wanted.keys():
+        raise Error('Saved AEM hook events are no longer supported; preserve and reconcile their ownership')
+    for event, desired_group in wanted.items():
+        groups = doc.setdefault('hooks', {}).setdefault(event, [])
+        indices = matching(doc, marker, marker_field=marker_field, event=event)
+        if len(indices) > 1:
+            raise Error("Duplicate AEM hook markers; reconcile hook configuration before applying")
+        if indices:
+            index = indices[0]
+            actual = groups[index]
+            safe = (event in previous and actual in (previous[event], desired_group)) or (adopt and actual == desired_group)
+            if not safe and not replace:
+                raise Error("Existing or locally modified AEM hook; select its entry with --adopt or --replace")
+            groups[index] = desired_group
+        else:
+            # An event absent from a legacy record is an addition, not a deleted
+            # owned hook. Upgrade it without requiring --replace.
+            if event in previous and exists(path) and not replace:
+                raise Error("Managed AEM hook was removed; select its entry with --replace to restore it")
+            groups.append(desired_group)
     # Preserve formatting and bytes as well when no semantic update is needed.
     if exists(path) and read(path) == doc:
         return path.read_bytes()
@@ -147,10 +167,11 @@ def render(path: Path, marker: str, desired: dict, old: dict | None, *, adopt=Fa
 
 
 def remove(path, record, *, marker_field="statusMessage"):
-    """Release just the recorded group; local edits require manual reconciliation."""
+    """Release just the recorded groups; local edits require reconciliation."""
     doc = read(path)
-    indices = matching(doc, record["hook_marker"], marker_field=marker_field)
-    if len(indices) != 1 or doc["hooks"]["SessionStart"][indices[0]] != record["hook_group"]:
-        raise Error("Managed hook changed or disappeared; reconcile before removal")
-    del doc["hooks"]["SessionStart"][indices[0]]
+    for event, group in event_groups(record['hook_group'], record.get('additional_hook_groups')).items():
+        indices = matching(doc, record['hook_marker'], marker_field=marker_field, event=event)
+        if len(indices) != 1 or doc['hooks'][event][indices[0]] != group:
+            raise Error("Managed hook changed or disappeared; reconcile before removal")
+        del doc['hooks'][event][indices[0]]
     return serialize(path, doc)
