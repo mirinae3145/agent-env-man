@@ -2,6 +2,7 @@
 import io
 import json
 import os
+from pathlib import Path
 import shutil
 import stat
 import unittest
@@ -125,11 +126,63 @@ class Write(Copy):
         self.assertIn('denied', errors)
         self.assertEqual(sorted(p.name for p in self.tmp.iterdir() if p.name.startswith(('copy', '.aem-copy'))), [])
 
+    def test_final_move_failure_preserves_existing_empty_target(self):
+        self.target.mkdir(mode=0o750)
+        mode = stat.S_IMODE(self.target.stat().st_mode)
+        before = self.snapshot()
+        with mock.patch.object(Path, 'rename', side_effect=OSError('commit denied')):
+            code, _, errors = self.copy('--write')
+        self.assertEqual(code, 1)
+        self.assertIn('commit denied', errors)
+        self.assertTrue(self.target.is_dir())
+        self.assertEqual(list(self.target.iterdir()), [])
+        self.assertEqual(stat.S_IMODE(self.target.stat().st_mode), mode)
+        self.assertEqual(list(self.tmp.glob('.aem-copy-*')), [])
+        self.assertEqual(self.snapshot(), before)
+        self.report('--write')
+
+    def test_final_move_failure_leaves_an_absent_target_absent(self):
+        with mock.patch.object(Path, 'rename', side_effect=OSError('commit denied')):
+            code, _, errors = self.copy('--write')
+        self.assertEqual(code, 1)
+        self.assertIn('commit denied', errors)
+        self.assertFalse(self.target.exists())
+        self.assertEqual(list(self.tmp.glob('.aem-copy-*')), [])
+
+    def test_final_move_failure_preserves_a_new_target(self):
+        self.target.mkdir()
+
+        def replace_target(*args):
+            self.target.write_text('concurrent writer')
+            raise OSError('commit denied')
+
+        with mock.patch.object(Path, 'rename', side_effect=replace_target):
+            code, _, errors = self.copy('--write')
+        self.assertEqual(code, 1)
+        self.assertIn('commit denied', errors)
+        self.assertEqual(self.target.read_text(), 'concurrent writer')
+        self.assertEqual(list(self.tmp.glob('.aem-copy-*')), [])
+
     def test_set_with_a_literal_backslash_is_expected_in_verification(self):
         result = self.report('--set', r'env.a\b=changed', '--write')
         self.assertEqual(self.settings(self.target)['env'][r'a\b'], 'changed')
         self.assertEqual(result['verification']['expected'], 1)
         self.assertEqual(result['verification']['unexpected'], [])
+
+    def test_target_populated_during_staging_is_preserved(self):
+        self.target.mkdir()
+        original = os.symlink
+
+        def populate(*args, **kwargs):
+            (self.target / 'keep').write_text('later user content')
+            return original(*args, **kwargs)
+
+        with mock.patch('os.symlink', side_effect=populate):
+            code, _, _ = self.copy('--write')
+        self.assertEqual(code, 1)
+        self.assertEqual((self.target / 'keep').read_text(), 'later user content')
+        self.assertEqual(list(self.target.iterdir()), [self.target / 'keep'])
+        self.assertEqual(list(self.tmp.glob('.aem-copy-*')), [])
 
     def test_sibling_paths_numbers_and_permissions_survive_the_copy(self):
         data = self.settings(self.left)

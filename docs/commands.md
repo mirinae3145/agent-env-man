@@ -814,6 +814,8 @@ The copied settings are an independent file: later changes to either profile do 
 To share selected fields afterwards, declare them as settings for each profile as described in [named instances](agent-profiles.md#independent-settings-from-one-source) and [staged settings](settings-management.md).
 
 The profile is built in a staging folder beside TARGET and moved into place, so a failure leaves no partial profile.
+If the final move fails after removing an existing empty TARGET, AEM recreates the empty folder with its previous permissions unless another writer has created a new target.
+A target populated during staging is preserved and the copy is refused.
 After writing, the copy is compared with the source: `expected` counts the `--set` fields, `not_copied` counts plugins, AEM-owned hooks and AEM-installed links left out, and `unexpected` lists anything else that differs, including a hook of your own missing from the copy.
 
 ## recover

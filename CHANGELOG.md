@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - Refuse malformed hook structures in profile comparisons and distinguish literal dots and backslashes in settings keys from nested paths, including `--expect` selection.
+- Restore an existing empty profile destination and its permissions when the final copy move fails, without overwriting a concurrently created target.
 
 ## [1.2.1] &mdash; 2026-11-03
 

@@ -187,6 +187,7 @@ def apply(plan):
     """Write the plan into a staging folder beside the target, then move it into place."""
     plan.target.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix='.aem-copy-', dir=plan.target.parent))
+    removed_mode = None
     try:
         staging.chmod(plan.mode)
         if plan.settings is not None:
@@ -203,10 +204,21 @@ def apply(plan):
             (staging / relative).parent.mkdir(parents=True, exist_ok=True)
             os.symlink(destination, staging / relative)
         if plan.target.exists():
+            mode = plan.target.stat().st_mode & 0o777
             plan.target.rmdir()
+            removed_mode = mode
         staging.rename(plan.target)
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
+        if removed_mode is not None:
+            # Restore the empty destination on commit failure, but never change
+            # a file or directory another writer created in the meantime.
+            try:
+                plan.target.mkdir(mode=removed_mode)
+            except FileExistsError:
+                pass
+            else:
+                plan.target.chmod(removed_mode)
         raise
 
 
