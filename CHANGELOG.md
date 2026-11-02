@@ -7,10 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.3.0-beta.2] &mdash; 2026-11-03
+
+Git tag `v1.3.0-beta.2` corresponds to Python package version `1.3.0b2`; based on `v1.3.0-beta.1`.
+Includes `v1.2.1` through merge commit `6f119b9`, which combines the `v1.2.1` and `v1.3.0-beta.1` histories.
+
 ### Fixed
 
-- Refuse malformed hook structures in profile comparisons and distinguish literal dots and backslashes in settings keys from nested paths, including `--expect` selection.
-- Restore an existing empty profile destination and its permissions when the final copy move fails, without overwriting a concurrently created target.
+- Include the `v1.2.1` fix that delivers instruction reading locations to Codex and Claude Code subagents while preserving existing session callbacks and user hooks.
+- Make `aem compare` reject malformed hook event and group structures with an error instead of silently ignoring them or failing with an unhandled exception.
+- Preserve distinct settings fields in profile comparisons when JSON keys contain literal dots or backslashes.
+- Restore an existing empty `copy-profile` destination and its permissions when the final move from staging fails.
+  Preserve targets populated during staging or recreated by another writer, and clean up staging files after failure.
 
 ## [1.2.1] &mdash; 2026-11-03
 
@@ -403,7 +411,8 @@ Maintenance commands can still inspect, detach, recover, and remove saved integr
 - Linux/WSL and native Windows path handling, with Python 3.11 or later and Git required.
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
-[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-beta.2...HEAD
+[1.3.0-beta.2]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-beta.1...v1.3.0-beta.2
 [1.2.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0...v1.2.1
 [1.3.0-beta.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0...v1.3.0-beta.1
 [1.2.0]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0-rc.3...v1.2.0
