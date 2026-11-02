@@ -15,7 +15,16 @@ import tempfile
 def run(*arguments, cwd):
     print('+', ' '.join(map(str, arguments)), flush=True)
     options = {'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {}
-    subprocess.run(list(map(str, arguments)), cwd=cwd, check=True, **options)
+    command = list(map(str, arguments))
+    # Explicit pipes preserve output from hidden Windows children under Git Bash.
+    with subprocess.Popen(command, cwd=cwd, stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT, text=True, encoding='utf-8',
+                          errors='replace', **options) as process:
+        for line in process.stdout:
+            print(line, end='', flush=True)
+        code = process.wait()
+    if code:
+        raise subprocess.CalledProcessError(code, command)
 
 
 def only_file(directory, pattern):
