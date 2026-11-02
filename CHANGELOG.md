@@ -9,17 +9,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Named Claude and Codex destinations such as `claude-lab` and `codex-lab`, with independent default roots, startup/instruction hook identities, content ownership, selection and recovery through existing commands.
-Existing product destinations, saved IDs and callbacks remain unchanged.
-- Optional machine setting-to-agent association for independently applying common source fields to separate profiles; legacy unbound settings retain their current selection behavior for existing invocations, while new named selectors exclude them.
-Named root overlaps and unregistered instance selections are refused.
-Account login, plugin installation and native runtime isolation remain product-owned.
-- `aem compare LEFT RIGHT` compares two Claude Code profiles offline and read-only: settings fields, hook groups by owner, skill links, output styles, the instruction entry and installed plugin versions.
-Profile-specific paths are normalized, `--expect` marks intended differences, and values appear as digests unless `--values` is given.
-- `aem copy-profile SOURCE TARGET [--set FIELD=VALUE] [--write]` previews or creates an independent copy of a Claude Code profile's settings, instruction entry, output styles, skill links and hook scripts, rewrites the source root in paths, leaves out credentials, sessions, plugins, AEM-generated hook commands and links AEM installed (so applying the new profile creates them without conflicts), lists the product CLI steps that would reinstall the plugins without running them, and compares the result with the source.
-- `aem check-tool-hooks` checks the machine's optional `tool_hooks` declarations: for each installed tool, every Claude Code profile must carry the hook the tool installs for itself. AEM only reports and advises; it never installs or changes tool hooks. Older AEM versions reject a machine file that contains `tool_hooks`.
-- Optional catalog `settings.NAME.agent`: machines that have not registered that named destination skip the declaration, and machines that have registered it must bind a target naming the same agent. Declarations without `agent` behave as before; older AEM versions reject the field.
-- Optional catalog `directories.NAME.agent`: a directory bound to a named destination installs below that destination's root by default, is selected only by `--agent` for that destination, and is skipped on machines that have not registered it. Directories without `agent` stay independent of agent selection; older AEM versions reject the field.
+- Named Claude and Codex destinations such as `claude-lab` and `codex-lab`, with independent roots, hooks, content ownership, selection and recovery.
+Existing destinations and saved IDs remain compatible; overlapping roots and unregistered selections are refused.
+- Agent-specific settings and directories through optional catalog `settings.NAME.agent` and `directories.NAME.agent`, plus machine setting-to-agent associations for separate profiles.
+Machines skip catalog declarations for unregistered destinations; registered settings targets must name the same agent, and bound directories default to that destination's root.
+Existing unbound settings retain their selection behavior but are excluded by new named selectors; unbound directories remain independent of agent selection.
+Older AEM versions reject the new catalog fields.
+- `aem compare LEFT RIGHT` for offline, read-only comparison of Claude Code profiles, including settings, hooks, skills, output styles, instructions and plugin versions.
+Paths are normalized, `--expect` marks intended differences, and values remain digests unless `--values` is requested.
+- `aem copy-profile SOURCE TARGET` to preview an independent Claude Code profile copy, with `--write` to create it and `--set FIELD=VALUE` to override fields.
+Copies include settings, instructions, output styles, skill links and hook scripts, with profile paths rewritten and the result compared against the source.
+Credentials, sessions, plugins and AEM-managed hooks and links are excluded; plugin reinstall commands are reported for manual execution.
+- `aem check-tool-hooks` and optional machine `tool_hooks` declarations to report missing tool-owned hooks across Claude Code profiles without modifying them.
+Older AEM versions reject machine files containing `tool_hooks`.
 
 ## [1.2.0] &mdash; 2026-10-25
 
