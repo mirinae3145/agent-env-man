@@ -877,7 +877,6 @@ In full asynchronous mode, wait for worker completion and start a fresh session 
 The hidden --aem-hook-id identifies supported command-field ownership.
 See [profile contracts](agent-profiles.md).
 
-
 ## hooks remove
 
 ```text
