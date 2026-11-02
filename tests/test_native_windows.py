@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -239,7 +240,8 @@ class NativeHook(InstructionFixture):
         self.external.rename(relocated)
         self.external = self.bundle = relocated
         self.run_cli("bootstrap", "--external", "personal=" + str(relocated))
-        executable = Path(sys.executable).with_name("aem.exe")
+        executable = Path(sysconfig.get_path("scripts")) / "aem.exe"
+        self.assertTrue(executable.is_file(), f"Installed CLI is missing: {executable}")
         quote = lambda value: "'" + str(value).replace("'", "''") + "'"
         body = shell_block("powershell", self.config, executable, executable.parent)[2]
         body += "\naem --config " + quote(self.config) + " locate personal --source --cd\n"
@@ -249,5 +251,5 @@ class NativeHook(InstructionFixture):
         encoded = base64.b64encode(body.encode("utf-16le")).decode()
         result = run_hidden(["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
                                 cwd=self.root, capture_output=True, text=True, timeout=20)
-        self.assertEqual(result.stdout.splitlines(), [str(relocated), "1", str(relocated)])
+        self.assertEqual(result.stdout.splitlines(), [str(relocated), "1", str(relocated)], result.stderr)
         self.assertIn("missing", result.stderr)
