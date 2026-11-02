@@ -40,6 +40,9 @@ Tests requiring successful symlink creation may skip when the host lacks that ca
 Verify user-visible behavior and preservation boundaries, including failure and recovery, rather than mirroring private implementation functions.
 For workflows spanning commands, check that each command's output and selection scope match the next command's inputs and operation targets.
 
+GitHub Actions runs the full source suite and installed-distribution checks on Linux and native Windows.
+See [CI coverage and local reproduction](docs/testing.md#continuous-integration) for the matrix, logs, and capability boundaries.
+
 See [Testing and distribution verification](docs/testing.md) for environment-specific fixtures, installed-wheel checks, coverage measurement, and validation expectations.
 Record the environments exercised, skipped capabilities, and remaining uncertainty with the change's validation results rather than in durable project guidance.
 Static review and mocks do not establish native Windows readiness.

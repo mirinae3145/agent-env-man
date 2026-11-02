@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- GitHub Actions CI for Linux and native Windows source tests and isolated direct-wheel and sdist-wheel verification.
+  Retain failure logs and capability checks, with a local helper for reproducing both distribution paths.
+
 ## [1.3.0-beta.2] &mdash; 2026-11-03
 
 Git tag `v1.3.0-beta.2` corresponds to Python package version `1.3.0b2`; based on `v1.3.0-beta.1`.
