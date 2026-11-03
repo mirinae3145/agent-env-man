@@ -15,6 +15,14 @@ from ..storage import atomic_write
 from ..updates import set_catalog_policy
 
 
+def setup_targets_within(state, root):
+    """Whether an active setup integration is installed below `root`."""
+    # Targets such as the official skill are links; resolve only their parents.
+    return any(record.get("kind") == "setup" and not record.get("detached") and record.get("target")
+               and absolute(str(Path(record["target"]).parent)).is_relative_to(root)
+               for record in state.data["items"].values())
+
+
 def bootstrap_skills(config, state, args):
     state.ready()
     document = tomlkit.parse(tomlkit.dumps(config.doc))
@@ -64,7 +72,14 @@ def bootstrap_skills(config, state, args):
             raise Error(f"Root {key} is already configured; detach before relocating installed skills")
         roots[key] = resolved
         if key in ("agent", "skills") and "codex" in document.get("agents", {}):
-            document["agents"]["codex"]["root" if key == "agent" else "skills"] = resolved
+            field = "root" if key == "agent" else "skills"
+            bound = document["agents"]["codex"].get(field)
+            # Setup owns hooks and the official skill under this binding;
+            # moving it would leave them unmanaged at the old location.
+            if bound is not None and absolute(bound) != Path(resolved) and setup_targets_within(state, absolute(bound)):
+                raise Error(f"Root {key} would move the Codex {field} binding from {bound}; "
+                            "remove the Codex integration with setup --remove-agent codex before relocating it")
+            document["agents"]["codex"][field] = resolved
     defaults = next(iter(config.agents.values())) if config.agents else profile("codex").defaults()
     roots.setdefault("skills", defaults["skills"])
     roots.setdefault("agent", defaults["root"])

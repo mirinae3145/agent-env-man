@@ -23,6 +23,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - The redirected-path guard previously refused these installs.
 - Treat Windows link destinations with and without the extended path prefix (`\\?\`) as the same destination when comparing profiles.
   - A profile copied with relative links now verifies as matching its source.
+- Refuse `bootstrap --root skills=PATH` or `agent=PATH` when it would move the Codex binding of active setup integrations.
+  - Bootstrap previously moved the binding, leaving setup hooks and the official skill at the old location and failing later self-updates.
 
 ## [1.3.0-beta.2] &mdash; 2026-11-03
 

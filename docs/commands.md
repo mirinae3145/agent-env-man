@@ -343,6 +343,8 @@ The default branch is discovered and written to the machine binding; repeating r
 Catalog, checkout-root, and external CLI paths resolve relative to the working directory and are saved as absolute paths.
 Root paths must be absolute or begin with `~/`.
 Bootstrap fills missing `skills`, `agent`, and `home` root bindings, preserving saved values and explicit `--root` bindings.
+An explicit `skills` or `agent` binding that would move the Codex binding of active setup integrations is refused.
+Remove them with `setup --remove-agent codex` before relocating, then run setup again.
 An unbound `home` is saved as the current user's absolute home directory; use `--root home=PATH` to choose another initial path.
 Directories without `install.root` use this saved `home` root.
 Apply and status use saved bindings without inferring a missing home path.

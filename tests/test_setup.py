@@ -319,6 +319,30 @@ class MachineSetup(SetupFixture):
         self.assertIn('$aemPreviousExitCode', text)
 
 
+    def test_bootstrap_refuses_moving_codex_bindings_with_setup_integrations(self):
+        self.require_links()
+        self.save_catalog()
+        self.setup_cli('--agent', 'codex')
+        official = Path(self.state()['items']['setup:skill-codex-idk-aem']['target'])
+        saved = self.config.read_bytes()
+        for root in ('skills', 'agent'):
+            with self.subTest(root=root):
+                result = self.run_cli('bootstrap', '--catalog', self.catalog, '--checkout-root', self.checkouts,
+                                      '--root', f'{root}={self.root / "moved"}', code=1)
+                self.assertIn('setup --remove-agent codex', result)
+                self.assertEqual(self.config.read_bytes(), saved)
+        # The refused move leaves the official skill refreshable in place.
+        self.setup_cli('--agent', 'codex')
+        self.assertTrue(official.is_symlink())
+        # After removing the integration, the binding can move and setup reinstalls there.
+        self.setup_cli('--remove-agent', 'codex')
+        moved = self.root / 'moved skills'
+        self.run_cli('bootstrap', '--catalog', self.catalog, '--checkout-root', self.checkouts,
+                     '--root', f'skills={moved}')
+        self.setup_cli('--agent', 'codex')
+        self.assertTrue((moved / official.name).is_symlink())
+
+
 class AgentInjection(SetupFixture):
     def setUp(self):
         super().setUp()
