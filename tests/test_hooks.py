@@ -6,6 +6,7 @@ from contextlib import ExitStack
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
 import unittest
 from unittest.mock import patch
@@ -443,3 +444,35 @@ class HookInstallation(InstructionFixture):
         self.run_cli("detach", "personal:entry")
         context = self.run_cli("agent-hook", "personal", "--agent", "codex")["hookSpecificOutput"]["additionalContext"]
         self.assertEqual(json.loads(context.split("\n")[1]), {'root': str(self.rules / 'personal'), 'entry': str(self.rules / 'personal/start.md'), 'global_entry': str(self.agent / 'AGENTS.md')})
+
+
+@unittest.skipIf(os.name == 'nt', 'Windows hook commands use the launcher interpreter path')
+class HookInterpreter(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.environment = Path(temporary.name) / 'tool env'
+        (self.environment / 'bin').mkdir(parents=True)
+        for name in ('python', 'python3', 'python3.13'):
+            (self.environment / 'bin' / name).write_text('', encoding='utf-8')
+
+    def command(self, executable, *, prefix=None, base='/usr'):
+        with patch.object(hooks.sys, 'executable', str(executable)), \
+                patch.object(hooks.sys, 'prefix', str(prefix or self.environment)), \
+                patch.object(hooks.sys, 'base_prefix', base):
+            return hooks.command(Path('/config/machine.toml'), ['startup'])
+
+    def test_reinstalled_launcher_names_keep_the_same_command(self):
+        # uv launchers run a fresh install through python and a reinstall through python3.
+        commands = {self.command(self.environment / 'bin' / name) for name in ('python', 'python3', 'python3.13')}
+        self.assertEqual(len(commands), 1)
+        self.assertTrue(commands.pop().startswith(shlex.quote(str(self.environment / 'bin/python')) + ' -m agent_env_man'))
+
+    def test_other_interpreters_are_written_unchanged(self):
+        (self.environment / 'bin/python').unlink()
+        self.assertIn(str(self.environment / 'bin/python3'), self.command(self.environment / 'bin/python3'))
+        system = '/usr/bin/python3'
+        self.assertIn(system, self.command(system, prefix='/usr'))
+        outside = Path('/opt/other/bin/python3')
+        self.assertIn(str(outside), self.command(outside))

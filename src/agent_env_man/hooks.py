@@ -54,8 +54,23 @@ def without_marker(command):
     return _MARKER.sub("AEM", command)
 
 
+def interpreter():
+    """The interpreter path written into hook commands.
+
+    A virtual environment exposes the same interpreter as `python`, `python3`,
+    and versioned names, and uv launchers switch between them on reinstall.
+    Prefer the environment's `python` so reinstalling does not rewrite hooks.
+    """
+    executable = Path(sys.executable)
+    if os.name != "nt" and sys.prefix != sys.base_prefix:
+        canonical = Path(sys.prefix) / "bin" / "python"
+        if executable.parent == canonical.parent and canonical.exists():
+            return str(canonical)
+    return sys.executable
+
+
 def command(config_path, arguments, *, preserve_exit=False):
-    args = [sys.executable, "-m", "agent_env_man", "--config", str(config_path), *arguments]
+    args = [interpreter(), "-m", "agent_env_man", "--config", str(config_path), *arguments]
     result = ("& " + " ".join("'" + arg.replace("'", "''") + "'" for arg in args)
               if os.name == "nt" else shlex.join(args))
     if os.name == "nt":

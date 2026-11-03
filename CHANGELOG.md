@@ -25,6 +25,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - A profile copied with relative links now verifies as matching its source.
 - Refuse `bootstrap --root skills=PATH` or `agent=PATH` when it would move the Codex binding of active setup integrations.
   - Bootstrap previously moved the binding, leaving setup hooks and the official skill at the old location and failing later self-updates.
+- Keep agent hook commands unchanged when uv reinstalls AEM, including through self-update.
+  - Setup previously rewrote hook files with backups after a reinstall because the launcher switched between `python` and `python3`.
 
 ## [1.3.0-beta.2] &mdash; 2026-11-03
 
