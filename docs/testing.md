@@ -12,13 +12,14 @@ The matrix runs these independent checks:
 
 | Check | Runners | Python | Commands |
 | --- | --- | --- | --- |
-| Source | Ubuntu 24.04, Windows Server 2025 | 3.11, 3.15 | Full unittest discovery and compileall |
+| Source | Ubuntu 24.04, Windows Server 2025 | 3.11, 3.15 | Full unittest discovery under coverage, and compileall |
 | Distribution | Ubuntu 24.04, Windows Server 2025 | 3.11 | Direct wheel and sdist-rebuilt wheel runtime verification |
 
 Every job requires working file and directory symlinks; Windows also requires Windows PowerShell.
 A missing capability fails preparation instead of silently skipping its success paths.
 Verbose unittest logs retain individual skips, including tests for the other operating system.
 Source jobs install the development extra and uv to exercise tool-discovery tests.
+They report coverage totals in the job summary and logs without a minimum threshold.
 
 One Ubuntu source job checks whitespace against the PR base or the push's previous revision.
 Manual dispatch checks the last commit; an initial push or root commit is compared with an empty tree.
@@ -112,7 +113,7 @@ Record the actual filesystem and mount used; a successful check on a mount's par
 
 ## Coverage measurement
 
-Run coverage separately from ordinary tests, from the repository root in the activated development environment.
+Run the ordinary test suite under coverage.py from the repository root in the activated development environment.
 The configuration measures statements and branches in `src/` and `scripts/`, including the build hook and standalone installer.
 Python subprocesses are also measured; combine their data before generating reports.
 
@@ -129,7 +130,7 @@ Check the test command's exit status before treating a report as a successful ba
 Reports from a failed run may help diagnosis but do not establish successful validation.
 The terminal report shows missing lines and branch destinations; `htmlcov/index.html` provides file-level detail and `coverage.json` contains machine-readable results.
 Coverage data and reports are ignored local artifacts.
-There is no minimum coverage threshold or automatic CI or hook enforcement.
+CI source jobs report coverage without a minimum threshold, and no hook enforces it.
 Keep coverage.py's default exclusions; do not exclude whole files to improve the percentage.
 
 ### Interpret coverage results

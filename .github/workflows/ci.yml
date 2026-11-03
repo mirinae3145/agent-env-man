@@ -99,9 +99,23 @@ jobs:
       - name: Install source test dependencies
         if: matrix.check == 'source'
         run: python -m pip install -e '.[dev]' uv 2>&1 | tee ci-logs/install.log
-      - name: Run source tests
+      - name: Run source tests with coverage
         if: matrix.check == 'source'
-        run: python -m unittest discover -s tests -v 2>&1 | tee ci-logs/unittest.log
+        run: |
+          python -m coverage erase
+          python -m coverage run -m unittest discover -s tests -v 2>&1 | tee ci-logs/unittest.log
+      - name: Report coverage
+        if: ${{ !cancelled() && matrix.check == 'source' && hashFiles('.coverage*') != '' }}
+        run: |
+          python -m coverage combine
+          python -m coverage report 2>&1 | tee ci-logs/coverage.log
+          python -m coverage json -o ci-logs/coverage.json
+          {
+            echo "### Coverage (${{ matrix.os }}, Python ${{ matrix.python }})"
+            echo '```'
+            tail -n 1 ci-logs/coverage.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Compile source and tests
         if: ${{ !cancelled() && matrix.check == 'source' }}
         run: python -m compileall -q src tests scripts 2>&1 | tee ci-logs/compileall.log
@@ -116,6 +130,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: logs-${{ matrix.check }}-${{ matrix.os }}-py${{ matrix.python }}-${{ github.run_attempt }}
-          path: ci-logs/*.log
+          path: |
+            ci-logs/*.log
+            ci-logs/*.json
           retention-days: 14
           if-no-files-found: warn
+
