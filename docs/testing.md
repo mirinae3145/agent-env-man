@@ -8,14 +8,20 @@ Tests must use temporary homes, configuration, targets, and local Git remotes ra
 
 The [CI workflow](https://github.com/mirinae3145/agent-env-man/blob/master/.github/workflows/ci.yml) checks pull requests targeting master, master pushes, and manual dispatches.
 Pull requests test GitHub's merge revision; pushes test the pushed revision.
-The matrix runs these independent checks:
+A separate [agent integration workflow](https://github.com/mirinae3145/agent-env-man/blob/master/.github/workflows/agents.yml) runs daily and on manual dispatch.
+Both workflows use read-only repository permissions and do not publish packages or configure required checks.
+
+### Jobs and prerequisites
+
+The CI workflow runs these independent checks:
 
 | Check | Runners | Python | Commands |
 | --- | --- | --- | --- |
 | Source | Ubuntu 24.04, Windows Server 2025 | 3.11, 3.15 | Full unittest discovery under coverage, and compileall |
 | Distribution | Ubuntu 24.04, Windows Server 2025 | 3.11 | Direct wheel and sdist-rebuilt wheel runtime verification |
+| Upgrade | Ubuntu 24.04 | 3.11 | Self-update from previous releases to the tested revision |
 
-Every job requires working file and directory symlinks; Windows also requires Windows PowerShell.
+Every matrix job requires working file and directory symlinks; Windows also requires Windows PowerShell.
 A missing capability fails preparation instead of silently skipping its success paths.
 Verbose unittest logs retain individual skips, including tests for the other operating system.
 Source jobs install the development extra and uv to exercise tool-discovery tests.
@@ -23,13 +29,31 @@ They report coverage totals in the job summary and logs without a minimum thresh
 
 One Ubuntu source job checks whitespace against the PR base or the push's previous revision.
 Manual dispatch checks the last commit; an initial push or root commit is compared with an empty tree.
-Jobs have a 45-minute timeout and do not cancel other matrix jobs on failure.
+Matrix jobs have a 45-minute timeout and do not cancel other matrix jobs on failure.
 A newer PR revision cancels the previous run for that PR.
+
+### Logs and limits
 
 Each job uploads command logs for 14 days, including on failure when logs are available.
 Inspect the failed step and skip reasons before interpreting a run as platform coverage.
-The workflow uses read-only repository permissions and does not publish packages or configure required checks.
-Hosted Linux and Windows checks do not cover WSL interoperability, real mounted filesystems, or live agent integrations.
+Hosted Linux and Windows checks do not cover WSL interoperability, real mounted filesystems, or authenticated agent sessions.
+
+### Upgrade verification
+
+The upgrade job installs the newest final release and the newest release tag merged into the tested revision.
+Each installation uses its own repository installer in a disposable profile with copied, linked, and settings content.
+The tested revision is published to a local release repository under the next version, then installed by `aem self update`.
+The job checks that installed contents, local edits, and status survive, and that ordinary updates continue afterwards.
+Rerunning setup afterwards must leave the agent profile files unchanged.
+Native Windows self-update remains outside this job.
+
+### Agent integration workflow
+
+The agent integration workflow installs the latest Codex and Claude Code CLIs.
+It checks that they read a fresh AEM setup without account credentials, as described in [agent integration checks](#agent-integration-checks).
+A failure can come from a CLI release rather than an AEM change, so it does not block pull requests.
+
+### Local reproduction
 
 To reproduce both distribution paths, install build and run the helper from a development environment:
 
@@ -41,6 +65,16 @@ python scripts/verify_distribution.py
 The helper builds in isolation and creates separate runtime environments without pip, setuptools, coverage, or build.
 It invokes the existing runtime verifier for each wheel and exits unsuccessfully if any build, installation, or verification fails.
 Temporary build and runtime directories are removed when the helper exits.
+
+The upgrade and agent checks run from a checkout with full tags, using Python, Git, and uv on PATH:
+
+```bash
+python scripts/verify_upgrade.py                       # Default baselines.
+python scripts/verify_upgrade.py --baseline v1.2.1     # A selected release.
+python scripts/verify_agents.py                        # Requires codex and claude on PATH.
+```
+
+Both helpers install AEM into temporary homes and uv tool directories and remove them when they exit.
 
 ## Writing for multiple execution environments
 
@@ -174,3 +208,8 @@ For a regular uv tool installation, reinstall the updated checkout before testin
 Test setup with temporary homes and fake installer subprocesses, never actual user profiles or live remote repositories.
 Exercise repeat/add/remove, edited blocks, invalid hook files, redirected paths, grouped hook writes, partial failure/retry, offline previews, and fail-open startup.
 Shell quoting and PowerShell serialization tests do not establish native shell or Windows readiness.
+
+`scripts/verify_agents.py` checks a fresh setup against the installed agent CLIs without account credentials.
+Codex must load its configuration and list the official skill in `codex debug prompt-input`.
+Claude Code must report no invalid settings in `claude doctor` and run AEM's session-start hook before its login failure.
+Model requests, authenticated features, and Codex hook execution remain outside this check.

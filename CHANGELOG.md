@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- A CI upgrade job that self-updates the newest final and newest releases to the tested revision and checks preserved state.
+- A daily agent integration workflow that checks whether the latest Codex and Claude Code CLIs read a fresh AEM setup.
+- `scripts/verify_upgrade.py` and `scripts/verify_agents.py` to reproduce these checks locally.
+
 ### Changed
 
 - CI source jobs report coverage totals without a minimum threshold.
