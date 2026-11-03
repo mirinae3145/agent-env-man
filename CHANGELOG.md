@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.3.0-beta.3] &mdash; 2026-11-03
+
+Git tag `v1.3.0-beta.3` corresponds to Python package version `1.3.0b3`; based on `v1.3.0-beta.2`.
+
 ### Added
 
 - GitHub Actions CI for pull requests to master, master pushes, and manual runs.
@@ -432,7 +436,8 @@ Maintenance commands can still inspect, detach, recover, and remove saved integr
 - Linux/WSL and native Windows path handling, with Python 3.11 or later and Git required.
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
-[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-beta.2...HEAD
+[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-beta.3...HEAD
+[1.3.0-beta.3]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-beta.2...v1.3.0-beta.3
 [1.3.0-beta.2]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-beta.1...v1.3.0-beta.2
 [1.2.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0...v1.2.1
 [1.3.0-beta.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0...v1.3.0-beta.1
