@@ -9,14 +9,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- GitHub Actions CI for Linux and native Windows source tests and isolated direct-wheel and sdist-wheel verification.
-  Retain failure logs and capability checks, with a local helper for reproducing both distribution paths.
+- GitHub Actions CI for pull requests to master, master pushes, and manual runs.
+  - Source jobs run the full test suite on Ubuntu and native Windows with Python 3.11 and 3.15.
+  - Distribution jobs install direct and sdist-rebuilt wheels into isolated runtime environments and run the runtime verifier.
+  - Jobs fail when symbolic links or Windows PowerShell are unavailable.
+  - Each job keeps its command logs for 14 days, including after a failure.
+  - The test suite passes on native Windows, including when the temporary directory is an 8.3 short-path alias.
+- `scripts/verify_distribution.py` to reproduce both distribution checks locally.
 
 ### Fixed
 
-- Allow multiple hook groups to share a target file when the system temporary directory uses a path alias.
-- Compare equivalent Windows link destinations consistently when one uses an extended path prefix, including verification after copying a profile with relative links.
-- Make source-test fixtures portable to Windows temporary directories with short path aliases and escaped configuration paths.
+- Install multiple hook groups sharing one target file when the system temporary directory is an alias, such as a Windows 8.3 short path.
+  - The redirected-path guard previously refused these installs.
+- Treat Windows link destinations with and without the extended path prefix (`\\?\`) as the same destination when comparing profiles.
+  - A profile copied with relative links now verifies as matching its source.
 
 ## [1.3.0-beta.2] &mdash; 2026-11-03
 
