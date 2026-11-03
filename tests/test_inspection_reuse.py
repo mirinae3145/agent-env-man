@@ -122,7 +122,7 @@ class CombinedPermissionObservation(unittest.TestCase):
     @unittest.skipIf(os.name == 'nt', 'POSIX descriptor and permission checks')
     def test_combined_observation_matches_legacy_hash_and_permission_digest(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             (root / 'file').write_bytes(b'content')
             (root / 'file').chmod(0o751)
             (root / 'empty').mkdir()
@@ -142,7 +142,7 @@ class CombinedPermissionObservation(unittest.TestCase):
     @unittest.skipIf(os.name == 'nt', 'POSIX descriptor and permission checks')
     def test_permission_change_during_content_read_is_refused(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             leaf = root / 'file'
             leaf.write_bytes(b'content')
             leaf.chmod(0o644)

@@ -20,7 +20,7 @@ class ProgressCommands(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="aem-progress-")
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.config = self.root / "machine.toml"
         self.config.write_text("version = 1\n", encoding="utf-8")
         self.runner = CliRunner()

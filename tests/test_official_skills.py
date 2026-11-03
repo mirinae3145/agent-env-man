@@ -22,7 +22,7 @@ class OfficialSkillResources(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="aem-skill-resources-")
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
 
     def test_source_checkout_fallback_requires_a_descriptor(self):
         module = self.root / "src/agent_env_man/official_skills.py"

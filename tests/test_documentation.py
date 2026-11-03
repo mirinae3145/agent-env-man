@@ -24,7 +24,7 @@ _spec.loader.exec_module(_build)
 class Documentation(unittest.TestCase):
     def test_lookup_without_configuration_or_working_checkout(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             config = root / "invalid.toml"
             config.write_text("not valid TOML [", encoding="utf-8")
             previous = Path.cwd()
@@ -46,7 +46,7 @@ class Documentation(unittest.TestCase):
 
     def test_installed_resources_take_precedence_and_missing_resources_fail(self):
         with tempfile.TemporaryDirectory() as directory:
-            package = Path(directory) / "site-packages" / "agent_env_man"
+            package = Path(directory).resolve() / "site-packages" / "agent_env_man"
             module = package / "commands" / "documentation.py"
             module.parent.mkdir(parents=True)
             root = package / "_documentation"
@@ -67,7 +67,7 @@ class DocumentationBuild(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="aem-build-docs-")
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.sources = {
             "README.md": b"[Guide](docs/guide.md)\n",
             "LICENSE.txt": b"license\n",

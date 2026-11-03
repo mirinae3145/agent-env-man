@@ -17,7 +17,7 @@ class CliTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="aem-cli-")
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.config = self.root / "missing machine.toml"
         self.runner = CliRunner()
 

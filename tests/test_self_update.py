@@ -39,7 +39,7 @@ class Releases(unittest.TestCase):
 
     def test_installation_lock_is_outside_tools_and_shared_by_aliases(self):
         with tempfile.TemporaryDirectory() as directory:
-            tools = Path(directory) / 'tools'
+            tools = Path(directory).resolve() / 'tools'
             tools.mkdir()
             settings = {'tool_dir': str(tools)}
             shared = self_update.installation_lock(settings)
@@ -58,7 +58,7 @@ class Releases(unittest.TestCase):
     @unittest.skipUnless(shutil.which('uv'), 'uv is required for tool discovery regression')
     def test_uv_tool_list_with_persistent_installation_lock(self):
         with tempfile.TemporaryDirectory() as directory:
-            tools = Path(directory) / 'tools'
+            tools = Path(directory).resolve() / 'tools'
             tools.mkdir()
             shared = self_update.installation_lock({'tool_dir': str(tools)})
             environment = dict(os.environ, UV_TOOL_DIR=str(tools),
@@ -166,7 +166,7 @@ class OriginalWorker(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='aem-original-worker-')
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.config = self.root / 'machine.toml'
         self.state_dir = self.root / 'machine.toml.state'
         self.result = self.state_dir / 'self-update.json'

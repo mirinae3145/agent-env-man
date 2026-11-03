@@ -15,7 +15,7 @@ HERDR = 'bash {root}/hooks/herdr-agent-state.sh session'
 
 class ToolHooks(unittest.TestCase):
     def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp())
+        self.tmp = Path(tempfile.mkdtemp()).resolve()
         self.addCleanup(lambda: __import__('shutil').rmtree(self.tmp, ignore_errors=True))
         self.roots = {name: self.tmp / name for name in ('claude', 'claude-lab')}
         for name, root in self.roots.items():
@@ -30,9 +30,9 @@ class ToolHooks(unittest.TestCase):
             {'matcher': '', 'hooks': [{'type': 'command', 'command': command or HERDR.format(root=root)}]}]}}))
 
     def write_config(self, tool='herdr', command=sys.executable, extra=''):
-        agents = ''.join(f'[agents.{name}]\nroot = "{root}"\nskills = "{root}/skills"\n'
+        agents = ''.join(f'[agents.{name}]\nroot = {json.dumps(str(root))}\nskills = {json.dumps(str(root / "skills"))}\n'
                          for name, root in self.roots.items())
-        self.config.write_text(f'version = 1\n{agents}[tool_hooks.{tool}]\ncommand = "{command}"\n'
+        self.config.write_text(f'version = 1\n{agents}[tool_hooks.{tool}]\ncommand = {json.dumps(command)}\n'
                                f'event = "SessionStart"\ncontains = "herdr-agent-state.sh"\n{extra}')
 
     def check(self, *args):

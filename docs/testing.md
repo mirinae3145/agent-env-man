@@ -4,6 +4,43 @@
 Use this guide to select portability, distribution, and coverage checks for the affected contracts.
 Tests must use temporary homes, configuration, targets, and local Git remotes rather than real user profiles or credentials.
 
+## Continuous integration
+
+The [CI workflow](https://github.com/mirinae3145/agent-env-man/blob/master/.github/workflows/ci.yml) checks pull requests targeting master, master pushes, and manual dispatches.
+Pull requests test GitHub's merge revision; pushes test the pushed revision.
+The matrix runs these independent checks:
+
+| Check | Runners | Python | Commands |
+| --- | --- | --- | --- |
+| Source | Ubuntu 24.04, Windows Server 2025 | 3.11, 3.15 | Full unittest discovery and compileall |
+| Distribution | Ubuntu 24.04, Windows Server 2025 | 3.11 | Direct wheel and sdist-rebuilt wheel runtime verification |
+
+Every job requires working file and directory symlinks; Windows also requires Windows PowerShell.
+A missing capability fails preparation instead of silently skipping its success paths.
+Verbose unittest logs retain individual skips, including tests for the other operating system.
+Source jobs install the development extra and uv to exercise tool-discovery tests.
+
+One Ubuntu source job checks whitespace against the PR base or the push's previous revision.
+Manual dispatch checks the last commit; an initial push or root commit is compared with an empty tree.
+Jobs have a 45-minute timeout and do not cancel other matrix jobs on failure.
+A newer PR revision cancels the previous run for that PR.
+
+Each job uploads command logs for 14 days, including on failure when logs are available.
+Inspect the failed step and skip reasons before interpreting a run as platform coverage.
+The workflow uses read-only repository permissions and does not publish packages or configure required checks.
+Hosted Linux and Windows checks do not cover WSL interoperability, real mounted filesystems, or live agent integrations.
+
+To reproduce both distribution paths, install build and run the helper from a development environment:
+
+```bash
+python -m pip install build
+python scripts/verify_distribution.py
+```
+
+The helper builds in isolation and creates separate runtime environments without pip, setuptools, coverage, or build.
+It invokes the existing runtime verifier for each wheel and exits unsuccessfully if any build, installation, or verification fails.
+Temporary build and runtime directories are removed when the helper exits.
+
 ## Writing for multiple execution environments
 
 Consider supported environments while designing the change, even when only one is available for execution.

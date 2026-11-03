@@ -22,7 +22,7 @@ class StandaloneRuntime(unittest.TestCase):
 
     def test_copied_worker_rejects_stale_request_without_site_packages(self):
         with tempfile.TemporaryDirectory(prefix="aem-standalone-worker-") as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             request_directory = root / "request"
             request_directory.mkdir()
             for name in ("self_update.py", "process_lock.py", "official_skills.py", "link_paths.py"):

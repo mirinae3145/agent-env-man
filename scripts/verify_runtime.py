@@ -123,7 +123,9 @@ def verify():
     require(not origin.get("dir_info", {}).get("editable"), "Use an installed wheel, not an editable checkout")
 
     with tempfile.TemporaryDirectory(prefix="aem-runtime-") as directory:
-        root = Path(directory)
+        # Temporary roots may use Windows short names or a redirected TMPDIR.
+        # Declare canonical fixture paths so ancestry guards test the payload.
+        root = Path(directory).resolve()
         home = root / "home"
         home.mkdir()
         markers = {home / ".bashrc": b"preserve bash\n", home / ".zshrc": b"preserve zsh\n"}

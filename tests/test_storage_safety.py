@@ -35,7 +35,7 @@ class StorageSafety(unittest.TestCase):
     @unittest.skipUnless(hasattr(os, "mkfifo"), "FIFO payload fixture requires POSIX")
     def test_fingerprint_rejects_special_files_without_reading_them(self):
         with tempfile.TemporaryDirectory(prefix="aem-special-file-") as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             fifo = root / "pipe"
             os.mkfifo(fifo)
             with self.assertRaisesRegex(Error, "Special files are unsupported"):
@@ -46,7 +46,7 @@ class StorageSafety(unittest.TestCase):
 class ParallelPayloadInspection(unittest.TestCase):
     def test_fingerprint_memory_stays_bounded_across_many_directories(self):
         with tempfile.TemporaryDirectory(prefix="aem-bounded-hash-") as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             for index in range(300):
                 child = root / f"directory-{index:03}"
                 child.mkdir()
@@ -70,7 +70,7 @@ class ParallelPayloadInspection(unittest.TestCase):
 
     def test_parallel_reads_preserve_serial_hash_encoding(self):
         with tempfile.TemporaryDirectory(prefix="aem-parallel-hash-") as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             (root / "0-probe").write_bytes(b"probe")
             (root / "a").mkdir()
             (root / "a" / "empty").mkdir()
@@ -146,7 +146,7 @@ class ParallelPayloadInspection(unittest.TestCase):
     def test_parallel_inspection_preserves_permission_policy_and_node_types(self):
         from agent_env_man import payload_links, permissions
         with tempfile.TemporaryDirectory(prefix="aem-parallel-permissions-") as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             (root / "nested").mkdir()
             for index in range(12):
                 (root / "nested" / f"file-{index:02}").write_bytes(str(index).encode())
@@ -189,7 +189,7 @@ class ParallelPayloadInspection(unittest.TestCase):
     def test_failed_parallel_copy_keeps_parents_pinned_until_readers_finish(self):
         from agent_env_man import payload_links
         with tempfile.TemporaryDirectory(prefix="aem-parallel-failure-") as directory:
-            root = Path(directory) / "source"
+            root = Path(directory).resolve() / "source"
             root.mkdir()
             for name in ("0-probe", "a", "b"):
                 (root / name).write_bytes(name.encode())
@@ -221,7 +221,7 @@ class ParallelPayloadInspection(unittest.TestCase):
 
             with patch.object(payload_links.os, "read", side_effect=read), patch.object(payload_links.os, "close", side_effect=close):
                 with self.assertRaisesRegex(OSError, "failed leaf read"):
-                    payload_links.scan(root, destination=Path(directory) / "copy")
+                    payload_links.scan(root, destination=root.parent / "copy")
             self.assertTrue(started.is_set())
             self.assertTrue(finished.is_set())
             self.assertEqual(violations, [])

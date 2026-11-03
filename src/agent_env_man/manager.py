@@ -1114,7 +1114,7 @@ class Manager:
             first = group[0]
             if len(group) > 1:
                 with tempfile.TemporaryDirectory() as directory:
-                    shadow = Path(directory) / "hooks.json"
+                    shadow = Path(directory).resolve() / "hooks.json"
                     if exists(target):
                         shadow.write_bytes(target.read_bytes())
                     for plan in group:

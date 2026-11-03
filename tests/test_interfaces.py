@@ -21,7 +21,7 @@ class Interfaces(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="aem-interface-")
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.machine = self.root / "machine.toml"
         self.machine.write_text("version = 1\n", encoding="utf-8")
 
