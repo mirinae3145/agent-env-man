@@ -61,10 +61,9 @@ def interpreter():
     and versioned names, and uv launchers switch between them on reinstall.
     Prefer the environment's `python` so reinstalling does not rewrite hooks.
     """
-    executable = Path(sys.executable)
     if os.name != "nt" and sys.prefix != sys.base_prefix:
         canonical = Path(sys.prefix) / "bin" / "python"
-        if executable.parent == canonical.parent and canonical.exists():
+        if Path(sys.executable).parent == canonical.parent and canonical.exists():
             return str(canonical)
     return sys.executable
 
