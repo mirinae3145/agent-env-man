@@ -72,6 +72,7 @@ class DocumentationBuild(unittest.TestCase):
             "README.md": b"[Guide](docs/guide.md)\n",
             "LICENSE.txt": b"license\n",
             "docs/guide.md": b"guide\n",
+            "docs/guide/reference.md": b"nested reference\n",
             "examples/catalog.toml": b"version = 2\n",
         }
         for relative, content in self.sources.items():
