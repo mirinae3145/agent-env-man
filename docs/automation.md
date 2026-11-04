@@ -159,7 +159,7 @@ aem setup --catalog-trigger interval --dry-run
 These options write device-local settings; no manual `machine.toml` edit is required.
 Repeated trigger options replace the complete event list; omitted options retain their saved values.
 Policy-only setup needs no executable or startup selections and leaves existing profiles alone.
-The underlying `catalog_update` table remains documented in [Configuration](configuration.md#catalog-automatic-update-settings).
+The underlying `catalog_update` table remains documented in [Configuration](configuration/automation.md#catalog-automatic-update-settings).
 
 ### Eligibility and startup sequence
 
@@ -209,7 +209,7 @@ Automatic sync handles skills and directories independently and preserves confli
 Explicit `update`, `apply`, `sync`, and `status --refresh` ignore automatic policies.
 Agent startup shows a brief message for completed updates or installations; full outcomes and failures remain in status.
 Instruction location hooks installed by apply do not trigger updates.
-See [policy fields and precedence](configuration.md#update-policies).
+See [policy fields and precedence](configuration/catalog.md#update-policies).
 
 ## Automatic settings sync
 

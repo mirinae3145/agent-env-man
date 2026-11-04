@@ -98,4 +98,4 @@ Removing a declaration never removes its installed group.
 Active Git scripts remain guarded against removal/type changes even when another shared consumer initiates update after the hook declaration disappears.
 Recovery preserves later user edits and stops rather than guessing ownership.
 
-See [Configuration](configuration.md#personal-hook-declarations-and-runtime-bindings) for supported fields and events, [Commands](commands.md#hooks-remove) for selection, and [Maintenance](maintenance.md) for backups and recovery.
+See [Configuration](configuration/hooks.md#personal-hook-declarations-and-runtime-bindings) for supported fields and events, [Commands](commands/maintenance.md#hooks-remove) for selection, and [Maintenance](maintenance.md) for backups and recovery.

@@ -120,7 +120,7 @@ agent = "claude-lab"
 ```
 
 Here both setting names must exist in the catalog; the agent field does not clone declarations automatically.
-Give the catalog declaration the same `agent` so that machines without that profile skip it instead of failing for a missing binding; see [settings declarations](configuration.md#application-settings-declarations-and-bindings).
+Give the catalog declaration the same `agent` so that machines without that profile skip it instead of failing for a missing binding; see [settings declarations](configuration/settings.md#application-settings-declarations-and-bindings).
 The agent must be configured to prepare or apply an active setting, and its settings target must be inside that agent's root.
 Detached associations may remain recorded after removing the instance; they cannot be reattached until it is configured again.
 `apply --agent claude-lab` selects lab-preferences and leaves claude-preferences alone.

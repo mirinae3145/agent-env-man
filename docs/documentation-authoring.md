@@ -10,6 +10,15 @@ Keep change-specific validation results with the change, rather than adding them
 Keep the README focused on installation, a minimal working example, everyday commands, and preservation boundaries.
 Link advanced workflows to their detailed guides.
 
+The [documentation index](README.md) introduces every guide with a summary of its purpose.
+A guide that gains child documents keeps its existing path and places the children in a companion folder, such as `commands.md` and `commands/`.
+The parent introduces each child with a summary and link; lateral references identify the contract or workflow they supply.
+
+Each detailed topic serves one reader task: carrying out a procedure, looking up a contract, or understanding a design.
+Move substantial content serving a different task into its own topic.
+Keep headings within H1 through H3; promote a topic needing another level into a child document.
+Give each file and independently readable topic an overview, and update parent summaries after the child content settles.
+
 Within detailed guides, group related information under descriptive subheadings so readers can find prerequisites, steps, selection scope, constraints, outcomes, and recovery.
 Choose the structure for the topic rather than repeating a fixed template in every section.
 Use ordered lists for sequential procedures, bullets for independent requirements, and tables for comparable choices or field contracts.

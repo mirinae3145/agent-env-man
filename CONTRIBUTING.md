@@ -1,5 +1,8 @@
 # Contributing
 
+This guide covers development setup, verification choices, and the contracts contributors must preserve.
+The [documentation index](docs/README.md) introduces the detailed user and contributor guides.
+
 ## Development setup
 
 Use Python 3.11 or later and Git.
@@ -65,7 +68,7 @@ The [agent profile contracts](docs/agent-profiles.md) define the internal extens
 
 ## Documentation and releases
 
-Keep [Configuration](docs/configuration.md) and [Commands](docs/commands.md) authoritative for TOML fields and CLI contracts.
+Keep [Configuration](docs/configuration.md) and [Commands](docs/commands.md) and their linked topic references authoritative for TOML fields and CLI contracts.
 Update relevant documentation, examples, and platform limitations when interfaces or workflows change.
 Follow [Documentation authoring](docs/documentation-authoring.md) for CLI help, installed resources, and official skill guidance.
 The README retains essential user setup and workflows; detailed references and contributor contracts belong in the linked guides.

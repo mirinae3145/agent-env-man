@@ -51,7 +51,7 @@ Inspect backup and conflict reports before continuing.
 
 AEM never automatically deletes or moves old checkouts, state, detached contents, or replacement backups.
 Editing the catalog does not itself create a package release or Git tag.
-See the [configuration reference](configuration.md#catalog) for the complete grammar.
+See the [configuration reference](configuration/catalog.md#catalog) for the complete grammar.
 
 ## Before upgrading an existing installation
 
