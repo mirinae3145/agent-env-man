@@ -9,8 +9,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- A CI upgrade job that self-updates the first and latest final releases of each minor series from 1.0 and the candidate prerelease series boundaries to the tested revision, checking compatible-mode permissions and preserved state.
-- An agent integration workflow that checks whether the latest Codex and Claude Code CLIs read a fresh AEM setup on pull requests, daily, and on manual dispatch.
+- **CI upgrade checks**: A CI job self-updates selected releases to the tested revision.
+  - It covers the first and latest final releases of each minor series from 1.0, plus the candidate prerelease series boundaries.
+  - Checks verify compatible-mode permissions and preserved state.
+- **Agent integration**: A workflow checks whether the latest Codex and Claude Code CLIs read a fresh AEM setup.
+  It runs on pull requests, daily, and on manual dispatch.
 - `scripts/verify_upgrade.py` and `scripts/verify_agents.py` to reproduce these checks locally.
 
 ### Changed
@@ -24,7 +27,7 @@ Git tag `v1.3.0-beta.3` corresponds to Python package version `1.3.0b3`; based o
 
 ### Added
 
-- GitHub Actions CI for pull requests to master, master pushes, and manual runs.
+- **Continuous integration**: GitHub Actions CI for pull requests to master, master pushes, and manual runs.
   - Source jobs run the full test suite on Ubuntu and native Windows with Python 3.11 and 3.15.
   - Distribution jobs install direct and sdist-rebuilt wheels into isolated runtime environments and run the runtime verifier.
   - Jobs fail when symbolic links or Windows PowerShell are unavailable.
@@ -34,13 +37,13 @@ Git tag `v1.3.0-beta.3` corresponds to Python package version `1.3.0b3`; based o
 
 ### Fixed
 
-- Install multiple hook groups sharing one target file when the system temporary directory is an alias, such as a Windows 8.3 short path.
+- **Hook installation**: Install multiple hook groups sharing one target file when the system temporary directory is an alias, such as a Windows 8.3 short path.
   - The redirected-path guard previously refused these installs.
-- Treat Windows link destinations with and without the extended path prefix (`\\?\`) as the same destination when comparing profiles.
+- **Windows link comparison**: Treat Windows link destinations with and without the extended path prefix (`\\?\`) as the same destination when comparing profiles.
   - A profile copied with relative links now verifies as matching its source.
-- Refuse `bootstrap --root skills=PATH` or `agent=PATH` when it would move the Codex binding of active setup integrations.
+- **Active Codex setup binding**: Refuse `bootstrap --root skills=PATH` or `agent=PATH` when it would move the Codex binding of active setup integrations.
   - Bootstrap previously moved the binding, leaving setup hooks and the official skill at the old location and failing later self-updates.
-- Keep agent hook commands unchanged when uv reinstalls AEM, including through self-update.
+- **Hook command stability**: Keep agent hook commands unchanged when uv reinstalls AEM, including through self-update.
   - Setup previously rewrote hook files with backups after a reinstall because the launcher switched between `python` and `python3`.
 
 ## [1.3.0-beta.2] &mdash; 2026-11-03
@@ -53,8 +56,8 @@ Includes `v1.2.1` through merge commit `6f119b9`, which combines the `v1.2.1` an
 - Include the `v1.2.1` fix that delivers instruction reading locations to Codex and Claude Code subagents while preserving existing session callbacks and user hooks.
 - Make `aem compare` reject malformed hook event and group structures with an error instead of silently ignoring them or failing with an unhandled exception.
 - Preserve distinct settings fields in profile comparisons when JSON keys contain literal dots or backslashes.
-- Restore an existing empty `copy-profile` destination and its permissions when the final move from staging fails.
-  Preserve targets populated during staging or recreated by another writer, and clean up staging files after failure.
+- **Profile-copy failure recovery**: Restore an existing empty `copy-profile` destination and its permissions when the final move from staging fails.
+  - Preserve targets populated during staging or recreated by another writer, and clean up staging files after failure.
 
 ## [1.2.1] &mdash; 2026-11-03
 
@@ -62,7 +65,7 @@ Git tag `v1.2.1` corresponds to Python package version `1.2.1`; based on `v1.2.0
 
 ### Fixed
 
-- Deliver instruction reading locations to Codex and Claude Code subagents through owned `SubagentStart` callbacks.
+- **Subagent instruction locations**: Deliver instruction reading locations to Codex and Claude Code subagents through owned `SubagentStart` callbacks.
   Ordinary apply adds the missing registration while preserving existing session callbacks, user hooks, saved ownership, and recovery behavior.
 
 ## [1.3.0-beta.1] &mdash; 2026-11-03
@@ -71,27 +74,28 @@ Git tag `v1.3.0-beta.1` corresponds to Python package version `1.3.0b1`; based o
 
 ### Added
 
-- Named Claude and Codex destinations such as `claude-lab` and `codex-lab`, with independent roots, hooks, content ownership, selection and recovery.
-Existing destinations and saved IDs remain compatible; overlapping roots and unregistered selections are refused.
-- Agent-specific settings and directories through optional catalog `settings.NAME.agent` and `directories.NAME.agent`, plus machine setting-to-agent associations for separate profiles.
-Machines skip catalog declarations for unregistered destinations; registered settings targets must name the same agent, and bound directories default to that destination's root.
-Existing unbound settings retain their selection behavior but are excluded by new named selectors; unbound directories remain independent of agent selection.
-Older AEM versions reject the new catalog fields.
-- `aem compare LEFT RIGHT` for offline, read-only comparison of Claude Code profiles, including settings, hooks, skills, output styles, instructions and plugin versions.
-Paths are normalized, `--expect` marks intended differences, and values remain digests unless `--values` is requested.
-- `aem copy-profile SOURCE TARGET` to preview an independent Claude Code profile copy, with `--write` to create it and `--set FIELD=VALUE` to override fields.
-Copies include settings, instructions, output styles, skill links and hook scripts, with profile paths rewritten and the result compared against the source.
-Credentials, sessions, plugins and AEM-managed hooks and links are excluded; plugin reinstall commands are reported for manual execution.
-- `aem check-tool-hooks` and optional machine `tool_hooks` declarations to report missing tool-owned hooks across Claude Code profiles without modifying them.
-Older AEM versions reject machine files containing `tool_hooks`.
+- **Named agent destinations**: Named Claude and Codex destinations such as `claude-lab` and `codex-lab`, with independent roots, hooks, content ownership, selection and recovery.
+  - Existing destinations and saved IDs remain compatible; overlapping roots and unregistered selections are refused.
+- **Agent-bound content**: Agent-specific settings and directories through optional catalog `settings.NAME.agent` and `directories.NAME.agent`, plus machine setting-to-agent associations for separate profiles.
+  - Machines skip catalog declarations for unregistered destinations; registered settings targets must name the same agent, and bound directories default to that destination's root.
+  - Existing unbound settings retain their selection behavior but are excluded by new named selectors; unbound directories remain independent of agent selection.
+  - Older AEM versions reject the new catalog fields.
+- **Profile comparison**: `aem compare LEFT RIGHT` for offline, read-only comparison of Claude Code profiles, including settings, hooks, skills, output styles, instructions and plugin versions.
+  Paths are normalized, `--expect` marks intended differences, and values remain digests unless `--values` is requested.
+- **Profile copying**: `aem copy-profile SOURCE TARGET` to preview an independent Claude Code profile copy, with `--write` to create it and `--set FIELD=VALUE` to override fields.
+  - Copies include settings, instructions, output styles, skill links and hook scripts, with profile paths rewritten and the result compared against the source.
+  - Credentials, sessions, plugins and AEM-managed hooks and links are excluded; plugin reinstall commands are reported for manual execution.
+- **Tool hook checks**: `aem check-tool-hooks` and optional machine `tool_hooks` declarations to report missing tool-owned hooks across Claude Code profiles without modifying them.
+  - Older AEM versions reject machine files containing `tool_hooks`.
 
 ## [1.2.0] &mdash; 2026-10-25
 
 ### Fixed
 
-- Suppress incidental Windows console windows from test fixture processes while preserving native detached-process checks, and make path and byte-preservation assertions independent of Windows JSON escaping and newline translation.
-- Release configuration and installation locks before command result formatting/output and during self-update remote release discovery and metadata validation.
-Revalidate the request, policies, recovery state, official skill ownership, and installed version before replacement, preserving newer requests and cancelling stale prepared updates.
+- **Windows test behavior**: Suppress incidental console windows from Windows test fixture processes while preserving native detached-process checks.
+  Make path and byte-preservation assertions independent of Windows JSON escaping and newline translation.
+- **Lock scope and self-update revalidation**: Release configuration and installation locks before command result formatting/output and during self-update remote release discovery and metadata validation.
+  Revalidate the request, policies, recovery state, official skill ownership, and installed version before replacement, preserving newer requests and cancelling stale prepared updates.
 
 ## [1.2.0-rc.3] &mdash; 2026-10-15
 
@@ -99,46 +103,48 @@ Git tag `v1.2.0-rc.3` corresponds to Python package version `1.2.0rc3`; based on
 
 ### Added
 
-- Optional live stderr progress for long-running foreground operations, showing phases, current targets, and elapsed time across content, repository, catalog, and settings work.
-Terminal text commands enable it automatically; `--progress` and `--no-progress` control it explicitly without changing stdout, JSON results, callback output, or transaction behavior.
+- **Foreground progress**: Optional live stderr progress for long-running foreground operations, showing phases, current targets, and elapsed time across content, repository, catalog, and settings work.
+  Terminal text commands enable it automatically; `--progress` and `--no-progress` control it explicitly without changing stdout, JSON results, callback output, or transaction behavior.
 
 ### Changed
 
-- Reduce repeated payload reads in source preparation, status, installation planning, detach, reverse collection, and recovery cleanup.
-Capture content hashes, change paths, and best-effort permission observations from the same inspections.
-Installation and staging retain fresh concurrent-change checks; differing saved and current policies are inspected separately.
+- **Shared payload inspections**: Reduce repeated payload reads in source preparation, status, installation planning, detach, reverse collection, and recovery cleanup.
+  - Capture content hashes, change paths, and best-effort permission observations from the same inspections.
+  - Installation and staging retain fresh concurrent-change checks; differing saved and current policies are inspected separately.
 - Batch Git operation-path queries, avoid unused publication diff reports, and validate shared checkout bindings once per source-map construction while rechecking paths on later access.
 
 ### Fixed
 
-- Reinspect guarded POSIX payloads once when only modification or metadata-change timestamps drift during inspection or copying.
-Accept only a stable matching content, identity, structure, and permission capture; retain refusal for actual changes, continuing instability, and timestamp-setting failures.
-Copy retries retire and verify their temporary destination before removal, support read-only directories, preserve raced replacements for recovery, and expose only the successful attempt's permission report.
+- **POSIX payload inspection retries**: Reinspect guarded POSIX payloads once when only modification or metadata-change timestamps drift during inspection or copying.
+  - Accept only a stable matching content, identity, structure, and permission capture; retain refusal for actual changes, continuing instability, and timestamp-setting failures.
+  - Copy retries retire and verify temporary destinations before removal, support read-only directories, preserve raced replacements for recovery, and report only the successful attempt's permissions.
 
 ## [1.2.0-rc.2] &mdash; 2026-10-14
 
 ### Added
 
-- Hierarchical catalog permission preservation levels for payloads, with existing strict behavior by default and opt-in best-effort copying.
-Best-effort reports native mode differences, separately protects content and later permission edits, and shares saved policy across status, detach, reverse collection, and recovery.
+- **Permission preservation policies**: Hierarchical catalog permission preservation levels for payloads, with existing strict behavior by default and opt-in best-effort copying.
+  Best-effort reports native mode differences, separately protects content and later permission edits, and shares saved policy across status, detach, reverse collection, and recovery.
 
 ### Changed
 
-- Inspect payload files with bounded parallel I/O when read latency warrants it, retaining synchronous I/O for fast filesystems while preserving existing fingerprints, link handling, exclusion rules, and transaction checks.
-Full content inspection remains enabled; no server-specific transport or persistent content cache is required.
+- **Adaptive parallel inspection**: Inspect payload files with bounded parallel I/O when read latency warrants it, retaining synchronous I/O for fast filesystems.
+  Preserve existing fingerprints, link handling, exclusion rules, and transaction checks.
+  Full content inspection remains enabled; no server-specific transport or persistent content cache is required.
 
 ### Fixed
 
-- Copy installation and link detach distinguish a changed source from a staged copy mismatch, with destination content and executable-permission guidance for mismatches.
-Failed verification still preserves the existing installation and ownership.
+- **Copy mismatch diagnostics**: Copy installation and link detach distinguish a changed source from a staged copy mismatch, with destination content and executable-permission guidance for mismatches.
+  Failed verification still preserves the existing installation and ownership.
 
 ## [1.2.0-rc.1] &mdash; 2026-10-13
 
 ### Added
 
-- Catalog payload exclusions at global, source, and item scope, with anchored glob matching for skills, directories, and instruction bundles.
-Inspection, copying, status, detach, and reverse collection share the saved policy; replacement preserves excluded local entries without reading their contents and retains recoverable ownership boundaries.
-- Official AEM skill guidance investigates actual differences when operations fail because of conflicts, using AEM reports, Git inspection, and direct comparisons as needed, then summarizes key differences and any comparison limits while preserving conflicting contents.
+- **Payload exclusions**: Catalog payload exclusions at global, source, and item scope, with anchored glob matching for skills, directories, and instruction bundles.
+  Inspection, copying, status, detach, and reverse collection share the saved policy; replacement preserves excluded local entries without reading their contents and retains recoverable ownership boundaries.
+- **Conflict investigation**: Official AEM skill guidance investigates actual differences when operations fail because of conflicts, using AEM reports, Git inspection, and direct comparisons as needed.
+  It then summarizes key differences and comparison limits while preserving conflicting contents.
 
 ## [1.2.0-rc] &mdash; 2026-10-08
 
@@ -147,25 +153,27 @@ First release candidate of 1.2.0; Git tag `v1.2.0-rc` corresponds to Python pack
 ### Added
 
 - Global `--verbose` for detailed text reports.
-- Platform-independent catalog reading and delivery for directory link-preservation declarations, with item-level Windows diagnostics and preflight refusal before unsupported content operations.
-Independent supported items remain usable; shared-source and saved ownership protection remain enforced.
-- Explicit full-automation exclusion of platform-unsupported items through machine `automation.skip_unsupported` and installer/setup `--automation-skip-unsupported` / `--no-automation-skip-unsupported` options.
-The default remains refusal; previews and full results report exclusions, while policy-based automation retains independent failures and throttling.
-- Managed instruction bundle copies with global entries linked into the installed reading tree, offline location and hook lookup, machine mode overrides, and explicit `publish --from-copy` collection with conflict protection.
+- **Platform support checks**: Platform-independent catalog reading and delivery for directory link-preservation declarations, with item-level Windows diagnostics and preflight refusal before unsupported content operations.
+  Independent supported items remain usable; shared-source and saved ownership protection remain enforced.
+- **Unsupported-item exclusions**: Explicit full-automation exclusion of platform-unsupported items through machine `automation.skip_unsupported` and installer/setup `--automation-skip-unsupported` / `--no-automation-skip-unsupported` options.
+  The default remains refusal; previews and full results report exclusions, while policy-based automation retains independent failures and throttling.
+- **Instruction bundle copies**: Managed copies link global entries into the installed reading tree and support offline location and hook lookup.
+  They support machine mode overrides and explicit `publish --from-copy` collection with conflict protection.
 - Copy-backed local catalog bindings through `bootstrap --catalog-copy`, with offline consumption, explicit validated update and `catalog publish --from-copy`, source location, common-baseline conflict protection, and recoverable file/binding changes.
 
 ### Changed
 
 - Focus the README on installation and basic use, structure detailed guides by task and contract, and clarify catalog-copy support and current external-source declarations.
-- Official AEM skill guidance follows applicable content instructions without adding an authoring procedure, removes the implied commit prerequisite for refreshing copies, and routes uncommon operational details to CLI help and local documentation.
-- Default CLI reports summarize results by content type, omit routine metadata, and retain failure, conflict, recovery, settings field paths, and action notices.
-Text distinguishes previews and last-fetch observations and adds duration units.
+- **Official skill guidance**: Follow applicable content instructions without adding an authoring procedure.
+  Remove the implied commit prerequisite for refreshing copies, and route uncommon operational details to CLI help and local documentation.
+- **Concise CLI reports**: Default CLI reports summarize results by content type, omit routine metadata, and retain failure, conflict, recovery, settings field paths, and action notices.
+  Text distinguishes previews and last-fetch observations and adds duration units.
 
 ### Fixed
 
-- Non-skill bootstrap content was reported under skill identities.
-Canonical JSON `items` identify content names, kinds, and preparation phases; legacy `skills` results remain compatible with explanatory fields on non-skill entries.
-Text uses the correct content groups without duplicating the legacy view.
+- **Bootstrap content identities**: Non-skill bootstrap content was reported under skill identities.
+  - Canonical JSON `items` identify content names, kinds, and preparation phases; legacy `skills` results remain compatible with explanatory fields on non-skill entries.
+  - Text uses the correct content groups without duplicating the legacy view.
 - Empty command results no longer print an unexplained `none`; summaries describe when there is no content to prepare, install, inspect, update, or detach.
 
 ## [1.2.0-beta] &mdash; 2026-10-08
@@ -174,19 +182,20 @@ First beta of 1.2.0; Git tag `v1.2.0-beta` corresponds to Python package version
 
 ### Added
 
-- Opt-in POSIX symbolic link preservation for general directories with `preserve_symlinks`, including installation, updates, reverse copy collection, detach, and recovery.
-Relative link text must stay within the Git checkout or external source root; absolute and dangling links are preserved without traversing their targets.
-Windows opt-in is refused, and existing catalogs retain their link rejection policy.
+- **Directory symbolic links**: Opt-in POSIX symbolic link preservation for general directories with `preserve_symlinks`, including installation, updates, reverse copy collection, detach, and recovery.
+  - Relative link text must stay within the Git checkout or external source root; absolute and dangling links are preserved without traversing their targets.
+  - Windows opt-in is refused, and existing catalogs retain their link rejection policy.
 
 - `locate NAME --repo` selects the prepared source Git checkout root for skills, directories, instructions, settings, and personal hooks; combine with `--cd` to enter the repository through existing shell integration.
-- Catalog source names in `locate --source`, `locate --repo`, and `update`, with explicit `source:NAME` selectors to disambiguate names while preserving existing item selection.
-Updating a named source selects all its consumers, including shared settings reception into their stages.
-Prepared named sources retain their branch binding for explicit lookup and update after their last consumer is removed.
-- Default general directory installation to the saved `home` root when `install.root` is omitted, allowing the entire installation table to be omitted.
-Bootstrap records the user's home directory when the binding is absent, preserves existing bindings, and supports explicit `--root home=PATH` selection.
-- Explicit `publish --from-copy` for managed skill and directory copies, comparing their saved common baseline before collecting into Git or external sources, with offline previews, conflict diagnostics, retained backups, and recovery after interrupted source writes.
-Git publication retains whole-checkout commit/push behavior; external completion confirms local source handoff only.
-Collection preserves affected active links' required paths and file kinds, including orphaned ownership, without restricting content wording.
+- **Named source selection**: Catalog source names in `locate --source`, `locate --repo`, and `update`, with explicit `source:NAME` selectors to disambiguate names while preserving existing item selection.
+  - Updating a named source selects all its consumers, including shared settings reception into their stages.
+  - Prepared named sources retain their branch binding for explicit lookup and update after their last consumer is removed.
+- **Default directory root**: Default general directory installation to the saved `home` root when `install.root` is omitted, allowing the entire installation table to be omitted.
+  Bootstrap records the user's home directory when the binding is absent, preserves existing bindings, and supports explicit `--root home=PATH` selection.
+- **Copy-to-source publication**: Explicit `publish --from-copy` collects managed skill and directory copies into Git or external sources after comparing their saved common baseline.
+  - Collection supports offline previews, conflict diagnostics, retained backups, and recovery after interrupted source writes.
+  - Git publication retains whole-checkout commit/push behavior; external completion confirms local source handoff only.
+  - Collection preserves affected active links' required paths and file kinds, including orphaned ownership, without restricting content wording.
 
 ## [1.1.1] &mdash; 2026-10-07
 
@@ -194,8 +203,9 @@ Git tag `v1.1.1` corresponds to Python package version `1.1.1`; based on `v1.1.0
 
 ### Fixed
 
-- Full automation can receive a newly declared skill from an existing stale shared checkout, including when existing consumers are detached or excluded.
-Validate all declared skills against incoming revisions before advancing shared checkouts, and report the affected skill with a supported update/bootstrap recovery sequence when standalone bootstrap finds an invalid local skill.
+- **Shared checkout skills**: Full automation can receive newly declared skills from existing stale shared checkouts, including when existing consumers are detached or excluded.
+  - Validate all declared skills against incoming revisions before advancing shared checkouts.
+  - When standalone bootstrap finds an invalid local skill, report the affected skill with a supported update/bootstrap recovery sequence.
 
 ## [1.1.0] &mdash; 2026-10-04
 
@@ -204,12 +214,12 @@ Git tag `v1.1.0` corresponds to Python package version `1.1.0`; based on `v1.0.1
 ### Added
 
 - General directory management from Git or external sources, with explicit target roots, link/copy installation, existing publication and preservation contracts, and skill-style automatic update policies.
-- Configure the agent startup callback duration through setup and the standalone installer, retaining the ten-second default and preserving instruction hooks.
-Codex rounds fractional seconds up to an unsigned integer while Claude retains precision.
+- **Startup callback duration**: Configure the agent startup callback duration through setup and the standalone installer, retaining the ten-second default and preserving instruction hooks.
+  Codex rounds fractional seconds up to an unsigned integer while Claude retains precision.
 - Introduce explicit Git timeout option names while retaining the previous CLI names as compatible aliases and preserving saved policy keys.
-- Explicit personal command hook resources for Codex and Claude, with machine-local runtime bindings that preserve virtualenv interpreters, group ownership and existing transaction/recovery protections.
-Saved offline removal uses ownership records without requiring current agent profiles or editable preference stages.
-Personal registrations remain excluded from automatic full runs.
+- **Personal hooks**: Explicit command hook resources for Codex and Claude, with machine-local runtime bindings preserving virtualenv interpreters, group ownership and existing transaction/recovery protections.
+  - Saved offline removal uses ownership records without requiring current agent profiles or editable preference stages.
+  - Personal registrations remain excluded from automatic full runs.
 
 ### Changed
 
@@ -218,7 +228,8 @@ Personal registrations remain excluded from automatic full runs.
 ### Fixed
 
 - Reuse shared-checkout fetch results within automatic skill-policy runs while preserving independent policies, attempts, and installation guards, and compare Git history against each reused commit.
-- Wait for short startup contention and allow validated read-only instruction location snapshots during long configuration-lock holds; POSIX CLI readers share the installation lock while update workers remain exclusive.
+- **Startup contention**: Wait for short startup contention and allow validated read-only instruction location snapshots during long configuration-lock holds.
+  POSIX CLI readers share the installation lock while update workers remain exclusive.
 
 - Preserve numeric precision in unrelated hook groups when registering or removing AEM hooks, fixing JSON reserialization loss.
 
@@ -228,13 +239,15 @@ Git tag `v1.0.1` corresponds to Python package version `1.0.1`; based on `v1.0.0
 
 ### Fixed
 
-- Compare physical CRLF and LF newlines consistently in TOML settings without discarding explicit carriage-return escapes, preventing false apply, collection, status, and shared merge differences after target serialization or Git checkout conversion.
+- **TOML newline comparison**: Compare physical CRLF and LF newlines consistently without discarding explicit carriage-return escapes.
+  This prevents false apply, collection, status, and shared merge differences after target serialization or Git checkout conversion.
 
 ## [1.0.0] &mdash; 2026-10-03
 
 First stable major release; Git tag `v1.0.0` corresponds to Python package version `1.0.0`.
 
-- Allow non-hook JSON preferences to share Claude's settings file with AEM setup and instruction hook groups. Reserve the entire hooks field for agent integration, including during collection, source reception, and explicit replacement; preserve settings on setup removal.
+- **Shared Claude settings**: Allow non-hook JSON preferences to share Claude's settings file with AEM setup and instruction hook groups.
+  - Reserve the entire hooks field for agent integration, including during collection, source reception, and explicit replacement; preserve settings on setup removal.
 
 ### Added
 
@@ -247,13 +260,19 @@ First stable major release; Git tag `v1.0.0` corresponds to Python package versi
 - Reorganize contributor guidance into linked architecture, testing, and documentation-authoring guides while retaining development setup and essential preservation rules in CONTRIBUTING.
 - Restore basic usage in the bundled AEM skill, organized by task workflows, with command help and local documentation consulted in sequence only when needed.
 - **Breaking relative to `1.0.0-rc`:** Full device automation now prepares, receives, and applies settings by default, retaining explicit empty-trigger exclusions and detached items.
-To retain manual-only settings in an existing full-mode configuration, disable device automation before upgrading, then set `trigger = []` in each setting's catalog `update` table before restoring full mode; settings remain opt-in in policies mode.
-See [upgrade guidance](docs/automation/policies.md#upgrading-from-manual-only-settings).
+  To retain manual-only settings in an existing full-mode configuration:
+
+  1. Disable device automation before upgrading.
+  1. Set `trigger = []` in each setting's catalog `update` table before restoring full mode.
+
+  Settings remain opt-in in policies mode.
+  See [upgrade guidance](docs/automation/policies.md#upgrading-from-manual-only-settings).
 - Clarify that the first final `1.0.0` establishes the stable public contract, while prerelease self-update series retain their compatibility boundaries and graduation to final requires `breaking` permission.
 
 ### Fixed
 
-- Apply shared Claude preferences and instruction hooks in one file transaction, revalidating all hook sources before committing; preserve shared preferences when removing multiple or retired agent integrations.
+- **Shared Claude settings**: Apply preferences and instruction hooks in one file transaction, revalidating all hook sources before committing.
+  Preserve shared preferences when removing multiple or retired agent integrations.
 
 - Reapplying unchanged TOML or JSON settings preserves mixed line endings byte for byte on Windows.
 - Settings publication comparisons use each item's saved format, including unselected stages in shared checkouts.
@@ -275,10 +294,13 @@ First release candidate of 1.0.0; Git tag `v1.0.0-rc` corresponds to Python pack
 
 ### Fixed
 
-- Recognize Windows extended drive and UNC link destination spellings as the recorded source for skills, instruction bundles, and official skill checks, while preserving raw recovery observations and rejecting substituted aliases.
-- Make filesystem, hook metadata, rollback, and timeout tests portable across Windows drives, path separators, JSON escaping, and read-only Git objects; execute prerelease worker tests with a Windows-compatible fake installer.
+- **Windows link destinations**: Recognize extended drive and UNC spellings as recorded sources for skills, instruction bundles, and official skill checks.
+  Preserve raw recovery observations and reject substituted aliases.
+- **Windows portability**: Make filesystem, hook metadata, rollback, and timeout tests portable across drives, path separators, JSON escaping, and read-only Git objects.
+  Execute prerelease worker tests with a Windows-compatible fake installer.
 
-- Clarify instruction hook location metadata to discourage redundant entry reads and resolve references relative to each source document, including nested entries, without changing link installation or metadata fields.
+- **Instruction hook locations**: Clarify metadata to discourage redundant entry reads and resolve references relative to each source document, including nested entries.
+  Link installation and metadata fields remain unchanged.
 
 ## [1.0.0-beta] &mdash; 2026-10-01
 
@@ -286,14 +308,17 @@ First beta of 1.0.0; Git tag `v1.0.0-beta` corresponds to Python package version
 
 ### Added
 
-- Recognize Python `a`/`b`/`rc` and SemVer-style `-alpha`/`-beta`/`-rc` prerelease tags in AEM self-update and prepared release publication.
-Convert tag labels to Python package notation and treat an omitted subversion as zero in version ordering and tag/package comparisons.
-Prerelease compatible updates increase only the subversion within the same base version and pre label; breaking updates may cross series or graduate to final, while final compatible updates retain their existing range and exclude prereleases.
+- **Prerelease version handling**: Recognize Python `a`/`b`/`rc` and SemVer-style `-alpha`/`-beta`/`-rc` prerelease tags in AEM self-update and prepared release publication.
+  - Convert tag labels to Python package notation and treat an omitted subversion as zero in version ordering and tag/package comparisons.
+  - Prerelease compatible updates increase only the subversion within the same base version and pre label.
+  - Breaking updates may cross series or graduate to final.
+  - Final compatible updates retain their existing range and exclude prereleases.
 - Optional statement and branch coverage measurement for the existing unittest suite, including Python subprocesses, with terminal, HTML, and JSON reports through the development extra.
 - Regression coverage for documentation build hooks, original update-worker failure and continuation paths, and mocked Windows locking and process-exit APIs.
 - A standalone verifier for installed wheels without development dependencies, plus standard-library-only installer and copied-worker regression checks.
-- `aem self publish` publishes a prepared clean AEM checkout's current branch and matching release tag to origin with atomic push, using the recorded local installation source or an explicit `--checkout`.
-Local release preparation remains explicit in Git; publication is independent of machine/catalog state and offers an offline preview.
+- **Prepared release publication**: `aem self publish` atomically pushes a prepared clean AEM checkout's current branch and matching release tag to origin.
+  It uses the recorded local installation source or an explicit `--checkout`.
+  Local release preparation remains explicit in Git; publication is independent of machine/catalog state and offers an offline preview.
 
 ### Changed
 
@@ -322,16 +347,20 @@ Local release preparation remains explicit in Git; publication is independent of
 ### Changed
 
 - Move the authoritative compatibility policy into bundled user documentation; keep contribution and release-history references as optional repository links and document the installed documentation strategy.
-- Expand CLI help with selection scope, settings stage locations and field choices, shell navigation requirements, and publication defaults without changing command behavior; define contributor guidance for concise, sufficient installed help.
-- Move detailed automation, AEM self-update, and maintenance/recovery guidance into dedicated docs guides; retain core workflows and preservation reminders in the README, and clarify contributor guidance without changing its structure or contracts.
+- **CLI help**: Expand help with selection scope, settings stage locations and field choices, shell navigation requirements, and publication defaults without changing command behavior.
+  Define contributor guidance for concise, sufficient installed help.
+- **Detailed guides**: Move automation, AEM self-update, and maintenance/recovery guidance into dedicated docs guides.
+  Retain core workflows and preservation reminders in the README, and clarify contributor guidance without changing its structure or contracts.
 - Official skill contribution guidance prioritizes installed CLI help and authoritative local documentation; streamline `idk-aem` around important operation boundaries, publication scope, and preservation.
 
 ## [0.5.1] &mdash; 2026-10-01
 
 ### Fixed
 
-- Allow first publication of the registered local branch to a verified empty Git remote, including catalog and settings publication; keep authentication/network failures and missing branches in populated remotes fatal.
-- Keep catalog skill replacement and detach backups outside agent discovery roots to prevent duplicate skills, with verified copies and recovery across filesystems while preserving older recovery journals.
+- **First publication**: Allow the registered local branch's first publication to a verified empty Git remote, including catalog and settings publication.
+  - Authentication/network failures and missing branches in populated remotes remain fatal.
+- **Skill backups**: Keep catalog skill replacement and detach backups outside agent discovery roots to prevent duplicate skills.
+  Use verified copies and recovery across filesystems while preserving older recovery journals.
 
 ## [0.5.0] &mdash; 2026-10-01
 
@@ -349,7 +378,8 @@ Local release preparation remains explicit in Git; publication is independent of
 
 ### Fixed
 
-- Instruction callbacks wait for installation-lock contention within the same five-second budget as configuration-lock contention, instead of stopping immediately when another AEM command holds the installation lock.
+- **Instruction callback waits**: Wait for installation-lock contention within the same five-second budget as configuration-lock contention.
+  Previously, callbacks stopped immediately when another AEM command held the installation lock.
 
 ## [0.4.1] &mdash; 2026-10-01
 
@@ -357,14 +387,14 @@ This release preserves existing setup behavior and adds the official skill as an
 
 ### Added
 
-- Official `idk-aem` skill for AEM user operations, authored at `skills/idk-aem/SKILL.md` and included in wheel and source distributions.
-Self-update validates owned skill links and local source edits before package replacement, then verifies or refreshes links through the fresh CLI with separate stage results.
+- **Official operations skill**: Official `idk-aem` skill for AEM user operations, authored at `skills/idk-aem/SKILL.md` and included in wheel and source distributions.
+  Self-update validates owned skill links and local source edits before package replacement, then verifies or refreshes links through the fresh CLI with separate stage results.
 
 ### Changed
 
-- Agent setup attempts the official skill link after completing core integrations and machine selection storage, reporting recoverable skill failures separately without failing setup.
-Agent removal also removes unchanged owned official links; changed links, edited sources, and substituted copies are preserved and released from ownership.
-User catalog installation and content editing remain independent of the official skill.
+- **Official skill lifecycle**: Agent setup attempts the official skill link after core integrations and machine selection storage, reporting recoverable skill failures separately without failing setup.
+  - Agent removal also removes unchanged owned official links; changed links, edited sources, and substituted copies are preserved and released from ownership.
+  - User catalog installation and content editing remain independent of the official skill.
 
 ## [0.4.0] &mdash; 2026-10-01
 
@@ -374,19 +404,21 @@ Follow the [catalog transition instructions](docs/removed-interfaces.md#catalog-
 ### Changed
 
 - **Breaking:** Require catalog `version = 2`, named `sources` with explicit Git/external types, one `source` reference per item, and nested skill/instruction installation tables.
-Catalog update triggers accept only event arrays; `[]` disables automatic execution, including inherited exclusions in full mode.
-Machine format/policies, state version 2, policy JSON and callbacks retain their contracts; saved-state maintenance remains available with old catalogs.
-Named checkout identities are retained; direct-declaration or relocated installations require manual detach and explicit reattachment/replacement, with old contents and backups preserved.
-See [transition instructions](docs/removed-interfaces.md#catalog-v2-transition).
+  - Catalog update triggers accept only event arrays; `[]` disables automatic execution, including inherited exclusions in full mode.
+  - Machine format/policies, state version 2, policy JSON and callbacks retain their contracts; saved-state maintenance remains available with old catalogs.
+  - Named checkout identities are retained; direct-declaration or relocated installations require manual detach and explicit reattachment/replacement, with old contents and backups preserved.
+
+  See [transition instructions](docs/removed-interfaces.md#catalog-v2-transition).
 - **Breaking:** Ordinary CLI commands now print human-readable fields and indented lists by default, including redirected stdout.
-Add the global `--json` option before the command to retain the existing JSON report schema; installed startup and instruction callbacks continue to emit JSON automatically.
+  Add the global `--json` option before the command to retain the existing JSON report schema; installed startup and instruction callbacks continue to emit JSON automatically.
 - **Breaking:** Replace argparse with Click command groups and consistent option scope.
-Place global `--config` and `--json` before the command, for example `aem --json status`.
-Abbreviated long options are rejected, and invalid numeric CLI durations now exit `2` as usage errors before configuration reads or filesystem effects.
+  - Place global `--config` and `--json` before the command, for example `aem --json status`.
+  - Abbreviated long options are rejected, and invalid numeric CLI durations now exit `2` as usage errors before configuration reads or filesystem effects.
 - Centralize CLI configuration/locking, report output, and operational error handling while keeping command callbacks and reusable core operations separate.
-- Allow Git-ignored runtime files in prepared checkouts during bootstrap, apply, and content/catalog updates; ignored files alone no longer mark a content checkout dirty.
-Fast-forwards preserve local ignored files by refusing incoming path collisions.
-Directory links, copies, and detach retain ignored regular contents; installed-copy local edits and unsupported nested links/special files remain protected.
+- **Ignored checkout contents**: Allow Git-ignored runtime files in prepared checkouts during bootstrap, apply, and content/catalog updates.
+  Ignored files alone no longer mark content checkouts dirty.
+  - Fast-forwards preserve local ignored files by refusing incoming path collisions.
+  - Directory links, copies, and detach retain ignored regular contents; installed-copy local edits and unsupported nested links/special files remain protected.
 
 ## [0.3.0] &mdash; 2026-09-30
 
@@ -394,11 +426,12 @@ Existing configurations retain policy-driven automation by default; full automat
 
 ### Added
 
-- Installer/setup-selected device automation modes (`off`, `policies`, `full`), a unified event/preview command, and sequential full runs through tool replacement, fresh-CLI catalog refresh, and eligible content preparation/update/application with shared throttling.
-Full runs preserve explicit manual exclusions and detached installations, stop later stages on failure, and retain the existing live-link effects of shared checkouts.
+- **Device automation modes**: Installer/setup-selected modes (`off`, `policies`, `full`), a unified event/preview command, and sequential full runs with shared throttling.
+  Full runs proceed through tool replacement, fresh-CLI catalog refresh, and eligible content preparation/update/application.
+  Full runs preserve explicit manual exclusions and detached installations, stop later stages on failure, and retain the existing live-link effects of shared checkouts.
 - Opt-in machine-owned catalog automatic triggers configured through bootstrap/setup options, independent attempt throttling, `catalog auto`, and validated catalog refresh before startup skill policies.
-- Installer-selected `off`, `compatible`, and `breaking` AEM self-update modes, release-tag updates queued after startup exits, and independent `self status` / `self update` commands.
-Updates validate release metadata, use an external worker after the requesting process exits, and serialize replacement across configurations sharing an installation.
+- **AEM self-update modes**: Installer-selected `off`, `compatible`, and `breaking` AEM self-update modes, release-tag updates queued after startup exits, and independent `self status` / `self update` commands.
+  Updates validate release metadata, use an external worker after the requesting process exits, and serialize replacement across configurations sharing an installation.
 - Changelog with release history and contributor guidance for maintaining release notes.
 - Git-delivered catalogs registered through bootstrap repository/path arguments, with automatic machine binding and separate checkouts.
 - Explicit `catalog status`, `locate`, `update`, and `publish` commands, including validation before catalog updates and offline publication previews.
@@ -426,7 +459,7 @@ See [Removed interfaces and existing installations](docs/removed-interfaces.md) 
 ### Changed
 
 - **Breaking:** Installation requires state version 2, without automatic conversion of version-1 installations.
-Maintenance commands can still inspect, detach, recover, and remove saved integrations using known version-1/version-2 ownership records independently of current installation declarations.
+  - Maintenance commands can still inspect, detach, recover, and remove saved integrations using known version-1/version-2 ownership records independently of current installation declarations.
 - Bootstrap accepts a positional catalog and external-folder bindings; explicit catalog and machine path overrides remain supported.
 - Separate the configuration specification and command reference from the README workflows.
 
