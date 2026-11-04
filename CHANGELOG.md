@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **CI document check**: A CI job checks Markdown structure with a pinned [mddt](https://github.com/mirinae3145/mddt) revision.
+  Errors fail the job; warnings are annotated only in files a pull request changes.
+- `scripts/verify_documents.py` to reproduce the check locally.
+
 ## [1.3.0-rc.1] &mdash; 2026-11-04
 
 Git tag `v1.3.0-rc.1` corresponds to Python package version `1.3.0rc1`; based on `v1.3.0-beta.3`.

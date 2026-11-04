@@ -4,8 +4,8 @@ Use this guide to understand CI coverage, reproduce its jobs, and check agent in
 
 ## Continuous integration
 
-The [CI workflow](https://github.com/mirinae3145/agent-env-man/blob/master/.github/workflows/ci.yml) checks pull requests targeting master, master pushes, and manual dispatches.
-Pull requests test GitHub's merge revision; pushes test the pushed revision.
+The [CI workflow](https://github.com/mirinae3145/agent-env-man/blob/master/.github/workflows/ci.yml) checks pull requests targeting master and manual dispatches.
+Pull requests test GitHub's merge revision.
 A separate [agent integration workflow](https://github.com/mirinae3145/agent-env-man/blob/master/.github/workflows/agents.yml) runs on pull requests targeting master (including drafts), daily, and on manual dispatch.
 Both workflows use read-only repository permissions and do not publish packages or configure required checks.
 
@@ -18,6 +18,7 @@ The CI workflow runs these independent checks:
 | Source | Ubuntu 24.04, Windows Server 2025 | 3.11, 3.15 | Full unittest discovery under coverage, and compileall |
 | Distribution | Ubuntu 24.04, Windows Server 2025 | 3.11 | Direct wheel and sdist-rebuilt wheel runtime verification |
 | Upgrade | Ubuntu 24.04 | 3.11 | Self-update from previous releases to the tested revision |
+| Documents | Ubuntu 24.04 | 3.11 | Markdown structure check with a pinned mddt revision |
 
 Every matrix job requires working file and directory symlinks; Windows also requires Windows PowerShell.
 A missing capability fails preparation instead of silently skipping its success paths.
@@ -35,6 +36,13 @@ A newer PR revision cancels the previous run for that PR.
 Each job uploads command logs for 14 days, including on failure when logs are available.
 Inspect the failed step and skip reasons before interpreting a run as platform coverage.
 Hosted Linux and Windows checks do not cover WSL interoperability, real mounted filesystems, or authenticated agent sessions.
+
+### Document structure
+
+The documents job runs the [mddt](https://github.com/mirinae3145/mddt) checker on tracked Markdown files at the revision pinned in the workflow.
+Errors fail the job across all files, since a change can break links in documents it did not edit.
+Warnings mark places that need a writer's judgment, so the job annotates only those in files the pull request changed and never fails on them.
+Update the pinned revision in a separate change, because new checker rules can report errors in unchanged documents.
 
 ### Upgrade verification
 
@@ -80,6 +88,14 @@ python scripts/verify_agents.py                        # Requires codex and clau
 ```
 
 Both helpers install AEM into temporary homes and uv tool directories and remove them when they exit.
+
+The document check needs uv and an mddt checkout at the pinned revision:
+
+```bash
+python scripts/verify_documents.py --mddt ../mddt/skills/mddt/scripts/mddt.py --base master
+```
+
+Without `--base`, it reports warnings for every file.
 
 ## Agent integration checks
 

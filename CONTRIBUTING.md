@@ -39,7 +39,7 @@ The [agent profile contracts](docs/agent-profiles.md) define the internal extens
 
 Keep [Configuration](docs/configuration.md) and [Commands](docs/commands.md) and their linked topic references authoritative for TOML fields and CLI contracts.
 Update relevant documentation, examples, and platform limitations when interfaces or workflows change.
-Follow [Documentation authoring](docs/documentation-authoring.md) for CLI help, installed resources, and official skill guidance.
+Follow [Documentation authoring](docs/documentation-authoring.md) for document structure, CLI help, installed resources, and official skill guidance.
 The README retains essential user setup and workflows; detailed references and contributor contracts belong in the linked guides.
 
 Follow the authoritative [compatibility policy](docs/compatibility.md) when changing public contracts or classifying releases.
