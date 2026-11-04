@@ -24,7 +24,6 @@ Run from the repository root in the development environment:
 ```bash
 python -m unittest discover -s tests -v
 python -m compileall -q src tests
-git diff --check
 ```
 
 Select checks according to the affected behavior and remaining uncertainty; a complete suite run is not required for every change.
