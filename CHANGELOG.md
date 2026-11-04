@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.3.0-rc.1] &mdash; 2026-11-04
+
+Git tag `v1.3.0-rc.1` corresponds to Python package version `1.3.0rc1`; based on `v1.3.0-beta.3`.
+
 ### Added
 
 - **CI upgrade checks**: A CI job self-updates selected releases to the tested revision.
@@ -20,6 +24,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Local documentation now has an indexed topic tree separating workflows, interface references, and contributor contracts; installed packages include the nested guides.
 - CI source jobs report coverage totals without a minimum threshold.
+
+### Removed
+
+- Automatic CI runs on pushes to master.
 
 ## [1.3.0-beta.3] &mdash; 2026-11-03
 
@@ -480,7 +488,8 @@ See [Removed interfaces and existing installations](docs/removed-interfaces.md) 
 - Linux/WSL and native Windows path handling, with Python 3.11 or later and Git required.
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
-[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-beta.3...HEAD
+[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-rc.1...HEAD
+[1.3.0-rc.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-beta.3...v1.3.0-rc.1
 [1.3.0-beta.3]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-beta.2...v1.3.0-beta.3
 [1.3.0-beta.2]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-beta.1...v1.3.0-beta.2
 [1.2.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.2.0...v1.2.1
