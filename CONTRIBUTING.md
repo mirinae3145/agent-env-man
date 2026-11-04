@@ -1,5 +1,8 @@
 # Contributing
 
+This guide covers development setup, verification choices, and the contracts contributors must preserve.
+The [documentation index](docs/README.md) introduces the detailed user and contributor guides.
+
 ## Development setup
 
 Use Python 3.11 or later and Git.
@@ -41,7 +44,7 @@ For workflows spanning commands, check that each command's output and selection 
 
 GitHub Actions runs the full source suite with coverage and installed-distribution checks on Linux and native Windows.
 A Linux job also checks self-updates from previous releases, and a separate workflow checks the latest agent CLIs on pull requests, daily, and on manual dispatch.
-See [CI coverage and local reproduction](docs/testing.md#continuous-integration) for the matrix, logs, and capability boundaries.
+See [CI coverage and local reproduction](docs/testing/ci.md#continuous-integration) for the matrix, logs, and capability boundaries.
 
 See [Testing and distribution verification](docs/testing.md) for environment-specific fixtures, installed-wheel checks, coverage measurement, and validation expectations.
 Record the environments exercised, skipped capabilities, and remaining uncertainty with the change's validation results rather than in durable project guidance.
@@ -65,7 +68,7 @@ The [agent profile contracts](docs/agent-profiles.md) define the internal extens
 
 ## Documentation and releases
 
-Keep [Configuration](docs/configuration.md) and [Commands](docs/commands.md) authoritative for TOML fields and CLI contracts.
+Keep [Configuration](docs/configuration.md) and [Commands](docs/commands.md) and their linked topic references authoritative for TOML fields and CLI contracts.
 Update relevant documentation, examples, and platform limitations when interfaces or workflows change.
 Follow [Documentation authoring](docs/documentation-authoring.md) for CLI help, installed resources, and official skill guidance.
 The README retains essential user setup and workflows; detailed references and contributor contracts belong in the linked guides.

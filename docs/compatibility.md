@@ -52,7 +52,7 @@ AEM self-update permissions are distinct from the required final-release version
 For prereleases, `compatible` permits only a higher numeric subversion with the same base version and label, so releases within that series must preserve the previous released contract.
 Changing the base version or label, or graduating to final, requires `breaking` permission even when the transition contains no incompatible change.
 The permission therefore allows a transition; it does not assert that every such transition breaks compatibility or requires another MAJOR increment.
-See [release selection](automation.md#update-aem-itself) for supported tag spellings and ordering.
+See [release selection](automation/self-update.md) for supported tag spellings and ordering.
 
 ## Configuration and saved-state formats
 

@@ -31,7 +31,7 @@ Do not edit machine/state version markers, delete ownership records, or restore 
 1. For existing named Git sources, replace `repositories.NAME` with `sources.NAME` and add `type = "git"`.
 Replace empty `externals.NAME` tables with `sources.NAME` and `type = "external"`; keep their machine `external_paths.NAME` bindings.
 If Git and external names collide, rename the Git source and its item references first to preserve the external binding.
-A Git source rename changes its checkout path and therefore requires the detach procedure below.
+A Git source rename changes its checkout path and therefore requires the [existing-installation procedure](#before-upgrading-an-existing-installation).
 1. Replace item `repo` or `external` with `source`.
 Move skill `root`/`mode` under `install`, instruction `root`/`destination` under `install.bundle`, and `entry_root`/`entry_destination` to `install.entry.root`/`install.entry.destination`.
 Keep instruction `entry` relative to its selected `subdir` and skill entry files named `SKILL.md`.
@@ -51,7 +51,7 @@ Inspect backup and conflict reports before continuing.
 
 AEM never automatically deletes or moves old checkouts, state, detached contents, or replacement backups.
 Editing the catalog does not itself create a package release or Git tag.
-See the [configuration reference](configuration.md#catalog) for the complete grammar.
+See the [configuration reference](configuration/catalog.md#catalog) for the complete grammar.
 
 ## Before upgrading an existing installation
 

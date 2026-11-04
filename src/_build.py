@@ -15,7 +15,7 @@ class BuildPy(build_py):
         """Map installed resources to the same sources used by checkout readers."""
         root = Path(__file__).resolve().parents[1]
         sources = [root / "README.md", root / "LICENSE.txt"]
-        sources.extend(sorted((root / "docs").glob("*.md")))
+        sources.extend(sorted((root / "docs").rglob("*.md")))
         sources.extend(sorted((root / "examples").glob("*.toml")))
         destination = Path(self.build_lib) / "agent_env_man" / "_documentation"
         return {str(destination / path.relative_to(root)): str(path.relative_to(root))

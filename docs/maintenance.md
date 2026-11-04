@@ -21,7 +21,7 @@ Copy installation and link detach verify both the staged copy and the source bef
 A source-change error means the source changed since inspection; retry after it becomes stable.
 A copied-payload or materialized-copy mismatch means the source still matched the inspected baseline but the staged copy did not; check copied contents and whether the destination filesystem preserves executable permission bits on POSIX files and directories.
 Verification failure leaves the existing target and ownership intact; `--replace` does not bypass this check.
-For a payload whose source permission modes cannot be reproduced, explicitly select catalog [best-effort preservation](configuration.md#permission-preservation), preview, then apply.
+For a payload whose source permission modes cannot be reproduced, explicitly select catalog [best-effort preservation](configuration/payload.md#permission-preservation), preview, then apply.
 Review reported permission differences: successful copying does not guarantee script execution or preservation of source access restrictions.
 Best-effort does not suppress content damage, source changes, or later edits to installed permissions.
 
@@ -46,6 +46,10 @@ Detaching instructions retains hook configuration and locator records for the pr
 
 ## Interrupted operations and recovery
 
+Recovery uses saved journals to restore interrupted replacements without overwriting later user edits.
+
+### Recover an interrupted replacement
+
 Apply preflights selected items and journals each replacement before changing targets.
 Transactions are per target: earlier successful items can remain installed if a later item fails.
 After an interruption, inspect `status` and run `recover`.
@@ -60,7 +64,9 @@ These maintenance paths support state versions 1 and 2, preserving the original 
 
 ## Git updates and payload limits
 
-- Git updates never stash, reset, rebase, commit, or push automatically.
+Updates preserve checkout edits and validate the payload consumed by every affected installation.
+
+- **Checkout edits**: Git updates never stash, reset, rebase, commit, or push automatically.
   They reject tracked changes, nonignored untracked files, unfinished operations, local-ahead/divergent history, wrong branches, and checkout identity changes.
 - Git-ignored regular files such as `__pycache__` may remain in managed checkouts; an incoming revision that would overwrite them is refused without deleting the local files.
 - Ignored files remain visible through directory links and are included in directory copies and detach, which preserve the complete payload except root Git metadata.
@@ -68,17 +74,22 @@ These maintenance paths support state versions 1 and 2, preserving the original 
 
 ### Collect copy edits
 
-For managed skill/directory/instruction copies, explicit [copy publication](commands.md#publish) can preserve those changes in the source and advance their common baseline; otherwise intentional replacement remains explicit.
+For managed skill/directory/instruction copies, explicit [copy publication](commands/publish.md) can preserve those changes in the source and advance their common baseline; otherwise intentional replacement remains explicit.
 Interrupted copy collection is recovered with `aem recover`, using the source-group journal and retained backups outside the source root; later source/stage/backup edits stop recovery.
 
 ### Payload limits
 
 Updates also guard active link sources and instruction entries against removal or unsupported type changes, even after declarations disappear.
-Nested payload symbolic links require the general directory's POSIX [opt-in policy](configuration.md#directoriesname); junctions, other special files, and submodules remain unsupported.
+Nested payload symbolic links require the general directory's POSIX [opt-in policy](configuration/directories.md#directoriesname); junctions, other special files, and submodules remain unsupported.
 Saved link policy permits detach and recovery after the catalog disables the option or becomes unavailable; referent contents are never copied.
 Portable copy metadata is preserved; platform-specific ACLs, alternate streams, and power-loss atomicity are outside the guarantee.
 
 ## Remove integrations and uninstall
+
+Release managed content before removing integrations or uninstalling the tool.
+Personal hook removal is a separate operation.
+
+### Uninstall AEM
 
 1. Detach managed agent content, preserving its contents and saved state.
 1. Remove integrations with `aem setup --remove-agent codex` and the appropriate `--remove-shell` options.
@@ -88,7 +99,7 @@ Portable copy metadata is preserved; platform-specific ACLs, alternate streams, 
 Agent removal also attempts to remove the unchanged official skill link.
 Failures are reported separately; changed links, edited official sources, or substituted copies are preserved with their paths reported.
 
-## Personal hook removal
+### Personal hook removal
 
 Use `aem hooks remove NAME --dry-run`, then the same command without preview to remove only unchanged saved personal groups.
 It works without the catalog or runtime and preserves other groups and Claude preferences.

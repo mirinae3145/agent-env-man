@@ -42,11 +42,11 @@ Open a new selected shell to use the updated PATH.
 Supported integrations are Bash, Zsh, PowerShell, Codex, and Claude Code; use `--agent claude` for Claude or repeat `--agent` to select both.
 Windows and WSL should use separate machine configurations, checkouts, and targets.
 For additional accounts of the same product, use named instances such as `aem setup --agent claude-lab --agent codex-lab`.
-Each named instance has independent destination paths and ownership; see [named instances](docs/agent-profiles.md#named-instances).
+Each named instance has independent destination paths and ownership; see [named instances](docs/agent-instances.md).
 Setup never logs in, copies credentials, or installs product plugins.
 
 A new installation defaults to `policies` automation with AEM tool updates off; content automation requires opt-in.
-See [Automation](docs/automation.md) to choose another mode and [setup](docs/commands.md#setup) to change or remove integrations.
+See [Automation](docs/automation.md) to choose another mode and [setup](docs/commands/setup.md#setup) to change or remove integrations.
 For local development and editable installation, see [Contributing](https://github.com/mirinae3145/agent-env-man/blob/master/CONTRIBUTING.md).
 
 ## Declare and install content
@@ -87,6 +87,8 @@ aem apply
 aem status
 ```
 
+The commands separate source preparation, installation, and inspection:
+
 | Phase | Result |
 | --- | --- |
 | `bootstrap` | Binds the catalog, saves device paths, and prepares sources without installing targets or pulling existing checkouts. |
@@ -96,7 +98,7 @@ aem status
 
 One machine configuration binds one catalog.
 For a separate configuration, put `--config /absolute/machine.toml` before each command.
-For a Git-delivered catalog, see [bootstrap](docs/commands.md#bootstrap).
+For a Git-delivered catalog, see [bootstrap](docs/commands/catalog.md#bootstrap).
 
 Instruction installation reports the required Codex `/hooks` trust review; AEM does not grant trust.
 The instruction callback supplies reading-location metadata, while your documents determine what guidance applies.
@@ -137,7 +139,7 @@ Publication commits and pushes the whole selected Git repository, including chan
 Review unrelated edits and outgoing commits before publishing.
 Editing through an installed link changes the source immediately.
 To return managed-copy edits, use explicit `publish --from-copy`; ordinary publication does not collect them.
-See [publish](docs/commands.md#publish) for collection, conflicts, external sources, and retry behavior.
+See [publish](docs/commands/publish.md) for collection, conflicts, external sources, and retry behavior.
 
 ## Preservation and recovery
 
@@ -152,27 +154,15 @@ Before an incompatible upgrade, review [Compatibility](docs/compatibility.md) an
 
 ## Find the detailed guide
 
-| Task | Guide |
-| --- | --- |
-| Define catalog fields, device paths, and installation modes | [Configuration](docs/configuration.md) |
-| Choose commands, selectors, and options | [Commands](docs/commands.md) |
-| Install personal instruction bundles | [Instruction walkthrough](docs/instruction-bundles.md) |
-| Share general directories | [Directory configuration](docs/configuration.md#directoriesname) and [example](examples/directories.toml) |
-| Edit and share application TOML or JSON fields | [Staged settings](docs/settings-management.md) |
-| Configure automation or update AEM | [Automation and AEM updates](docs/automation.md) |
-| Register user-authored agent scripts | [Personal hooks](docs/personal-hooks.md) |
-| Resolve conflicts, recover, or uninstall | [Maintenance](docs/maintenance.md) |
-| Develop and validate AEM | [Contributing](https://github.com/mirinae3145/agent-env-man/blob/master/CONTRIBUTING.md) |
-| Review release history | [Changelog](https://github.com/mirinae3145/agent-env-man/blob/master/CHANGELOG.md) |
+The [documentation index](docs/README.md) introduces workflow guides, command and configuration references, and development contracts.
+Use it to choose the detailed guide for your task.
+[Contributing](https://github.com/mirinae3145/agent-env-man/blob/master/CONTRIBUTING.md) covers development setup and contribution decisions; the [Changelog](https://github.com/mirinae3145/agent-env-man/blob/master/CHANGELOG.md) records release history.
 
 The installed package includes this README, docs, examples, and license text.
 Run `aem docs` for the local README path or `aem --json docs` for the documentation root and entry paths.
 These files match the installed version and are available offline.
 
-## License
+## Project information
 
-[MIT License](LICENSE.txt).
-
-## AI disclosure
-
+AEM is distributed under the [MIT License](LICENSE.txt).
 OpenAI Codex assisted with design, implementation, documentation, and automated tests.

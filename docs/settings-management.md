@@ -52,83 +52,22 @@ To associate a setting with a named destination, add `agent = "claude-lab"` to i
 The active destination must be configured, and the target must be inside its root.
 `apply --agent claude-lab` selects its associated settings and excludes unbound settings.
 Existing invocations without an agent selector or with the original product selectors retain the unbound-setting behavior.
-Use distinct catalog setting names sharing one source/path/format for independent stages and targets; see [named instances](agent-profiles.md#independent-settings-from-one-source).
-
-### Stage storage and ownership
-
-Bootstrap prepares the source and initializes `<machine-file>.stages/editor/config.toml` (or `config.json`) and `management.toml` without writing the application file.
-`settings prepare NAME [--dry-run]` also initializes a stage from an already prepared source, with no cloning or binding changes.
-Existing stages retain edits and require an explicit update to receive shared changes.
-
-- A file has at most one AEM setting owner, although that owner manages only its declared fields.
-- Claude's `settings.json` can also contain AEM setup and instruction hook groups.
-  A JSON setting may share that exact file with Claude hook integrations, but cannot manage the top-level `hooks` field or any of its descendants, including deletion or release metadata.
-  Setup and settings preserve each other's fields; two settings owners still cannot share a target.
-  Overlapping directory targets remain rejected.
-- Removal validates the saved hook group and settings ownership without requiring the current agent profile or reading the editable settings stage.
-- Targets and stage storage must not overlap sources, catalog storage, AEM state, or other managed targets.
-- Symlinks, junctions, redirected ancestry, and special files are rejected.
-- Changing the source, target, or format of an active item requires detach first.
+Use distinct catalog setting names sharing one source/path/format for independent stages and targets; see [named instances](agent-instances.md#independent-settings-from-one-source).
 
 ## Edit, apply, and share
 
-```bash
-aem locate editor                        # Editable stage; entry and metadata paths.
-aem locate editor --source               # Shared source for inspection or direct edits.
-aem locate editor --target               # Actual application file.
-aem locate editor --cd                   # Stage directory through shell integration.
-aem apply --item editor --dry-run
-aem apply --item editor
-aem export editor --dry-run
-aem export editor
-aem publish editor -m "Update editor preferences"
-```
+Edit the stage to prepare desired values, then apply locally and publish only when ready to share.
 
-### Choose the editing location
+1. Locate the editable stage with `aem locate editor` and edit its `config.toml` or `config.json`.
+   Removing a managed field requests deletion; use explicit release to leave its actual value unmanaged.
+1. Preview with `aem apply --item editor --dry-run`, then run `aem apply --item editor` to use the staged values locally.
+1. To share changes without Git publication, preview `aem export editor --dry-run`, then run `aem export editor`.
+1. To export, commit, and push to Git, run `aem publish editor -m "Update editor preferences"`.
+   Review the entire selected repository because publication includes changes outside the setting.
 
-Default locate for settings always identifies the stage; a missing or damaged stage never silently redirects to another location.
-`--source` and `--target` are mutually exclusive.
-Saved stage and target locations remain available without the catalog, including after detach.
-The target path may be reported before the application file exists.
-Locate reports `root`, `entry`, `metadata` (null for the actual file), `location` (`stage`, `source`, or `target`), `prepared`, and `detached`.
-`--cd` prints the root directory and retains the existing shell integration semantics.
-
-### TOML values and deletion intent
-
-Edit the reported stage entry (`config.toml` or `config.json`) to prepare added or changed values.
-Removing a previously managed field prepares a deletion; AEM records the deletion in metadata on the next successful stage operation, apply, or export.
-Arrays, including arrays of tables, and empty tables are managed as complete values.
-Ordinary tables expose individual leaves.
-Quoted keys containing dots remain distinct from nested keys.
-TOML types remain distinct during comparison, including integer versus float and boolean, dates, times, and special float values.
-Physical LF and CRLF newlines in TOML multiline strings compare equally across shared sources, stages, actual settings, and saved comparison snapshots, including strings inside arrays and tables.
-Explicit carriage-return escapes such as `\r` and `\u000D` remain meaningful string content and are not normalized.
-Comparison does not rewrite the original TOML tokens or snapshot formatting.
-
-### JSON values
-
-For a JSON setting, declare the application's file using the same catalog and target binding workflow:
-
-```toml
-[settings.assistant]
-source = "preferences"
-path = "assistant.json"
-format = "json"
-```
-
-```bash
-aem bootstrap --setting-target assistant=/absolute/app/settings.json
-```
-
-- JSON files must contain one top-level object, with unique keys in every nested object, including inside arrays.
-  Comments, trailing commas, `NaN`, and `Infinity` are unsupported; JSONC is not accepted.
-- An existing empty or whitespace-only file is invalid, while a missing target is initialized as an empty object before applying fields.
-- Nonempty objects expose their leaves; arrays and empty objects are atomic values.
-- `null` is a value, distinct from deleting or releasing a field.
-- Literal dotted keys, empty keys, and escaped keys use the same string-array path selection as TOML.
-- Numbers compare by exact numeric value: `1`, `1.0`, and `1e0` are equal, as are signed and unsigned zero, while `true` is distinct from `1`.
-- Numeric tokens are retained without binary floating-point conversion, preserving large integers and precise decimal values.
-- Object key order is ignored for comparison; array order remains meaningful.
+For other editing locations, use `aem locate editor --source`, `--target`, or `--cd` as described in [stage lookup](settings-management/values.md#choose-the-editing-location).
+The [value reference](settings-management/values.md) defines TOML/JSON comparison, storage, ownership, and deletion/release metadata.
+The [reception and automation guide](settings-management/automation.md) explains receiving shared changes and configuring per-setting schedules.
 
 ### Apply to the application
 
@@ -156,33 +95,10 @@ Git behind/diverged history must be reconciled before publication; AEM does not 
 Failed publication preserves successful local exports and commits for retry.
 Unselected settings with unexported stage changes in a published checkout are listed under `unpublished_settings` and are not exported implicitly.
 
-### Receive and automate changes
-
-Apply and publication are independent: apply before publishing to try a change locally, or publish without applying here.
-`update editor` receives shared changes into the stage but does not apply them.
-`sync --item editor` updates sources and applies selected content only after successful delivery.
-Settings have a separate per-item automatic policy, independent of skill policies:
-
-```toml
-[settings.editor.update]
-trigger = ["agent-start", "interval"]
-min_interval = 600
-timeout = 30
-```
-
-In `policies` mode the omitted trigger defaults to `[]`; configure events to opt in.
-Settings always receive and then apply as one sync workflow; there is no check-only or receive-only automatic action.
-The policy accepts only `trigger`, `min_interval`, and `timeout`, and does not inherit skill defaults or named policies.
-Automatic policy runs require a prepared stage, persist attempts before delivery, and throttle failures as well as successes.
-Previews remain offline and do not write stages, actual files, or attempt records.
-Full automation prepares, receives, and applies settings by default, using its shared schedule; explicit `trigger = []` and detached items remain excluded.
-Git and external settings use the same workflow, while synchronization of an external folder remains outside AEM.
-A shared reception failure or conflict stops application; actual-file conflicts preserve the actual file and require explicit resolution or replacement.
-Successful reception remains in the stage if application fails; this workflow does not promise rollback across reception and application.
-Collection, export, publication, and reattachment are never automatic.
-Another item sharing the same Git checkout can advance its source files without receiving or applying an unselected setting.
-
 ## Collect, delete, and release
+
+Collect actual application edits into the stage, or release field ownership while leaving the actual value in place.
+The commands illustrate separate choices; releasing a field is not a required step after collection.
 
 ```bash
 aem settings collect editor --dry-run
@@ -190,6 +106,8 @@ aem settings collect editor
 aem settings collect editor --path '["appearance","theme"]'
 aem settings release editor --path '["appearance","theme"]'
 ```
+
+### Collect application edits
 
 Collect compares actual values with the last applied state and the stage.
 It collects only existing managed fields; new fields require repeatable `--path` selections.
@@ -205,24 +123,11 @@ It removes the field from the desired values and records `released`; apply leave
 A released field is excluded from subsequent collection unless explicitly selected.
 To restore management manually, remove its deletion/release record and add the desired value to the stage; alternatively collect that actual field explicitly.
 
-### Shared intent metadata
-
-Shared intent is stored next to the settings file as `<filename>.aem.toml`:
-
-```toml
-version = 1
-deleted = [["obsolete","option"]]
-released = [["local","path"]]
-```
-
-Initial metadata may be absent, meaning empty intent lists.
-A settings value, deletion, or release cannot overlap another declaration at the same or an ancestor/descendant path.
-Records persist until explicitly changed, allowing new devices and long-offline devices to receive deletions and ownership releases.
-A source edit that removes a previously received field is also interpreted as deletion; export materializes its metadata so devices without that history can receive the intent.
-Publish the settings file and metadata together.
-AEM propagates current state and persistent intent, not a replay of every intermediate edit.
-
 ## Conflicts, status, and recovery
+
+Shared-source and application conflicts use separate comparison bases and preserve the conflicting edits.
+
+### Resolve shared conflicts
 
 | Merge | Comparison inputs | Conflict effect |
 | --- | --- | --- |

@@ -166,7 +166,10 @@ def verify():
         docs = json.loads(cli("docs", selected_config=invalid))
         docs_root = Path(docs["root"])
         require(package.parent in docs_root.parents, "Documentation must come from the installed wheel")
-        for resource in ("README.md", "LICENSE.txt", "docs/commands.md", "examples/skills.toml",
+        for resource in ("README.md", "LICENSE.txt", "docs/README.md", "docs/commands.md",
+                         "docs/commands/catalog.md", "docs/configuration/machine.md",
+                         "docs/architecture/instructions.md", "docs/instruction-bundles/install.md",
+                         "examples/skills.toml",
                          "docs/personal-hooks.md", "examples/personal-hooks.toml", "examples/directories.toml"):
             require((docs_root / resource).is_file(), f"Missing installed resource: {resource}")
         require(not Path(str(invalid) + ".state").exists(), "Help/docs touched invalid configuration state")

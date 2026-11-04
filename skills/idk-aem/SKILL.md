@@ -6,7 +6,7 @@ description: Use AEM (agent-env-man) to configure agent integrations, manage cat
 # Use AEM
 
 Use the installed `aem` CLI for the requested operation and preserve the user's selected catalog, machine configuration, and automation settings.
-Choose the workflow by what the user wants to accomplish, then run the relevant basic commands below.
+Choose the workflow by what the user wants to accomplish, then use its basic commands and sequencing.
 This skill covers AEM operations; content editing follows the user's task and the content's applicable instructions.
 
 ## Prepare or install managed content
@@ -145,11 +145,11 @@ When an update, installation, collection, publication, or other operation fails 
 Start with the failed operation's diagnostics and relevant AEM status, location, comparison, or dry-run reports; if they are insufficient or unavailable, use Git inspection and direct file or directory comparison as appropriate.
 Try other available comparison methods when one fails, without changing the conflicting contents or bypassing ownership checks.
 
-- For Git conflicts, distinguish staged, unstaged, and relevant untracked changes from committed local and incoming changes; use a common ancestor when available to explain divergent histories.
+- **Git conflicts**: For Git conflicts, distinguish staged, unstaged, and relevant untracked changes from committed local and incoming changes; use a common ancestor when available to explain divergent histories.
   Identify the compared revisions and whether the remote observation is current or from the last fetch; obtain a current observation without advancing the checkout when needed and accessible.
-- For source/copy conflicts, compare the actual source and installed copy, including additions, deletions, and relevant type or link-target differences.
+- **Source/copy conflicts**: For source/copy conflicts, compare the actual source and installed copy, including additions, deletions, and relevant type or link-target differences.
   Use a saved baseline for attribution only when its contents are available; hashes alone do not explain what changed.
-- For settings conflicts, compare the affected fields across the shared source, editable stage, and actual application file as relevant to the failed operation, using available baseline values to distinguish each side's edits.
+- **Settings conflicts**: For settings conflicts, compare the affected fields across the shared source, editable stage, and actual application file as relevant to the failed operation, using available baseline values to distinguish each side's edits.
 
 Report the failed operation and reason, comparison paths or revisions and baseline, affected files or fields, and the key substantive differences in a concise summary.
 Do not include full diffs or create separate diff artifacts unless requested.
@@ -172,17 +172,18 @@ When an unfamiliar operation, uncertain selector/option, version difference, or 
 Use `aem --help` when the command itself is unclear; for grouped commands, read group help only if the needed subcommand is unclear.
 Reuse already verified help and documentation for the same installed runtime; recheck after a runtime change or an incompatibility.
 
-If help does not resolve the question, run `aem docs` to locate the installed README and follow only its relevant local links:
+If help does not resolve the question, run `aem docs` to locate the installed README and follow its local documentation index to the relevant guide:
 
-| Unresolved task detail | Local guide linked from the README |
+| Unresolved task detail | Local guide reached through the documentation index |
 | --- | --- |
-| Exact options, selection scope, or report fields | Command reference |
-| Catalog declarations, directory link preservation, machine bindings, or defaults | TOML specification |
-| Instruction bundle installation and hook trust | Instruction walkthrough |
+| Exact options, selection scope, or report fields | Command reference, then the matching command group |
+| Catalog declarations, directory link preservation, machine bindings, or defaults | TOML configuration reference, then the matching topic |
+| Instruction bundle installation and hook trust | Personal instruction bundles, then the installation or hook guide |
 | Settings field selection, deletion/release, or conflicts | Staged settings |
 | Device modes, schedules, or asynchronous tool updates | Automation and AEM updates |
 | Ownership conflicts, recovery, integration removal, or uninstalling | Maintenance and recovery |
-| Agent paths, hook formats, or session reload behavior | Agent profiles |
+| Separate agent destinations and setting stages | Named agent instances |
+| Agent paths, hook formats, or session reload behavior | Agent profile contracts |
 
 Global `--config PATH`, `--json`, and `--verbose` precede the command; `--json` and `--verbose` are mutually exclusive.
 Preserve the user's chosen machine configuration on every call.

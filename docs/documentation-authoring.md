@@ -10,6 +10,15 @@ Keep change-specific validation results with the change, rather than adding them
 Keep the README focused on installation, a minimal working example, everyday commands, and preservation boundaries.
 Link advanced workflows to their detailed guides.
 
+The [documentation index](README.md) introduces every guide with a summary of its purpose.
+A guide that gains child documents keeps its existing path and places the children in a companion folder, such as `commands.md` and `commands/`.
+The parent introduces each child with a summary and link; lateral references identify the contract or workflow they supply.
+
+Each detailed topic serves one reader task: carrying out a procedure, looking up a contract, or understanding a design.
+Move substantial content serving a different task into its own topic.
+Keep headings within H1 through H3; promote a topic needing another level into a child document.
+Give each file and independently readable topic an overview, and update parent summaries after the child content settles.
+
 Within detailed guides, group related information under descriptive subheadings so readers can find prerequisites, steps, selection scope, constraints, outcomes, and recovery.
 Choose the structure for the topic rather than repeating a fixed template in every section.
 Use ordered lists for sequential procedures, bullets for independent requirements, and tables for comparable choices or field contracts.
@@ -17,6 +26,10 @@ Keep explanatory prose for rationale and relationships; avoid turning every sent
 Preserve existing linked headings when adding structure, or update every affected cross-reference.
 
 ## CLI help scope
+
+CLI help must support invocation decisions and remain available independently of machine configuration.
+
+### Invocation decisions
 
 CLI help is the installed, version-matched entry point for choosing and invoking commands.
 Explain the target being read or changed, selection identifiers and scope, omitted-option behavior, and non-obvious prerequisites or option incompatibilities when these affect correct use.
@@ -34,6 +47,10 @@ For help changes, inspect rendered command output and verify this boundary; avoi
 
 ## Installed documentation
 
+Installed documentation provides the same canonical guides as the checkout, with working offline links.
+
+### Resource contents
+
 Ship `README.md`, `docs/`, `examples/`, and `LICENSE.txt` as version-matched local package resources, preserving their repository-relative directory structure.
 `aem docs` identifies the local README and documentation root without reading machine configuration, acquiring locks, fetching, or requiring an agent/shell integration.
 Package installation provides these resources; setup only connects integrations and does not download documentation.
@@ -50,6 +67,10 @@ Build hooks must resolve from the configured source layout without relying on th
 Verify isolated wheel builds, wheel contents, wheel builds from the sdist, installed local lookup, and local link/anchor resolution when changing packaging or documentation structure.
 
 ## Official skill guidance
+
+The official operations skill guides task selection and execution using installed interfaces.
+
+### Workflow guidance
 
 The packaged [idk-aem skill](https://github.com/mirinae3145/agent-env-man/blob/master/skills/idk-aem/SKILL.md) should help agents choose and carry out AEM operations, with emphasis on important behavior, sequencing, and non-obvious consequences.
 Organize the skill by the user's intended task, with enough basic commands and sequencing to carry out ordinary workflows directly.
