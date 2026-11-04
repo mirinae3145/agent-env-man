@@ -12,7 +12,6 @@ Command-specific options follow their command, for example `aem --json catalog p
 Options require their full spelling; abbreviated long options are rejected.
 Every command accepts `-h` or `--help`.
 
-
 ## Common argument values
 
 Git duration options use `--git-timeout`, `--catalog-git-timeout`, and `--automation-git-timeout`.
@@ -23,7 +22,6 @@ Saved TOML `timeout` keys and effective JSON policy fields retain their names.
 It bounds each Git phase, not the entire command or filesystem copying.
 `AGENT` selects a registered destination: `codex`, `claude`, or a [named instance](commands/profiles.md#named-agent-destination-selection).
 `EVENT` is `shell-start`, `agent-start`, or `interval`.
-
 
 ## Reference groups
 

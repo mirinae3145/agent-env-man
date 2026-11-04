@@ -13,7 +13,7 @@ Each instruction declaration selects the source bundle and its installation sett
 | `exclude` | Array of strings | Additional [payload exclusions](payload.md#payload-exclusions); defaults to `[]`. |
 | `subdir` | String | Bundle directory under the source; defaults to `"."`. |
 | `entry` | String | Required relative path to a regular entry document inside the selected bundle directory. |
-| `install` | Table | Optional `bundle` and `entry` tables below. |
+| `install` | Table | Optional `bundle` and `entry` tables defined in this section. |
 
 `install.bundle` accepts optional `root`, `destination`, and `mode` (`"link"` by default, or `"copy"`).
 Machine `modes.NAME` overrides the bundle mode; the global entry always remains a link.

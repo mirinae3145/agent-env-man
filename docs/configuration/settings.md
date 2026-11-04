@@ -26,7 +26,8 @@ Preparing or applying an active association requires a configured destination an
 Detached associations can remain recorded after instance removal.
 For common settings in multiple profiles, use distinct catalog declarations with the same source/path/format and separate target bindings.
 A catalog declaration with `agent = "claude-lab"` belongs to that destination: a machine that has not registered it skips the declaration without a binding, while a machine that has registered it must bind a target and name the same `agent`.
-A binding for a skipped declaration is refused. A declaration without `agent` still needs a binding on every machine.
+A binding for a skipped declaration is refused.
+A declaration without `agent` still needs a binding on every machine.
 Older AEM versions reject the catalog field.
 Bootstrap `--setting-target NAME=PATH` persists these bindings and preserves omitted values.
 

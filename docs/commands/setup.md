@@ -6,7 +6,7 @@ Use `setup` to connect or remove shell and agent integrations and save device po
 
 `--automation-skip-unsupported` and `--no-automation-skip-unsupported` save a Boolean machine policy for full automation, defaulting to false and preserving the saved value when omitted.
 They can be used in policy-only setup without changing integrations; the installer accepts both flags.
-See [full automation](../automation.md#device-automation-modes) for exclusion reporting, shared-source constraints, and preview limits.
+See [full automation](../automation/device.md) for exclusion reporting, shared-source constraints, and preview limits.
 
 ```text
 aem setup [--shell SHELL ...] [--agent AGENT ...]

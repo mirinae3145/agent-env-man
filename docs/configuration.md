@@ -10,10 +10,9 @@ For the command interface, see [Commands](commands.md).
 The package version communicates compatibility for catalog syntax and documented machine settings; neither document has an independent SemVer release cycle.
 Their integer `version` fields identify format generations and need not change for compatible additions.
 Default workflows let setup/bootstrap write machine settings; direct edits to documented settings remain supported.
-AEM is responsible for compatibility handling of generated machine configuration and state, within the supported versions described below.
+AEM is responsible for compatibility handling of generated machine configuration and state, within the [supported format generations](configuration/machine.md#maintenance-without-valid-installation-configuration).
 Do not manually change version markers to bypass validation.
 See the [versioning policy](compatibility.md).
-
 
 ## Paths and identifiers
 
@@ -22,10 +21,9 @@ Relative content paths use `/`, with no empty, `.` or `..` components, backslash
 Only `subdir` accepts `.` to select the source root.
 Paths are literal: AEM does not expand environment variables, interpolate other fields, or evaluate shell expressions.
 Machine paths must be absolute or begin with `~/`, except a local `catalog` string, which may be relative to the machine file's directory.
-Git `catalog.path` is a literal relative file path within that repository, using the relative content path rules above.
+Git `catalog.path` is a literal relative file path within that repository, using the relative content path rules in this section.
 On Windows, use forward slashes such as `C:/Users/me/.codex` in TOML strings.
 CLI path arguments have their own resolution rules described in [Commands](commands/catalog.md#bootstrap).
-
 
 ## Configuration topics
 

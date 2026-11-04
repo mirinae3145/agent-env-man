@@ -21,7 +21,6 @@ Directory policy results use `directory: NAME` instead of `skill: NAME`, retaini
 External directory checks report `external-no-fetch` without installing; sync validates and applies their local source without Git transport.
 Directories participate in agent-filtered apply, status, detach, and locate as common items; a directory that declares `agent` is selected by apply, status, and detach only for that destination, and locate still finds it by name.
 
-
 ## startup
 
 ```text
@@ -49,7 +48,6 @@ This command does not install integrations.
 The default is 10 seconds; this does not change instruction-location hooks, shell callbacks, or Git phase limits.
 In policies mode, catalog and skill work shares the outer startup hook limit; full mode queues work after the callback exits.
 
-
 ## agent-hook
 
 ```text
@@ -71,7 +69,6 @@ For Codex SessionStart, handled lookup errors return a structured stop response 
 For SubagentStart, Codex instead returns a `systemMessage` warning with exit `0`; this event cannot prevent child creation.
 Old source registration, `codex-hook`, and throttled `sync` syntax are removed; see [Removed interfaces](../removed-interfaces.md).
 
-
 ## Claude callback behavior
 
 Claude agent-hook emits plain stdout path context for SessionStart and event-specific JSON context for SubagentStart.
@@ -84,7 +81,6 @@ No-op/check/throttled runs and failures without a relevant change do not request
 In full asynchronous mode, wait for worker completion and start a fresh session to discover changes.
 The hidden --aem-hook-id identifies supported command-field ownership.
 See [profile contracts](../agent-profiles.md).
-
 
 ## automation
 

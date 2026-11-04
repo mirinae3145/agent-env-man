@@ -35,7 +35,7 @@ Other machine configurations verify their own links on subsequent general setup 
 Newer final or supported prerelease tags (`vVERSION`) qualify within the selected mode; annotated tags resolve to their commits.
 SemVer-style `-alpha`/`-beta`/`-rc` tags with optional `.N` numbers convert to Python `a`/`b`/`rc` package versions; an omitted number means zero.
 Prerelease `compatible` updates change only the numeric subversion within the same base version and label; final `compatible` updates retain their existing range and exclude prereleases.
-See [release syntax and ordering](../automation.md#update-aem-itself).
+See [release syntax and ordering](../automation/self-update.md).
 The selected commit must contain `project.name = "agent-env-man"` and the matching release version in `pyproject.toml`.
 Installation pins that commit through `uv tool install --reinstall`; neither the development checkout nor managed content is changed.
 Git authentication is noninteractive.

@@ -15,7 +15,6 @@ The directory also contains docs/, examples/, and LICENSE.txt with working relat
 Lookup is offline and independent of machine configuration, catalogs, state, and setup integrations.
 Editable/source development resolves to the repository's canonical documentation.
 
-
 ## status
 
 ```text
@@ -30,7 +29,6 @@ Deleting a declaration leaves its target and ownership intact, reported as orpha
 If strict machine/state validation fails, offline status returns `saved_only: true`, `state_version`, the validation error, and saved item IDs with filesystem observations.
 This fallback does not interpret obsolete modes or claim that saved items match current declarations.
 It never fetches; `--refresh` does not use the fallback.
-
 
 ## locate
 

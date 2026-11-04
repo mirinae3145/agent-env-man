@@ -8,7 +8,7 @@ These contracts preserve existing integrations and coordinate replacement with o
 The repository installer uses uv to install this checkout as a user tool, then delegates integration to `aem setup`.
 Offer `off`, `compatible`, and `breaking` self-update modes on first interactive installation; unattended omission defaults to off, and omitted choices preserve saved settings.
 Self-update policy and the external installer runtime belong to machine configuration, never the content catalog.
-Preserve the authoritative [compatibility policy](../compatibility.md) and [release selection rules](../automation.md#update-aem-itself).
+Preserve the authoritative [compatibility policy](../compatibility.md) and [release selection rules](../automation/self-update.md).
 Keep tag parsing and ordering standard-library-only for the copied worker; exclude development, post, and local versions.
 Prefer exact package tags during self publication and Python tags during update selection when equivalent aliases coexist; never bypass a mismatched exact tag with an alias.
 Validate package identity and tag/version agreement before installation, and pin the selected commit.

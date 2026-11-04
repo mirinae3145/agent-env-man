@@ -46,6 +46,10 @@ Detaching instructions retains hook configuration and locator records for the pr
 
 ## Interrupted operations and recovery
 
+Recovery uses saved journals to restore interrupted replacements without overwriting later user edits.
+
+### Recover an interrupted replacement
+
 Apply preflights selected items and journals each replacement before changing targets.
 Transactions are per target: earlier successful items can remain installed if a later item fails.
 After an interruption, inspect `status` and run `recover`.
@@ -60,7 +64,9 @@ These maintenance paths support state versions 1 and 2, preserving the original 
 
 ## Git updates and payload limits
 
-- Git updates never stash, reset, rebase, commit, or push automatically.
+Updates preserve checkout edits and validate the payload consumed by every affected installation.
+
+- **Checkout edits**: Git updates never stash, reset, rebase, commit, or push automatically.
   They reject tracked changes, nonignored untracked files, unfinished operations, local-ahead/divergent history, wrong branches, and checkout identity changes.
 - Git-ignored regular files such as `__pycache__` may remain in managed checkouts; an incoming revision that would overwrite them is refused without deleting the local files.
 - Ignored files remain visible through directory links and are included in directory copies and detach, which preserve the complete payload except root Git metadata.
@@ -80,6 +86,11 @@ Portable copy metadata is preserved; platform-specific ACLs, alternate streams, 
 
 ## Remove integrations and uninstall
 
+Release managed content before removing integrations or uninstalling the tool.
+Personal hook removal is a separate operation.
+
+### Uninstall AEM
+
 1. Detach managed agent content, preserving its contents and saved state.
 1. Remove integrations with `aem setup --remove-agent codex` and the appropriate `--remove-shell` options.
 1. Disable any retained detached instruction hooks.
@@ -88,7 +99,7 @@ Portable copy metadata is preserved; platform-specific ACLs, alternate streams, 
 Agent removal also attempts to remove the unchanged official skill link.
 Failures are reported separately; changed links, edited official sources, or substituted copies are preserved with their paths reported.
 
-## Personal hook removal
+### Personal hook removal
 
 Use `aem hooks remove NAME --dry-run`, then the same command without preview to remove only unchanged saved personal groups.
 It works without the catalog or runtime and preserves other groups and Claude preferences.

@@ -25,7 +25,6 @@ Unknown fields and unselected records are preserved; no legacy config-merge pars
 Opted-in directory links retain their raw target strings during detach; relative referents may change when the payload moves.
 Saved ownership retains this capability after the catalog disables the option or becomes unavailable.
 
-
 ## recover
 
 ```text
@@ -37,7 +36,6 @@ Refuses to overwrite later user edits; retain the target, backup, and state for 
 Transactions are per target, so recovery does not undo earlier successful targets.
 Recovery accepts the common journal format in state versions 1 and 2, validates paths and observations, and preserves the original state version and unrelated fields.
 An unknown version or incomplete journal is rejected rather than inferred.
-
 
 ## hooks remove
 

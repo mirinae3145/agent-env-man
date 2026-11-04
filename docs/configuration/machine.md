@@ -47,13 +47,12 @@ Machine selection defaults to `$XDG_CONFIG_HOME/agent-env-man/machine.toml` or `
 On Windows it uses `%LOCALAPPDATA%/agent-env-man/machine.toml`, falling back to `~/AppData/Local/agent-env-man/machine.toml`.
 Pass `--config PATH` before the command to select another file.
 
-
 ## Roots and agents
 
 `agents.codex`, `agents.claude`, and named instances such as `agents.codex-lab` and `agents.claude-lab` accept only `root` and `skills` path strings.
 Named instances default to `~/.NAME` and `~/.NAME/skills`, independently of default-profile environment overrides.
 Their roots cannot overlap another configured instance root.
-See [named instances](../agent-profiles.md#named-instances) for setup, selection, discovery limits, and removal.
+See [named instances](../agent-instances.md) for setup, selection, discovery limits, and removal.
 
 For the original Codex destination, omitted fields default to `CODEX_HOME` (or `~/.codex`) and `~/.agents/skills`, respectively.
 Setup persists resolved defaults; saved values take precedence over later environment changes.
@@ -68,7 +67,6 @@ Detached associations may remain after instance removal.
 Omission preserves the setting's existing behavior without an agent selector or with the original product selectors; named selectors exclude unbound settings.
 Changing an active setting's association requires detach first.
 Each catalog setting name still has exactly one stage and target; use distinct declarations sharing one source/path to deploy common fields independently.
-
 
 ## Tool hooks
 
@@ -94,7 +92,6 @@ Tool hook declarations accept these fields:
 
 The declaration is per machine, so a tool installed on one machine does not make another machine report a missing hook.
 Older AEM versions reject a machine file that contains `tool_hooks`.
-
 
 ## Copied local catalog binding
 
@@ -129,7 +126,6 @@ Unowned files at the managed location are not adopted implicitly.
 Registration, refresh, and publication retain recoverable backups and commit the file and comparison state together.
 Copy storage and the original must not overlap manager storage, content roots, or installation targets.
 Existing string bindings remain direct local file bindings unless explicitly registered with `--catalog-copy`.
-
 
 ## Git catalog binding
 
@@ -175,7 +171,6 @@ Reusing the same Git checkout requires a matching origin and branch; a new bindi
 To switch repositories, preserve or move the old `<machine-file>.catalog` checkout explicitly before bootstrapping the new binding.
 See [catalog commands](../commands/catalog.md#catalog) for validation, publication, and failure behavior.
 
-
 ## Saved setup
 
 Saved setup records startup integrations and controls the package-owned operations skill.
@@ -202,7 +197,6 @@ Catalog skill replacement and detach backups are retained in `<machine-file>.sta
 Recovery continues to accept older sibling-backup journals.
 Existing agent integrations acquire the link on general setup; policy-only setup does not add it.
 Self-update refreshes successfully owned links and does not turn an uninstalled, failed, or detached ancillary skill into a new update prerequisite.
-
 
 ## Storage and validation boundaries
 

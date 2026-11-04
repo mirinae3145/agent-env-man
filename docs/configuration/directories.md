@@ -3,6 +3,8 @@
 Catalog `directories.NAME` declarations install general directories from Git or external sources.
 This reference defines installation fields, symbolic link support, and preservation during policy changes.
 
+A complete [directory catalog example](../../examples/directories.toml) shows Git and external declarations.
+
 ## `directories.NAME`
 
 General directories use Git or external sources and require no entry document, skill metadata, or agent binding.
@@ -14,7 +16,7 @@ General directories use Git or external sources and require no entry document, s
 | `subdir` | String | Source directory; defaults to `"."`. |
 | `preserve_symlinks` | Boolean | `false`; require opaque symbolic link preservation for this directory only. Execution is supported on POSIX. |
 | `agent` | String | Optional destination name such as `claude-lab`; binds the directory to that destination. |
-| `install` | Table | Optional installation settings below. |
+| `install` | Table | Optional [installation fields](#installation-fields). |
 | `update` | Table | Optional policy selection and overrides, using the same rules as skills. |
 
 ### Installation fields

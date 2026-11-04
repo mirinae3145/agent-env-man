@@ -74,7 +74,6 @@ Other ordinary command results add `kind` to identifiable content rows using alr
 Text output uses the canonical items and omits the legacy duplicate in both default and verbose mode.
 For Git bindings it also includes `catalog`, with `status` (`cloned` or `already-prepared`), absolute `checkout` and `entry` paths, `repository`, resolved `branch`, and `revision`.
 
-
 ## catalog
 
 Inspects, updates, or publishes the bound catalog without installing its declarations.

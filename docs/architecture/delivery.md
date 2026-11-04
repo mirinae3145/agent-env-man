@@ -56,7 +56,6 @@ Keep catalog schema validation platform-independent; check selected items and af
 Do not put execution capability checks in general selection or catalog validation: inspection and catalog delivery must remain usable.
 Saved ownership and recovery policies retain their execution requirements even when current declarations change.
 
-
 ## Catalog and maintenance boundaries
 
 Catalog normalization separates reusable declarations from device bindings and saved ownership.

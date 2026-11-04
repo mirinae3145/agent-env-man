@@ -14,8 +14,7 @@ Catalog hook bindings select products and expand to their configured instances.
 Agent-associated settings are selected only for their bound instance.
 Unbound settings preserve their previous apply behavior without a selector or with the original product selectors; named selectors exclude them.
 Directories remain agent-independent unless they declare `agent`, and `sync` still updates all sources before filtering installation.
-See [named instances](../agent-profiles.md#named-instances) for binding examples, setting stages, callbacks and removal.
-
+See [named instances](../agent-instances.md) for binding examples, setting stages, callbacks and removal.
 
 ## compare
 
@@ -49,7 +48,6 @@ Plugin versions and the entry are always shown.
 Exit status is 0 whether or not differences exist; scripts read the totals from `--json`.
 Malformed hook event or group structures are refused with an error instead of being treated as absent hooks.
 
-
 ## check-tool-hooks
 
 ```text
@@ -62,7 +60,6 @@ For an installed tool, each selected agent must have a hook under the declared e
 AEM never installs or changes tool hooks.
 `--agent` limits the check to registered Claude Code agents.
 Exit status is 1 when any hook is missing, so `--json` is for details rather than for deciding success.
-
 
 ## copy-profile
 
@@ -84,7 +81,7 @@ The report lists the product CLI steps that would reinstall the source's user-sc
 Hook groups and links AEM installed belong to the source's agent, so register TARGET with `aem setup --agent NAME` and run `aem apply --agent NAME --dry-run`, then without `--dry-run`, to give it its own.
 
 The copied settings are an independent file: later changes to either profile do not reach the other.
-To share selected fields afterwards, declare them as settings for each profile as described in [named instances](../agent-profiles.md#independent-settings-from-one-source) and [staged settings](../settings-management.md).
+To share selected fields afterwards, declare them as settings for each profile as described in [named instances](../agent-instances.md#independent-settings-from-one-source) and [staged settings](../settings-management.md).
 
 The profile is built in a staging folder beside TARGET and moved into place, so a failure leaves no partial profile.
 If the final move fails after removing an existing empty TARGET, AEM recreates the empty folder with its previous permissions unless another writer has created a new target.

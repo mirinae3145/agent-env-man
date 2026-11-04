@@ -38,7 +38,6 @@ root = "agent"
 trigger = []
 ```
 
-
 ## `sources.NAME`
 
 Every source requires an explicit `type`, either `"git"` or `"external"`.
@@ -55,7 +54,6 @@ All consumers are validated before bootstrap publishes a shared checkout.
 Unknown source names and unknown fields are rejected.
 TOML duplicate source names are invalid, including Git/external name collisions.
 
-
 ## `skills.NAME`
 
 | Field | Type | Requirement/default |
@@ -63,7 +61,7 @@ TOML duplicate source names are invalid, including Git/external name collisions.
 | `source` | String | Required name of a Git source in `sources`. |
 | `exclude` | Array of strings | Additional [payload exclusions](payload.md#payload-exclusions); defaults to `[]`. |
 | `subdir` | String | Directory containing the fixed entry file `SKILL.md`; defaults to `"."`. |
-| `install` | Table | Optional installation settings below. |
+| `install` | Table | Optional installation settings defined in this section. |
 | `update` | Table | Optional [update policy](#update-policies) selection and overrides. |
 
 `skills.NAME.install` accepts only `root` and `mode`.
@@ -79,7 +77,6 @@ Directory links expose them, and copy/detach preserve them; AEM does not guess w
 Tracked changes and nonignored untracked files still block bootstrap, apply, and update.
 Fast-forwards refuse incoming paths that would overwrite ignored local files, including file/directory collisions; relocate or reconcile the conflicting files explicitly before retrying.
 Installed copies retain full-tree ownership checks, so a cache created or changed in the installed copy counts as a local edit and blocks automatic replacement.
-
 
 ## Update policies
 

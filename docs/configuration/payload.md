@@ -58,7 +58,6 @@ A changed exclusion policy is reported as `configuration-changed`; apply it befo
 Apply still checks local edits against the saved policy or requires a copy already matching the desired included contents; changing exclusions does not authorize overwriting unrelated edits.
 Nested or differently filtered overlapping copy collection with exclusions requires separate selections.
 
-
 ## Permission preservation
 
 `permissions` selects `"strict"` or `"best-effort"` for skill, directory, and instruction bundle payloads.

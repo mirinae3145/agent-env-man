@@ -10,7 +10,6 @@ Invalid numeric CLI durations (non-finite values, nonpositive timeouts, or negat
 Help exits `0`; invoking a command group without a required subcommand shows usage/help and exits `2`.
 Successful operations exit `0`; status also exits `0` when its report contains conflicts or unavailable sources.
 
-
 ## Platform support and preflight
 
 Platform-unsupported directory policies appear as item `status = "unavailable"` with `error`; detached items retain `status = "detached"` and include the limitation as `error`.
@@ -20,14 +19,12 @@ Bootstrap performs this preflight after reading the catalog and before saving th
 `sync --item` still updates all sources; use `update NAME` and `apply --item NAME` for independent work.
 Callbacks have the exceptions defined in the [automation and callback reference](automation.md).
 
-
 ## Compatibility
 
 Documented commands, behavior, exit codes, and JSON fields are covered by the package's [compatibility policy](../compatibility.md).
 JSON consumers must ignore unknown object fields; field additions may appear in compatible feature releases.
 Enum values are closed unless their interface explicitly documents unknown-value handling.
 JSON whitespace, object key order, and human-readable diagnostic wording are not stable interfaces.
-
 
 ## Locks and shared sources
 
@@ -37,7 +34,6 @@ Content and catalog updates allow Git-ignored regular caches in their checkouts 
 In content status, `sources[].checkout` is `dirty` for tracked edits or nonignored untracked files; ignored files alone leave it `clean`.
 External editors and other package-manager processes do not participate in these locks.
 Read-only commands and dry runs may create the lock directory/file; `setup --dry-run`, `self update --dry-run`, and `automation --dry-run` do not.
-
 
 ## Permission preservation reports
 
@@ -56,7 +52,6 @@ Collection reports include `permission_differences` for completed best-effort st
 Status retains these as `collection_permission_differences`, describing the source destination; ordinary `permission_differences` describe source versus installed-copy modes.
 Preview cannot determine setter failures because it does not stage or write payloads.
 Best-effort differences alone do not change a successful command's exit code; content verification, races, ownership conflicts, recovery failures, and ordinary I/O errors remain fatal.
-
 
 ## Output formats
 

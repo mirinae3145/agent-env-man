@@ -4,7 +4,6 @@ These contracts guide changes to delivery, installation, automation, and ownersh
 Read the sections affected by a change alongside the authoritative [command](commands.md) and [configuration](configuration.md) references.
 For contribution setup and check selection, see [Contributing](https://github.com/mirinae3145/agent-env-man/blob/master/CONTRIBUTING.md) and [Testing](testing.md).
 
-
 ## Managed content
 
 The manager owns reusable installation and delivery behavior.
@@ -12,7 +11,6 @@ Personal instructions, research guidance, skills, and settings remain user-suppl
 Do not introduce personal policies as built-in payloads.
 The official `idk-aem` skill is the exception: it documents AEM user operations and ships with the package from `skills/idk-aem/SKILL.md`.
 It must not prescribe how to author managed content or restrict user-requested edits.
-
 
 ## Core responsibilities
 
@@ -38,7 +36,6 @@ These boundaries apply across the layers:
   Stop and join the reporter before final output or error handling, restore nested observation scopes, and keep stdout/exit codes and queued-work outcomes authoritative.
 - **Background processes**: Captured background processes on Windows must not open console windows, including Git, uv, PowerShell profile discovery, and fresh-CLI worker continuations.
   Keep the worker lifetime pipe, process-group termination, captured output, and exit-code behavior intact when controlling console creation.
-
 
 ## Contract areas
 

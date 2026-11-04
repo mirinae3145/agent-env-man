@@ -8,9 +8,10 @@ Commands and configuration references define the public interfaces; workflow gui
 
 Use these guides for complete workflows and their preservation boundaries.
 
-- [Instruction bundles](instruction-bundles.md) walks through preparing and installing personal instructions on Linux/WSL and Windows.
+- [Personal instruction bundles](instruction-bundles.md) introduces the source model, installation walkthrough, variants, and reading-location reference.
 - [Staged application settings](settings-management.md) explains how to receive, edit, apply, and share selected TOML or JSON fields.
 - [Automation and AEM updates](automation.md) covers device modes, tool updates, and independent content policies.
+- [Named agent instances](agent-instances.md) explains separate installation roots, setting stages, runtime selection, and removal.
 - [Personal command hooks](personal-hooks.md) covers preparing, registering, and maintaining user-authored agent scripts.
 - [Maintenance and recovery](maintenance.md) covers conflicts, detach, backups, recovery, and removal.
 

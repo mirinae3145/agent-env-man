@@ -44,11 +44,10 @@ Final installations retain their existing compatible range and do not select pre
 Release tags use `vVERSION` in Python notation or supported SemVer-style `-alpha`/`-beta`/`-rc` notation with an optional `.N` number.
 Tag conversion and omitted-zero normalization must match the Python package version.
 Development, post, local versions, and untagged commits are excluded.
-See [version syntax and ordering](../automation.md#update-aem-itself).
+See [version syntax and ordering](../automation/self-update.md).
 Attempts share a fixed 86,400-second interval across startup events and are recorded before launching the worker.
 An explicit update bypasses the interval and can override the mode for that attempt without changing the saved policy.
 Existing machine files remain usable with self-updates disabled until runtime registration through the installer.
-
 
 ## Catalog automatic update settings
 
@@ -76,7 +75,6 @@ Attempts are persisted before remote access and failures are throttled too.
 A changed repository, branch, or entry binding starts a separate attempt clock.
 Explicit catalog update/publication commands do not consult or reset this clock.
 The policy does not register startup hooks or an OS scheduler; use setup's existing callback or invoke `catalog auto` externally.
-
 
 ## Device automation settings
 
@@ -112,5 +110,4 @@ Instruction groups with detached components are excluded together; remaining bun
 A shared repository can still advance live links of excluded consumers.
 Local or unbound catalogs skip Git delivery and use the existing local declarations.
 Mode, schedule, exclusion-policy, or runtime changes cancel queued work; the fresh continuation also verifies the saved request binding before advancing content.
-
 

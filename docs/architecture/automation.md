@@ -23,7 +23,6 @@ Explicit sync instead requires all updates to succeed before applying.
 Preserve existing per-target transactions, stop if recovery is pending, and never adopt, replace conflicts, or reattach detached skills automatically.
 Skill automatic policies cover catalog skills; settings schedules remain independent, and explicit sync is unthrottled.
 
-
 ## Device orchestration contracts
 
 Default to `policies` so existing installations retain independent automatic behavior.

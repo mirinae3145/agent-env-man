@@ -25,7 +25,6 @@ External sources only receive an existence check (`external-no-fetch`).
 Selected external settings also receive their shared contents into their stages.
 Dirty, divergent, local-ahead, detached, misidentified, or unsupported incoming checkouts are refused.
 
-
 ## apply
 
 ```text
@@ -55,7 +54,6 @@ Prepared checkouts must be clean even though this command does not fetch.
 [Catalog payload exclusions](../configuration/payload.md#payload-exclusions) skip inspection and copying of matching entries while preserving existing excluded entries in installed copies.
 Replacing an included ancestor of an excluded entry with a file, link, or absence is refused, including with `--replace`.
 General directories may opt into POSIX nested symbolic links through [directory configuration](../configuration/directories.md#directoriesname); apply preserves raw link text and never copies referent contents.
-
 
 ## sync
 
