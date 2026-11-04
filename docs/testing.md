@@ -8,7 +8,7 @@ Tests must use temporary homes, configuration, targets, and local Git remotes ra
 
 The [CI workflow](https://github.com/mirinae3145/agent-env-man/blob/master/.github/workflows/ci.yml) checks pull requests targeting master, master pushes, and manual dispatches.
 Pull requests test GitHub's merge revision; pushes test the pushed revision.
-A separate [agent integration workflow](https://github.com/mirinae3145/agent-env-man/blob/master/.github/workflows/agents.yml) runs daily and on manual dispatch.
+A separate [agent integration workflow](https://github.com/mirinae3145/agent-env-man/blob/master/.github/workflows/agents.yml) runs on pull requests targeting master (including drafts), daily, and on manual dispatch.
 Both workflows use read-only repository permissions and do not publish packages or configure required checks.
 
 ### Jobs and prerequisites
@@ -51,7 +51,7 @@ Native Windows self-update remains outside this job.
 
 The agent integration workflow installs the latest Codex and Claude Code CLIs.
 It checks that they read a fresh AEM setup without account credentials, as described in [agent integration checks](#agent-integration-checks).
-A failure can come from a CLI release rather than an AEM change, so it does not block pull requests.
+A failure can come from a CLI release rather than an AEM change; inspect the installed CLI versions and logs when diagnosing a failed PR check.
 
 ### Local reproduction
 
