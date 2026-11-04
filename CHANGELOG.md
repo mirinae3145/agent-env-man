@@ -7,6 +7,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- A CI upgrade job that self-updates the first and latest final releases of each minor series from 1.0 and the candidate prerelease series boundaries to the tested revision, checking compatible-mode permissions and preserved state.
+- An agent integration workflow that checks whether the latest Codex and Claude Code CLIs read a fresh AEM setup on pull requests, daily, and on manual dispatch.
+- `scripts/verify_upgrade.py` and `scripts/verify_agents.py` to reproduce these checks locally.
+
+### Changed
+
+- CI source jobs report coverage totals without a minimum threshold.
+
 ## [1.3.0-beta.3] &mdash; 2026-11-03
 
 Git tag `v1.3.0-beta.3` corresponds to Python package version `1.3.0b3`; based on `v1.3.0-beta.2`.
