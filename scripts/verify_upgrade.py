@@ -49,21 +49,54 @@ def tag_order(tag):
             int(number or semver_number or 0))
 
 
-def default_baselines(tags):
-    """Select the newest final release and the newest release of any kind."""
-    releases = sorted((order, tag) for tag in tags if (order := tag_order(tag)) is not None)
-    finals = [tag for order, tag in releases if order[3] == LABELS[None]]
-    return list(dict.fromkeys([*finals[-1:], *(tag for _, tag in releases[-1:])]))
+def default_baselines(tags, candidate_version):
+    """Select final minor boundaries since 1.0 and the candidate prerelease boundaries."""
+    candidate = tag_order('v' + candidate_version)
+    require(candidate is not None, f'Unsupported candidate version: {candidate_version}')
+    releases = {}
+    for tag in sorted(tags):
+        order = tag_order(tag)
+        if order is not None and order <= candidate:
+            releases.setdefault(order, tag)
+    groups = {}
+    for order, tag in sorted(releases.items()):
+        if order[0] >= 1 and order[3] == LABELS[None]:
+            key = order[:2]
+        elif candidate[3] != LABELS[None] and order[:4] == candidate[:4]:
+            key = order[:4]
+        else:
+            continue
+        groups.setdefault(key, []).append(tag)
+    return list(dict.fromkeys(tag for group in groups.values() for tag in (group[0], group[-1])))
 
 
-def differences(left, right, path='$'):
-    """List JSON paths whose values differ between two documents."""
+def compatible_transition(baseline, candidate):
+    """Expected permission boundary, checked against the installed release's worker."""
+    before, after = tag_order('v' + baseline), tag_order('v' + candidate)
+    require(before is not None and after is not None, 'Unsupported upgrade versions')
+    if after <= before:
+        return False
+    if before[3] != LABELS[None]:
+        return before[:4] == after[:4]
+    width = 2 if before[0] == 0 else 1
+    return after[3] == LABELS[None] and before[:width] == after[:width]
+
+
+def differences(left, right, path='$', *, allow_additions=False):
+    """List changed JSON paths, optionally allowing new output fields."""
     if isinstance(left, dict) and isinstance(right, dict):
-        return [found for key in sorted(left.keys() | right.keys())
-                for found in differences(left.get(key), right.get(key), f'{path}.{key}')]
+        keys = left.keys() if allow_additions else left.keys() | right.keys()
+        changed = []
+        for key in sorted(keys):
+            if key not in right:
+                changed.append(f'{path}.{key}: missing field')
+            else:
+                changed.extend(differences(left.get(key), right[key], f'{path}.{key}',
+                                           allow_additions=allow_additions))
+        return changed
     if isinstance(left, list) and isinstance(right, list) and len(left) == len(right):
         return [found for index, pair in enumerate(zip(left, right))
-                for found in differences(*pair, f'{path}[{index}]')]
+                for found in differences(*pair, f'{path}[{index}]', allow_additions=allow_additions)]
     return [] if left == right else [f'{path}: {left!r} -> {right!r}']
 
 
@@ -171,9 +204,19 @@ def verify(checkout, baseline, candidate, timeout):
         settings_before = settings.read_bytes()
         status_before = json.loads(profile.aem('status'))
 
-        queued = json.loads(profile.aem('self', 'update', '--mode', 'breaking'))
+        queued = json.loads(profile.aem('self', 'update', '--mode', 'compatible'))
         require(queued.get('status') == 'queued', f'Self-update was not queued: {queued}')
         attempt = wait_for_update(profile, queued['token'], timeout)
+        if not compatible_transition(baseline_version, version):
+            require(attempt['status'] == 'up-to-date', f'Compatible mode allowed a forbidden transition: {attempt}')
+            require(json.loads(profile.aem('self', 'status'))['version'] == baseline_version,
+                    'Rejected compatible update changed the installed version')
+            require(digest_tree(skills) == skills_before and settings.read_bytes() == settings_before,
+                    'Rejected compatible update changed managed content')
+            print(f'Verified compatible refusal: {baseline_version} -> {version}', flush=True)
+            queued = json.loads(profile.aem('self', 'update', '--mode', 'breaking'))
+            require(queued.get('status') == 'queued', f'Breaking update was not queued: {queued}')
+            attempt = wait_for_update(profile, queued['token'], timeout)
         require(attempt['status'] == 'updated', f'Self-update did not install the candidate: {attempt}')
         require(attempt.get('version') == version and attempt.get('revision') == revision,
                 f'Self-update installed {attempt.get("version")} at {attempt.get("revision")}, '
@@ -186,9 +229,10 @@ def verify(checkout, baseline, candidate, timeout):
         require(settings.read_bytes() == settings_before, 'Self-update changed managed settings')
         require(bashrc.read_text(encoding='utf-8').startswith('# preserved shell line\n'),
                 'Self-update lost the existing shell profile content')
-        # The self-update block records this attempt; everything else must match.
+        # Existing status fields must survive; additive output fields are compatible.
+        # The self-update block records this attempt and is expected to change.
         changed = differences({**status_before, 'self_update': None},
-                              {**json.loads(profile.aem('status')), 'self_update': None})
+                              {**json.loads(profile.aem('status')), 'self_update': None}, allow_additions=True)
         require(not changed, 'Candidate status differs from baseline status:\n' + '\n'.join(changed))
         # The local edit keeps its copy protected; other items reapply unchanged.
         profile.aem('apply', '--item', 'smoke', code=1)
@@ -215,8 +259,8 @@ def verify(checkout, baseline, candidate, timeout):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--baseline', action='append',
-                        help='installed release tag (repeatable; default: newest final and newest release '
-                             'tags merged into the candidate)')
+                        help='installed release tag (repeatable; default: first/latest finals per minor since '
+                             '1.0 and first/latest tags in the candidate prerelease series, merged into it)')
     parser.add_argument('--candidate', default='HEAD', help='revision to publish as the next release')
     parser.add_argument('--checkout', type=Path, default=Path(__file__).resolve().parents[1],
                         help='Git checkout containing both revisions (default: this repository)')
@@ -230,8 +274,14 @@ def main(argv=None):
         if not baselines:
             tags = subprocess.run(['git', '-C', str(checkout), 'tag', '--merged', options.candidate],
                                   check=True, capture_output=True, text=True).stdout.split()
-            baselines = default_baselines(tags)
+            metadata = subprocess.run(['git', '-C', str(checkout), 'show',
+                                       f'{options.candidate}:pyproject.toml'],
+                                      check=True, capture_output=True, text=True).stdout
+            version = VERSION.search(metadata)
+            require(version, 'Candidate pyproject.toml has no project version')
+            baselines = default_baselines(tags, version.group(1))
             require(baselines, f'No release tags are merged into {options.candidate}')
+        print('Upgrade baselines: ' + ', '.join(baselines), flush=True)
         for baseline in baselines:
             verify(checkout, baseline, options.candidate, options.timeout)
         return 0

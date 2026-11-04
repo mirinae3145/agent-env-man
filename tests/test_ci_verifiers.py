@@ -19,19 +19,41 @@ class UpgradeVerifier(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             next_release('1.2.1.dev0')
 
-    def test_default_baselines_use_newest_final_and_newest_release(self):
+    def test_default_baselines_cover_minor_and_current_prerelease_boundaries(self):
         select = self.verifier['default_baselines']
-        tags = ['v1.2.0', 'v1.2.0-rc.3', 'v1.2.1', 'v1.3.0-beta.1', 'v1.3.0-beta.2', 'archive-pr25', 'v1.10.0a1']
-        self.assertEqual(select(tags), ['v1.2.1', 'v1.10.0a1'])
-        self.assertEqual(select(['v1.2.0', 'v1.2.1']), ['v1.2.1'])
-        self.assertEqual(select(['v1.0.0-rc.1']), ['v1.0.0-rc.1'])
-        self.assertEqual(select(['other']), [])
+        tags = ['v0.5.3', 'v1.0.0', 'v1.0.1', 'v1.0.2', 'v1.1.0', 'v1.2.0', 'v1.2.0-rc.3',
+                'v1.2.1', 'v1.3.0-beta.1', 'v1.3.0b1', 'v1.3.0-beta.2', 'v1.3.0-beta.3',
+                'v1.3.0-rc.1', 'archive-pr25', 'v1.10.0a1', 'v2.0.0']
+        self.assertEqual(select(tags, '1.3.0b3'),
+                         ['v1.0.0', 'v1.0.2', 'v1.1.0', 'v1.2.0', 'v1.2.1',
+                          'v1.3.0-beta.1', 'v1.3.0-beta.3'])
+        self.assertEqual(select(['v1.2.0', 'v1.2.1'], '1.2.1'), ['v1.2.0', 'v1.2.1'])
+        self.assertEqual(select(['v1.0.0-rc.1'], '1.0.0rc1'), ['v1.0.0-rc.1'])
+        self.assertEqual(select(['other'], '1.3.0b3'), [])
+
+    def test_compatible_upgrade_expectations(self):
+        compatible = self.verifier['compatible_transition']
+        for before, after, expected in [('1.0.0', '1.2.1', True), ('1.2.1', '1.3.0b4', False),
+                                        ('1.3.0b1', '1.3.0b4', True), ('1.3.0b3', '1.3.0rc1', False),
+                                        ('1.3.0b3', '1.3.0', False), ('1.3.0b3', '1.4.0b4', False),
+                                        ('1.2.1', '2.0.0', False), ('0.2.0', '0.2.1', True),
+                                        ('0.2.0', '0.3.0', False), ('1.2.1', '1.2.1', False)]:
+            with self.subTest(before=before, after=after):
+                self.assertEqual(compatible(before, after), expected)
 
     def test_differences_name_changed_paths(self):
         differences = self.verifier['differences']
         self.assertEqual(differences({'a': [1, {'b': 2}]}, {'a': [1, {'b': 2}]}), [])
         self.assertEqual(differences({'a': [1, {'b': 2}], 'c': 1}, {'a': [1, {'b': 3}]}),
-                         ['$.a[1].b: 2 -> 3', '$.c: 1 -> None'])
+                         ['$.a[1].b: 2 -> 3', '$.c: missing field'])
+
+    def test_status_output_allows_additions_but_preserves_existing_fields(self):
+        differences = self.verifier['differences']
+        self.assertEqual(differences({'items': [{'name': 'old'}]},
+                                     {'items': [{'name': 'old', 'kind': 'skill'}], 'new': True},
+                                     allow_additions=True), [])
+        self.assertEqual(differences({'value': None}, {}, allow_additions=True), ['$.value: missing field'])
+        self.assertEqual(differences({'value': 1}, {'value': 2}, allow_additions=True), ['$.value: 1 -> 2'])
 
 
 class AgentVerifier(unittest.TestCase):
