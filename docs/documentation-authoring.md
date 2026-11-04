@@ -27,6 +27,10 @@ Preserve existing linked headings when adding structure, or update every affecte
 
 ## CLI help scope
 
+CLI help must support invocation decisions and remain available independently of machine configuration.
+
+### Invocation decisions
+
 CLI help is the installed, version-matched entry point for choosing and invoking commands.
 Explain the target being read or changed, selection identifiers and scope, omitted-option behavior, and non-obvious prerequisites or option incompatibilities when these affect correct use.
 For workflows spanning multiple commands, make clear which phase a selector filters and which content each command consumes, such as a source, editable stage, or actual application file.
@@ -42,6 +46,10 @@ Help must remain available without valid machine configuration, loading catalogs
 For help changes, inspect rendered command output and verify this boundary; avoid tests that lock down exact prose.
 
 ## Installed documentation
+
+Installed documentation provides the same canonical guides as the checkout, with working offline links.
+
+### Resource contents
 
 Ship `README.md`, `docs/`, `examples/`, and `LICENSE.txt` as version-matched local package resources, preserving their repository-relative directory structure.
 `aem docs` identifies the local README and documentation root without reading machine configuration, acquiring locks, fetching, or requiring an agent/shell integration.
@@ -59,6 +67,10 @@ Build hooks must resolve from the configured source layout without relying on th
 Verify isolated wheel builds, wheel contents, wheel builds from the sdist, installed local lookup, and local link/anchor resolution when changing packaging or documentation structure.
 
 ## Official skill guidance
+
+The official operations skill guides task selection and execution using installed interfaces.
+
+### Workflow guidance
 
 The packaged [idk-aem skill](https://github.com/mirinae3145/agent-env-man/blob/master/skills/idk-aem/SKILL.md) should help agents choose and carry out AEM operations, with emphasis on important behavior, sequencing, and non-obvious consequences.
 Organize the skill by the user's intended task, with enough basic commands and sequencing to carry out ordinary workflows directly.

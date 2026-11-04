@@ -4,179 +4,6 @@
 Use this guide to select portability, distribution, and coverage checks for the affected contracts.
 Tests must use temporary homes, configuration, targets, and local Git remotes rather than real user profiles or credentials.
 
-## Continuous integration
-
-The [CI workflow](https://github.com/mirinae3145/agent-env-man/blob/master/.github/workflows/ci.yml) checks pull requests targeting master, master pushes, and manual dispatches.
-Pull requests test GitHub's merge revision; pushes test the pushed revision.
-A separate [agent integration workflow](https://github.com/mirinae3145/agent-env-man/blob/master/.github/workflows/agents.yml) runs on pull requests targeting master (including drafts), daily, and on manual dispatch.
-Both workflows use read-only repository permissions and do not publish packages or configure required checks.
-
-### Jobs and prerequisites
-
-The CI workflow runs these independent checks:
-
-| Check | Runners | Python | Commands |
-| --- | --- | --- | --- |
-| Source | Ubuntu 24.04, Windows Server 2025 | 3.11, 3.15 | Full unittest discovery under coverage, and compileall |
-| Distribution | Ubuntu 24.04, Windows Server 2025 | 3.11 | Direct wheel and sdist-rebuilt wheel runtime verification |
-| Upgrade | Ubuntu 24.04 | 3.11 | Self-update from previous releases to the tested revision |
-
-Every matrix job requires working file and directory symlinks; Windows also requires Windows PowerShell.
-A missing capability fails preparation instead of silently skipping its success paths.
-Verbose unittest logs retain individual skips, including tests for the other operating system.
-Source jobs install the development extra and uv to exercise tool-discovery tests.
-They report coverage totals in the job summary and logs without a minimum threshold.
-
-One Ubuntu source job checks whitespace against the PR base or the push's previous revision.
-Manual dispatch checks the last commit; an initial push or root commit is compared with an empty tree.
-Matrix jobs have a 45-minute timeout and do not cancel other matrix jobs on failure.
-A newer PR revision cancels the previous run for that PR.
-
-### Logs and limits
-
-Each job uploads command logs for 14 days, including on failure when logs are available.
-Inspect the failed step and skip reasons before interpreting a run as platform coverage.
-Hosted Linux and Windows checks do not cover WSL interoperability, real mounted filesystems, or authenticated agent sessions.
-
-### Upgrade verification
-
-The upgrade job installs the first and latest final releases of each minor series from 1.0 onward, plus the first and latest releases in the candidate's prerelease series, using tags merged into the tested revision and no newer than its package version.
-Each installation uses its own repository installer in a disposable profile with copied, linked, and settings content.
-The tested revision is published to a local release repository under the next version, then installed by `aem self update`: permitted transitions must succeed in `compatible` mode; other transitions must leave the installation unchanged before succeeding in `breaking` mode.
-The job checks that installed contents, local edits, and existing status fields survive, allowing additive JSON output fields, and that ordinary updates continue afterwards.
-Rerunning setup afterwards must leave the agent profile files unchanged.
-Native Windows self-update remains outside this job.
-
-### Agent integration workflow
-
-The agent integration workflow installs the latest Codex and Claude Code CLIs.
-It checks that they read a fresh AEM setup without account credentials, as described in [agent integration checks](#agent-integration-checks).
-A failure can come from a CLI release rather than an AEM change; inspect the installed CLI versions and logs when diagnosing a failed PR check.
-
-### Local reproduction
-
-To reproduce both distribution paths, install build and run the helper from a development environment:
-
-```bash
-python -m pip install build
-python scripts/verify_distribution.py
-```
-
-The helper builds in isolation and creates separate runtime environments without pip, setuptools, coverage, or build.
-It invokes the existing runtime verifier for each wheel and exits unsuccessfully if any build, installation, or verification fails.
-Temporary build and runtime directories are removed when the helper exits.
-
-The upgrade and agent checks run from a checkout with full tags, using Python, Git, and uv on PATH:
-
-```bash
-python scripts/verify_upgrade.py                       # Default baselines.
-python scripts/verify_upgrade.py --baseline v1.2.1     # A selected release.
-python scripts/verify_agents.py                        # Requires codex and claude on PATH.
-```
-
-Both helpers install AEM into temporary homes and uv tool directories and remove them when they exit.
-
-## Writing for multiple execution environments
-
-Consider supported environments while designing the change, even when only one is available for execution.
-For affected behavior, identify relevant differences between native Windows and Linux/WSL, shell invocation, interactive terminals and redirected input, and editable versus installed or copied-worker execution.
-Do not require every environment for every change; select the relevant dimensions and checks according to the affected contract.
-
-- Treat filesystem paths and serialized representations as different values.
-  Parse JSON before comparing path values, and decode encoded commands before checking their arguments.
-  Assert exact bytes or quoting when serialization or byte preservation is the contract, with expectations appropriate to the platform.
-- Account for drive and UNC paths, separators, case behavior, symlink/reparse capabilities, permissions, line endings, and non-ASCII or shell-sensitive characters where they affect the change.
-  Do not normalize away distinctions that ownership, identity, or preservation checks rely on.
-- Make test prerequisites explicit rather than inheriting the developer's machine state.
-  Control home/configuration locations, relevant environment variables, executable discovery, working directory, TTY detection, and input responses when they influence the behavior under test.
-  An unattended-flow test should fail if input is requested; interactive-flow tests should supply their expected responses.
-- Use platform-appropriate fake executables and subprocess invocation.
-  A POSIX shebang is not a portable executable fixture, and successful command serialization does not establish execution or exit-code propagation in the target shell.
-  Keep portable policy and output checks runnable everywhere; isolate native process, shell, and filesystem checks behind explicit capability requirements.
-  Launch test fixture processes through `process_support.run_hidden` or `process_support.popen_hidden` so native Windows runs suppress incidental console windows.
-  These helpers preserve explicitly requested detached/new-console behavior and do not patch product subprocess calls, keeping native console regression checks meaningful.
-- Exercise both success and failure behavior, especially preservation of user files, unrelated configuration, and saved ownership when an operation cannot proceed.
-  A platform limitation should skip only checks requiring that capability, not portable validation of the corresponding error or refusal path.
-
-When another relevant environment is unavailable, review its code paths and fixture assumptions and run the meaningful checks available locally.
-Record the environments actually exercised, skipped capabilities, and remaining uncertainty with the change's validation results.
-Mocks and static review support portability reasoning but do not establish native readiness; retain that distinction in compatibility claims.
-
-## Installation and dependency boundaries
-
-Base installation supports ordinary AEM use; the `dev` extra supports contribution work and the full test suite.
-Both installations must have identical command behavior, configuration defaults, and automation policy.
-Installing either package does not register shell or agent integrations; `aem setup` owns those explicit changes.
-The repository installer combines package installation and requested setup as a user-facing workflow.
-
-### Runtime dependency isolation
-
-Runtime commands must not import development or build tools.
-Build-system requirements provision isolated package builds independently of the `dev` extra; setuptools in `dev` supports source build-hook tests.
-Keep the standalone installer and copied worker standard-library-only, and verify them with Python site packages disabled.
-
-### Installed distribution checks
-
-Source tests in an editable development environment and verification of an installed distribution are separate acceptance checks.
-For packaging or dependency changes, also install a built wheel without extras into a fresh environment with neither coverage.py nor setuptools, and run the runtime verifier from the checkout:
-
-```bash
-python -m venv --without-pip /path/to/runtime-venv
-python -m pip --python /path/to/runtime-venv install /path/to/agent_env_man-VERSION-py3-none-any.whl
-python scripts/verify_runtime.py --python /path/to/runtime-venv/bin/python
-```
-
-Use a separate temporary environment; on Windows pass its `Scripts/python.exe` to the verifier.
-The pip installation command uses the development environment's pip to install only the wheel and its runtime dependencies into the target environment.
-Package acquisition may require network access; verification itself uses only temporary local Git repositories and never registers integrations.
-The verifier rejects editable installations and environments containing development dependencies, disables Python source-path inheritance, and checks installed CLI help, local documentation, and bootstrap/apply/status/detach behavior.
-It also exercises TOML and JSON settings reception, stage editing, application, export, local Git publication, conflict preservation, and detach through the installed CLI.
-Verify both a direct wheel and a wheel rebuilt from the sdist as required by the installed-documentation contract in [Documentation authoring](documentation-authoring.md#installed-documentation).
-
-## Mounted filesystem checks
-
-For a mounted POSIX filesystem, verify exclusions using disposable source and target directories on that filesystem:
-
-```bash
-PYTHONPATH=src python scripts/verify_payload_mount.py --root /path/to/mount
-```
-
-The verifier removes only its own temporary test directory and keeps machine state in a separate local temporary directory.
-It checks copy installation, excluded metadata preservation, status, reverse collection, preservation refusals in previews, and detach through fresh CLI processes.
-Record the actual filesystem and mount used; a successful check on a mount's parent directory does not establish remote-filesystem behavior.
-
-## Coverage measurement
-
-Run the ordinary test suite under coverage.py from the repository root in the activated development environment.
-The configuration measures statements and branches in `src/` and `scripts/`, including the build hook and standalone installer.
-Python subprocesses are also measured; combine their data before generating reports.
-
-```bash
-python -m coverage erase
-python -m coverage run -m unittest discover -s tests -v
-python -m coverage combine
-python -m coverage report
-python -m coverage html
-python -m coverage json
-```
-
-Check the test command's exit status before treating a report as a successful baseline.
-Reports from a failed run may help diagnosis but do not establish successful validation.
-The terminal report shows missing lines and branch destinations; `htmlcov/index.html` provides file-level detail and `coverage.json` contains machine-readable results.
-Coverage data and reports are ignored local artifacts.
-CI source jobs report coverage without a minimum threshold, and no hook enforces it.
-Keep coverage.py's default exclusions; do not exclude whole files to improve the percentage.
-
-### Interpret coverage results
-
-Review unmeasured failure, recovery, and platform paths for meaningful behavior tests before choosing a minimum threshold.
-Record the source revision, environment, test outcomes and skips, statement and branch coverage, and combined percentage with validation results rather than embedding changing baselines in this guidance.
-Linux/WSL measurement does not establish coverage of Windows-only behavior.
-The same commands work with the native Windows environment's Python, but report its results separately.
-Workers copied into temporary request directories are outside the configured source roots; subprocess measurement does not map those copies back to their originals.
-Test the original worker's policy, failure, and continuation behavior separately from copied-worker lifetime integration.
-Mocked Windows API tests check branching and resource handling; they do not establish native Windows lock or process behavior.
-
 ## Validation expectations
 
 Choose checks by the affected contract, using temporary local Git fixtures and fake installers where needed.
@@ -200,16 +27,23 @@ Cross-cutting requirements:
 - Installation and update paths must reject unknown fields and invalid types rather than accepting misspelled or removed settings.
 - Update examples and platform limitations with interface changes.
 
-## Agent integration checks
+## Mounted filesystem checks
 
-During development, switch `STARTUP_BRIEFING_OUTPUT` in `src/agent_env_man/agents.py` between `"systemMessage"` (UI warning) and `"additionalContext"` (model context) to try both startup briefing behaviors.
-For a regular uv tool installation, reinstall the updated checkout before testing the installed hook.
+For a mounted POSIX filesystem, verify exclusions using disposable source and target directories on that filesystem:
 
-Test setup with temporary homes and fake installer subprocesses, never actual user profiles or live remote repositories.
-Exercise repeat/add/remove, edited blocks, invalid hook files, redirected paths, grouped hook writes, partial failure/retry, offline previews, and fail-open startup.
-Shell quoting and PowerShell serialization tests do not establish native shell or Windows readiness.
+```bash
+PYTHONPATH=src python scripts/verify_payload_mount.py --root /path/to/mount
+```
 
-`scripts/verify_agents.py` checks a fresh setup against the installed agent CLIs without account credentials.
-Codex must load its configuration and list the official skill in `codex debug prompt-input`.
-Claude Code must report no invalid settings in `claude doctor` and run AEM's session-start hook before its login failure.
-Model requests, authenticated features, and Codex hook execution remain outside this check.
+The verifier removes only its own temporary test directory and keeps machine state in a separate local temporary directory.
+It checks copy installation, excluded metadata preservation, status, reverse collection, preservation refusals in previews, and detach through fresh CLI processes.
+Record the actual filesystem and mount used; a successful check on a mount's parent directory does not establish remote-filesystem behavior.
+
+## Choose an execution guide
+
+Select the checks required by the affected contract, then use the appropriate execution guide.
+
+- [Test environment contracts](testing/environments.md) covers portable fixtures, Windows process behavior, and limits of platform evidence.
+- [CI and agent integration checks](testing/ci.md) describes the CI jobs, local reproduction, and unauthenticated agent checks.
+- [Installed distribution verification](testing/distribution.md) covers isolated builds and runtime environments without development dependencies.
+- [Coverage measurement](testing/coverage.md) covers measurement commands, reports, and interpretation limits.
