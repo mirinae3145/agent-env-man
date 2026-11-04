@@ -4,6 +4,8 @@ The catalog is now the only content declaration format.
 This is a breaking cleanup for installation: there is no legacy source parser, command alias, or automatic conversion.
 Saved ownership remains available for maintenance without restoring legacy installation semantics.
 
+## Removed interfaces
+
 | Removed interface | Current approach |
 | --- | --- |
 | Source-local `links.conf` (four or six fields) and machine `[sources]` | Catalog `skills`, `instructions`, and named `sources`. |
@@ -13,6 +15,8 @@ Saved ownership remains available for maintenance without restoring legacy insta
 | `sync --min-interval` and the configuration-wide attempt clock | Per-skill catalog policies and `auto --trigger EVENT`. Explicit sync is unthrottled. |
 | Generated instruction guides and their in-place upgrade | Direct links to original entry documents, plus location hooks. |
 | Installing/updating through state version `1` | New installations require state version `2`; maintenance can release version-1 ownership without converting it. |
+
+## Remaining format rules
 
 Catalog TOML requires version `2`; machine TOML remains version `1` and installation state remains version `2`.
 Installation/update commands reject machine `[sources]` even when empty and reject unknown machine fields.
@@ -55,6 +59,10 @@ See the [configuration reference](configuration/catalog.md#catalog) for the comp
 
 ## Before upgrading an existing installation
 
+The procedure releases the old installation with current maintenance commands, then prepares a new one.
+
+### Release the old installation
+
 Use current AEM maintenance commands against the old machine file:
 
 ```bash
@@ -72,10 +80,15 @@ Disable/remove retained old instruction hooks through the agent's hook controls.
 Detach preserves contents; it does not disable retained instruction hooks.
 Keep a backup of the old machine file and state together, along with source contents and target backups.
 
+### Prepare the new installation
+
 Prepare a new machine configuration and state location with the current catalog format.
 Preserved old targets remain unmanaged conflicts: inspect them, move them aside, or explicitly adopt matching content/replace selected targets with backups.
 Run bootstrap, preview apply, then apply and review new hook trust.
 The new build does not clean old checkouts, delete preserved targets, or automatically adopt them.
+
+### Old state and retained hooks
+
 Maintenance preserves the old state's version and unknown fields, so releasing everything does not convert it into a current installation state.
 Only the known version-1/version-2 ownership envelope and per-target journal format are accepted; unknown versions and incomplete/unsafe journals still require the matching tool or manual reconciliation.
 

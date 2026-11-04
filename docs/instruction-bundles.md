@@ -6,11 +6,15 @@ The [configuration reference](configuration/instructions.md) and [command refere
 
 ## Three things to keep separate
 
+A bundle installation involves these three parts, each with its own owner.
+
 | Part | What it contains | Who manages it |
 | --- | --- | --- |
 | Original documents | Your entry document, development/research/workspace guidance, and references | You; optionally an external synchronization service |
 | Shared catalog | Which bundle to use, its entry file, and logical installation destinations | You; the same declaration can be used on different devices |
 | Machine configuration | Where this device keeps the catalog, external folders, checkouts, and installation roots | You; paths can differ on each device |
+
+## What AEM does with them
 
 AEM reads the two TOML files, chooses the bundle installation directory, and links the document tree and original entry.
 It registers Codex SessionStart and SubagentStart hooks for session and child-agent reading locations.

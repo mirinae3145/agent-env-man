@@ -9,6 +9,8 @@ Ownership comes from declared content and saved records, with explicit preservat
 
 ### Ownership identity
 
+These rules decide which targets AEM may install and treat as owned.
+
 - Only declared catalog skills, directories, and instruction bundles, and the package-owned official integration skill, may be installed.
 - A content repository update cannot expand the local catalog.
 - Catalog skill names identify ownership independently of repository URLs and paths.
@@ -28,9 +30,13 @@ Never duplicate a repository database or worktree pointer into an unmanaged skil
 ### General directories
 
 General directories reuse directory payloads, named sources, and per-target ownership without requiring an entry document or agent integration.
-Omitted directory installation roots normalize to `home` unless the directory declares `agent`; bootstrap records the user's home path only when that binding is absent, preserving explicit roots and saved paths.
+Omitted directory installation roots normalize to `home` unless the directory declares `agent`.
+Bootstrap records the user's home path only when that binding is absent, preserving explicit roots and saved paths.
 Their single ownership key is `NAME:directory`; agent filters include them as common items unless the directory declares `agent`.
-A directory bound with `agent` installs below that registered destination's root, is selected, detached and reported only for that destination, and is skipped on machines that have not registered it; its saved record keeps `agents` and `agent_bound`.
+
+A directory bound with `agent` installs below that registered destination's root.
+It is selected, detached and reported only for that destination, and is skipped on machines that have not registered it.
+Its saved record keeps `agents` and `agent_bound`.
 Directory policies reuse skill policy composition and clocks, supporting local external checks/sync without Git transport.
 Active directory link guards include orphaned consumers of shared checkouts.
 
@@ -38,15 +44,18 @@ Active directory link guards include orphaned consumers of shared checkouts.
 
 Combine catalog-wide and item-root patterns with source-root patterns, retaining their logical anchors through subtree staging and recovery.
 Do not follow, open, or recurse into excluded entries during inspection.
-With exclusions enabled, POSIX directory scans guard inode, mode, and the included child name set rather than timestamps changed by excluded children; included file race checks remain intact.
+With exclusions enabled, POSIX directory scans guard inode, mode, and the included child name set rather than timestamps changed by excluded children.
+Included file race checks remain intact.
 Required descriptors and skill/instruction entries cannot be excluded.
 
 Excluded existing destination entries are unowned and must survive apply and reverse collection.
 Preflight their relative locations against the incoming tree, then journal opaque same-filesystem moves through a target-adjacent retention directory before replacing included contents.
 Rollback restores both included contents and retained entries, including after interrupted moves or failed state commits.
 Never delete a retention directory containing entries to resolve an error.
+
 Refuse missing or redirected incoming ancestors and ambiguous duplicate recovery locations.
-Save exclusion rules and subtree prefixes with each affected ownership and recovery record; absent rules preserve existing hashing and copy behavior.
+Save exclusion rules and subtree prefixes with each affected ownership and recovery record.
+Absent rules preserve existing hashing and copy behavior.
 A policy change requires apply before collection, and collections with nested or differently filtered overlapping excluded boundaries require separate selections.
 Exclusion policies do not filter repository-wide Git commits.
 
@@ -54,7 +63,9 @@ Exclusion policies do not filter repository-wide Git commits.
 
 Resolve the scalar permission level from item, source, catalog defaults, then strict; keep the existing strict hashing and copy path compatible.
 Best-effort content equality excludes native permission modes, but transaction observations independently include their digest.
-Record source observations and actual installed observations so inability to reproduce source modes never becomes an endless content conflict, while later local mode edits remain protected.
+Record source observations and actual installed observations so inability to reproduce source modes never becomes an endless content conflict.
+Later local mode edits remain protected.
+
 Permission snapshots use non-following descriptors on POSIX, preserve opaque link identity, and honor exclusion boundaries without rereading file contents.
 Best-effort observations capture content hashes and native modes in the same guarded POSIX traversal.
 Planning and staged-copy permission reports consume those captured modes; the later stage guard must still match the captured observation before replacement.

@@ -1,6 +1,7 @@
 # Agent Environment Manager (AEM)
 
-Install and update AI agent skills, personal instruction bundles, and general directories from a user-owned TOML catalog, supplied as a local file or delivered through Git.
+Install and update AI agent skills, personal instruction bundles, and general directories from a user-owned TOML catalog.
+The catalog is supplied as a local file or delivered through Git.
 Skills stay in their own Git repositories; directories, instructions, and staged application settings can come from Git or an existing local folder.
 Upstream repositories need no AEM manifest.
 
@@ -39,6 +40,7 @@ py -3 scripts/setup.py --shell powershell --agent codex
 The installer installs AEM and connects the selected shell and agent, including the official `idk-aem` operations skill.
 It does not bind a catalog or install user catalog content.
 Open a new selected shell to use the updated PATH.
+
 Supported integrations are Bash, Zsh, PowerShell, Codex, and Claude Code; use `--agent claude` for Claude or repeat `--agent` to select both.
 Windows and WSL should use separate machine configurations, checkouts, and targets.
 For additional accounts of the same product, use named instances such as `aem setup --agent claude-lab --agent codex-lab`.
@@ -142,6 +144,8 @@ To return managed-copy edits, use explicit `publish --from-copy`; ordinary publi
 See [publish](docs/commands/publish.md) for collection, conflicts, external sources, and retry behavior.
 
 ## Preservation and recovery
+
+The following points summarize what AEM preserves:
 
 - Links expose source updates immediately; copies refresh on apply and protect local edits.
 - Removing a catalog declaration leaves its installed target and ownership intact.

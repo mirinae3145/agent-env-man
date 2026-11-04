@@ -69,6 +69,7 @@ Native trust in a command definition must not be confused with a content signatu
 AEM owns one complete group per resource and agent, rather than the entire JSON file.
 Other groups, events and unrelated preferences survive application and removal.
 Claude preferences and hook groups can share one file; a settings owner cannot claim the `hooks` field.
+
 Multiple selected groups for one file preflight together and commit one replacement.
 When settings share that file, the combined image and comparison records use the existing grouped settings journal.
 Transactions remain per target; an earlier successful target can remain after a later target fails.
@@ -92,6 +93,7 @@ aem hooks remove session-log --agent codex
 Removal uses saved ownership and remains available without the catalog, source, runtime or current profile.
 Omitting `--agent` removes all saved registrations for the selected name.
 Removal releases ownership; explicit `apply --item session-log --reattach` is required to install again.
+
 `detach session-log` retains registrations and releases ownership without copying scripts or removing groups.
 Detached scripts remain dependent on their original source/runtime; preserve those paths or manage the retained group yourself.
 Removing a declaration never removes its installed group.

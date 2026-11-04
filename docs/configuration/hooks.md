@@ -41,8 +41,10 @@ Interpreter paths preserve symlinks, including virtualenv interpreter paths, so 
 Bootstrap's repeated `--runtime NAME=PATH` binds these paths without installing anything.
 Omitted bindings persist.
 Duplicate names in one call are refused.
+
 This additive syntax keeps catalog version 2 and machine version 1; older AEM packages reject the new fields.
 No migration is needed for existing catalogs.
+
 Personal ownership IDs are `NAME:hook` for Codex and `NAME:hook@claude` for Claude.
 Select `NAME` to apply all declared agent bindings, or an exact ID for one binding; `--agent` further filters the selection.
 Plain apply and automatic full mode exclude these items.

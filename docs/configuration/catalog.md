@@ -56,6 +56,8 @@ TOML duplicate source names are invalid, including Git/external name collisions.
 
 ## `skills.NAME`
 
+A skill declaration accepts these fields:
+
 | Field | Type | Requirement/default |
 | --- | --- | --- |
 | `source` | String | Required name of a Git source in `sources`. |
@@ -70,8 +72,10 @@ TOML duplicate source names are invalid, including Git/external name collisions.
 With `install.root` omitted, selected agents supply their skill destinations.
 Without selected agents, machine `roots.skills` is required; bootstrap supplies its default.
 An explicit root overrides agent destinations; agents sharing a target share one ownership record.
+
 Skill names identify installation ownership and directory names, independently of the name inside `SKILL.md`.
 Root skills link directly to the repository root; copy and detach automatically exclude its top-level `.git` entry and honor configured payload exclusions.
+
 Git-ignored regular files, including runtime caches, may coexist with prepared sources and are part of the directory payload.
 Directory links expose them, and copy/detach preserve them; AEM does not guess which ignored files are disposable or delete them.
 Tracked changes and nonignored untracked files still block bootstrap, apply, and update.
@@ -94,6 +98,7 @@ No other fields belong directly under `updates`.
 Resolution order is built-ins, catalog defaults, selected named policy, then item-local fields.
 Only supplied fields override earlier values; trigger arrays replace earlier arrays.
 In full mode, omitted policies participate by default, but an explicit or inherited `[]` excludes the skill or directory.
+
 Effective policy JSON retains the existing `["manual"]` representation for disabled automatic execution; machine policy syntax is unchanged.
 Named policies cannot inherit another policy.
 All declarations, including unused named policies, are validated before network access.
@@ -114,7 +119,9 @@ timeout = 5
 `check` fetches references without moving the checkout or installing targets.
 `sync` fast-forwards and applies each successful skill or directory independently.
 For an external directory, `check` validates local source availability without Git transport and reports `external-no-fetch`; `sync` validates and applies the local source.
+
 Each skill or directory records attempts before network access; failures and successes share its throttle across events.
 A shared checkout update changes all live links immediately, including linked instructions; copy installation still follows selected items.
+
 Policies do not register hooks or launch a scheduler; use `setup` or arrange external `auto` calls.
 Explicit commands ignore these policies and clocks.

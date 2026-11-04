@@ -16,6 +16,8 @@ aem apply --agent claude-lab
 aem status --agent claude-lab
 ```
 
+## Setup defaults
+
 Setup saves default roots `~/.claude-lab` and `~/.codex-lab`, each with its own `skills` directory.
 Named defaults do not reuse `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, or legacy Codex roots belonging to the default destination.
 Explicit machine `root` and `skills` bindings override these defaults and remain saved across environment changes.
@@ -23,14 +25,22 @@ Named root paths must not alias or nest any other configured instance root.
 Existing symlinked settings or redirected target ancestry remain conflicts; setup never migrates or unlinks them automatically.
 Inspect and preserve existing contents before an explicitly planned migration.
 
+## Agent selection
+
 Omitting `--agent` retains the existing all-configured-destinations behavior, which includes instances explicitly added by setup.
 `--agent claude` selects only the original destination, not every Claude instance.
 Use `--agent claude-lab` for the additional destination; an unregistered named selection is refused rather than applying unrelated shared items.
 Directories remain independent of agent selection unless they declare `agent`; a bound directory is selected only for that destination and skipped on machines that have not registered it.
+
 Unbound legacy settings retain their existing apply behavior without a selector or with a default product selector.
-A named selector excludes unbound settings so a lab-only apply cannot write a default profile's preferences; associate per-instance settings using [independent stages](#independent-settings-from-one-source).
-`sync --agent` still updates all sources and filters only installation; an update can immediately affect links consumed by other instances.
+A named selector excludes unbound settings so a lab-only apply cannot write a default profile's preferences.
+Associate per-instance settings using [independent stages](#independent-settings-from-one-source).
+
+`sync --agent` still updates all sources and filters only installation.
+An update can immediately affect links consumed by other instances.
 Startup automation remains device-wide under the same configuration lock; an instance-specific callback does not imply instance-specific source reception.
+
+## Shared sources and content IDs
 
 The same skill and instruction source can supply each instance independently.
 Catalog personal hooks remain product declarations (`agents.claude`, `agents.codex`); AEM expands them to matching configured instances.
@@ -57,6 +67,7 @@ Here both setting names must exist in the catalog; the agent field does not clon
 Give the catalog declaration the same `agent` so that machines without that profile skip it instead of failing for a missing binding; see [settings declarations](configuration/settings.md#application-settings-declarations-and-bindings).
 The agent must be configured to prepare or apply an active setting, and its settings target must be inside that agent's root.
 Detached associations may remain recorded after removing the instance; they cannot be reattached until it is configured again.
+
 `apply --agent claude-lab` selects lab-preferences and leaves claude-preferences alone.
 Each setting has independent conflict bases, an editable stage, and apply ownership.
 The managed source fields can be equal while unrelated native values remain local.

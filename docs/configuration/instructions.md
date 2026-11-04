@@ -29,9 +29,11 @@ Machine `modes.NAME` overrides the bundle mode; the global entry always remains 
 An explicit `install.entry.root` selects one destination; without it at least one machine agent must be selected.
 Bootstrap supplies `roots.agent`, but an instruction declaration must either refer to it or use an agent binding.
 Codex and Claude use their respective entry filenames and hook formats.
+
 An instruction creates `NAME:bundle`, `NAME:entry`, and `NAME:hook` ownership IDs.
 A linked bundle exposes the original entry; a copied bundle links the global entry to the installed copy.
 The hook owns one agent-specific group under the entry root and resolves the same installed reading tree.
+
 Copied bundles stay usable without their external source; explicit apply refreshes them while protecting local edits.
 Instruction-specific automatic policies are not supported.
 Explicitly selected full device automation may prepare, update, and apply instruction bundles, while preserving detached groups.

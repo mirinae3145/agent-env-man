@@ -2,6 +2,9 @@
 
 Keep settings transport, editable stages, and actual application files distinct.
 Collection, export, and publication require explicit operations.
+
+## Automatic settings work
+
 Settings have independent per-item automatic schedules; never inherit skill defaults or named policies.
 Automatic settings work always receives shared changes and then applies the stage, stopping application on reception failure or conflicts.
 Full device automation includes settings by default, preserving explicit empty-trigger exclusions and detached items, and uses the shared full-run clock.
@@ -14,6 +17,7 @@ Keep format parsing, value identity, field enumeration, and preserving edits beh
 Do not use TOML parser nodes as persisted ownership values or expose them in CLI reports.
 Shared intent metadata is an AEM contract, independent of the supported application format.
 Support TOML and strict JSON objects, treat arrays and empty tables/objects as atomic values, and permit one owner per target file.
+
 JSON numbers compare by exact numeric value regardless of spelling, with booleans kept distinct; preserve numeric tokens without conversion through binary floats.
 Keep JSON edits local to changed values and required punctuation, preserving untouched tokens and returning unchanged documents verbatim.
 Reject duplicate JSON keys, comments, trailing commas, and nonstandard numeric constants.

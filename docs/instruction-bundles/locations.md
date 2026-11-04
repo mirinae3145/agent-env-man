@@ -84,10 +84,12 @@ These fields describe locations, not the entry's subject matter or applicability
 
 The callback does not request another reading of the entry.
 If its contents are already present in the agent's context, the agent should not reread them solely to establish these paths; the callback does not assume that the host has loaded them.
+
 Relative references in the entry resolve from the parent directory of `entry`, not the installed entry's directory or the working directory.
 References in supplemental documents resolve from each referring document's own directory, unless the user documents explicitly specify another base.
 For example, an entry at `root/entry/start.md` resolves `../research/workflow.md` to `root/research/workflow.md`; a reference in that workflow uses `root/research` as its base.
 The user documents continue to determine applicability and reading order; location metadata does not trigger a scan or reading of every file in the bundle.
+
 The hook omits installation diagnostics: `aem locate personal` still reports `installed_root` (AEM's installed bundle path) and `detached` (bundle ownership released).
 After detaching only the bundle directory, that installed path holds a preserved copy while the global entry still links to the live source; the hook continues to supply the live source's `root` and `entry` until the global entry is detached too.
 

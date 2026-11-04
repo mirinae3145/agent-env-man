@@ -38,10 +38,16 @@ Hosted Linux and Windows checks do not cover WSL interoperability, real mounted 
 
 ### Upgrade verification
 
-The upgrade job installs the first and latest final releases of each minor series from 1.0 onward, plus the first and latest releases in the candidate's prerelease series, using tags merged into the tested revision and no newer than its package version.
+The upgrade job installs the first and latest final releases of each minor series from 1.0 onward.
+It also installs the first and latest releases in the candidate's prerelease series.
+It uses tags merged into the tested revision and no newer than its package version.
 Each installation uses its own repository installer in a disposable profile with copied, linked, and settings content.
-The tested revision is published to a local release repository under the next version, then installed by `aem self update`: permitted transitions must succeed in `compatible` mode; other transitions must leave the installation unchanged before succeeding in `breaking` mode.
+
+The tested revision is published to a local release repository under the next version, then installed by `aem self update`.
+Permitted transitions must succeed in `compatible` mode.
+Other transitions must leave the installation unchanged before succeeding in `breaking` mode.
 The job checks that installed contents, local edits, and existing status fields survive, allowing additive JSON output fields, and that ordinary updates continue afterwards.
+
 Rerunning setup afterwards must leave the agent profile files unchanged.
 Native Windows self-update remains outside this job.
 
@@ -49,7 +55,8 @@ Native Windows self-update remains outside this job.
 
 The agent integration workflow installs the latest Codex and Claude Code CLIs.
 It checks that they read a fresh AEM setup without account credentials, as described in [agent integration checks](#agent-integration-checks).
-A failure can come from a CLI release rather than an AEM change; inspect the installed CLI versions and logs when diagnosing a failed PR check.
+A failure can come from a CLI release rather than an AEM change.
+Inspect the installed CLI versions and logs when diagnosing a failed PR check.
 
 ### Local reproduction
 

@@ -21,11 +21,14 @@ Copy installation and link detach verify both the staged copy and the source bef
 A source-change error means the source changed since inspection; retry after it becomes stable.
 A copied-payload or materialized-copy mismatch means the source still matched the inspected baseline but the staged copy did not; check copied contents and whether the destination filesystem preserves executable permission bits on POSIX files and directories.
 Verification failure leaves the existing target and ownership intact; `--replace` does not bypass this check.
+
 For a payload whose source permission modes cannot be reproduced, explicitly select catalog [best-effort preservation](configuration/payload.md#permission-preservation), preview, then apply.
 Review reported permission differences: successful copying does not guarantee script execution or preservation of source access restrictions.
 Best-effort does not suppress content damage, source changes, or later edits to installed permissions.
 
 ### Backup locations
+
+Replacement backups are stored according to the target type.
 
 | Target | Backup location |
 | --- | --- |
@@ -90,6 +93,8 @@ Release managed content before removing integrations or uninstalling the tool.
 Personal hook removal is a separate operation.
 
 ### Uninstall AEM
+
+Uninstall in this order.
 
 1. Detach managed agent content, preserving its contents and saved state.
 1. Remove integrations with `aem setup --remove-agent codex` and the appropriate `--remove-shell` options.
