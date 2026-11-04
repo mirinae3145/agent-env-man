@@ -14,19 +14,22 @@ Use `aem setup --self-update off` to disable automatic tool updates without disa
 
 ## Scheduling and completion
 
-In `policies` mode with tool updates enabled, the existing startup callback queues at most one attempt per day across shell and agent events; failures are throttled too.
-It works without a bound content catalog.
-The worker waits for the requesting AEM process to exit, then uses the installer's external Python rather than the environment being replaced.
-The saved external Python and uv executables must remain available; rerun the installer if they move.
-A queued result means the attempt has been scheduled, not completed; use `aem self status` for the eventual result.
-Explicit updates bypass the daily throttle and work even with automatic updates off.
-Content updates, catalog delivery, instruction location callbacks, and `auto` do not update AEM itself.
-No daemon or OS scheduler is installed.
+Scheduling and completion work as follows:
+
+- **Scheduling**: In `policies` mode with tool updates enabled, the existing startup callback queues at most one attempt per day across shell and agent events; failures are throttled too.
+  It works without a bound content catalog.
+  No daemon or OS scheduler is installed.
+- **Worker**: The worker waits for the requesting AEM process to exit, then uses the installer's external Python rather than the environment being replaced.
+  The saved external Python and uv executables must remain available; rerun the installer if they move.
+- **Completion**: A queued result means the attempt has been scheduled, not completed; use `aem self status` for the eventual result.
+- **Scope**: Explicit updates bypass the daily throttle and work even with automatic updates off.
+  Content updates, catalog delivery, instruction location callbacks, and `auto` do not update AEM itself.
 
 ## Replacement and repair
 
 Self-updates coordinate registered AEM commands sharing the same uv tools directory.
 Remote release discovery and metadata validation release the installation and configuration locks, so other commands can run during that preparation.
+
 Before replacement, the worker reacquires the locks and rechecks the request, policies, recovery state, owned official skills, and installed version.
 If another update changed the installed version during preparation, the attempt is cancelled; an explicit `aem self update` can retry.
 Commands can report lock contention during replacement; startup remains fail-open.

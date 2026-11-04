@@ -61,20 +61,23 @@ timeout = 5
 trigger = []
 ```
 
-These policies apply to skills and directories and do not install integrations.
-Directories use the same defaults, named policies, per-item overrides, and attempt clocks.
-External directory checks validate local availability without fetching; sync applies the local source.
-Neither path collects installed copies or publishes changes.
-Setup connects interactive shell and agent startup to a fail-open `startup` callback.
-Without setup, external callers can invoke `aem auto --trigger shell-start`, `agent-start`, or `interval`.
-For `interval`, arrange an OS scheduler; AEM does not run a daemon.
-Preview due work with `aem auto --trigger agent-start --dry-run`.
+These policies behave as follows:
+
+- **Scope**: They apply to skills and directories and do not install integrations.
+  Directories use the same defaults, named policies, per-item overrides, and attempt clocks.
+  External directory checks validate local availability without fetching; sync applies the local source.
+  Neither path collects installed copies or publishes changes.
+- **Startup**: Setup connects interactive shell and agent startup to a fail-open `startup` callback.
+- **External callers**: Without setup, external callers can invoke `aem auto --trigger shell-start`, `agent-start`, or `interval`.
+  For `interval`, arrange an OS scheduler; AEM does not run a daemon.
+- **Preview**: Preview due work with `aem auto --trigger agent-start --dry-run`.
 
 ### Independent outcomes
 
 Each skill or directory has one attempt clock across events; failed attempts are throttled too.
 Automatic sync handles skills and directories independently and preserves conflicts and detached items.
 Explicit `update`, `apply`, `sync`, and `status --refresh` ignore automatic policies.
+
 Agent startup shows a brief message for completed updates or installations; full outcomes and failures remain in status.
 Instruction location hooks installed by apply do not trigger updates.
 See [policy fields and precedence](../configuration/catalog.md#update-policies).
@@ -85,9 +88,10 @@ Settings reception and application use separate per-setting policies, including 
 
 ### Configure settings events
 
-Declare `[settings.NAME.update]` separately from skill update policies; see [Staged settings](../settings-management.md) for fields and examples.
+Declare `[settings.NAME.update]` separately from skill update policies; see [per-setting automatic policy](../settings-management/automation.md#per-setting-automatic-policy) for fields and examples.
 `aem automation --trigger EVENT` runs due settings policies after skill policies in `policies` mode, with results under `settings_updates`.
 A failed catalog update skips both skill and settings work.
+
 Each setting uses its own persisted attempt clock across events, including failed attempts; previews are offline.
 Settings always receive and then apply, with no automatic collection, export, publication, replacement, or reattachment.
 Full mode includes settings by default and uses its shared schedule instead of individual clocks, while preserving explicit `trigger = []` exclusions.

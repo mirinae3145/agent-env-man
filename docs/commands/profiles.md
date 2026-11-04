@@ -63,6 +63,8 @@ Exit status is 1 when any hook is missing, so `--json` is for details rather tha
 
 ## copy-profile
 
+Seeds a new Claude Code profile from an existing one.
+
 ```text
 aem copy-profile SOURCE TARGET [--set FIELD=VALUE]... [--write]
 ```
@@ -73,6 +75,8 @@ It needs no machine configuration and never changes it or the saved state; regis
 A preview takes no locks; `--write` takes the same operation lock as other writing commands, which creates the configuration's state directory if it does not exist yet.
 It supports the Claude Code profile layout and refuses other products.
 
+### Copied and not copied
+
 Copied: the settings fields outside AEM-generated hooks, with exact numbers and the source file's permissions, and the instruction entry, output styles, skill links and `hooks/` files that AEM did not install (links you made yourself are kept).
 Links are recreated against their own targets (relative links are resolved first), so the copy does not point into the source, and strings containing the source root, in any spelling `compare` recognizes, are rewritten to TARGET.
 `--set` changes a settings field in the copy only; the path is dotted, the value is JSON or plain text, and `hooks` cannot be set.
@@ -80,8 +84,12 @@ Not copied: anything recorded as an AEM installation target in the machine's sav
 The report lists the product CLI steps that would reinstall the source's user-scope plugins in TARGET (`claude plugin marketplace add`, then `claude plugin install`, each with `CLAUDE_CONFIG_DIR` set to TARGET) as `plugin_steps`; AEM never runs them, a plugin whose marketplace source is unknown is listed as skipped, and the installed versions follow each marketplace's current release.
 Hook groups and links AEM installed belong to the source's agent, so register TARGET with `aem setup --agent NAME` and run `aem apply --agent NAME --dry-run`, then without `--dry-run`, to give it its own.
 
+### Independence of the copy
+
 The copied settings are an independent file: later changes to either profile do not reach the other.
 To share selected fields afterwards, declare them as settings for each profile as described in [named instances](../agent-instances.md#independent-settings-from-one-source) and [staged settings](../settings-management.md).
+
+### Failure handling and report
 
 The profile is built in a staging folder beside TARGET and moved into place, so a failure leaves no partial profile.
 If the final move fails after removing an existing empty TARGET, AEM recreates the empty folder with its previous permissions unless another writer has created a new target.

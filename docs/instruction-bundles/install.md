@@ -84,13 +84,18 @@ Register the catalog and this device's external folder directly:
 aem bootstrap /home/me/ai-config/instructions.toml --external personal-documents=/home/me/Syncthing/agent-documents
 ```
 
+### Bootstrap argument rules
+
 No machine file needs to be prepared first.
 The positional argument selects the local catalog; `--catalog PATH` is an equivalent spelling.
 Repeat `--external NAME=PATH` for each external source that needs a binding.
 The name must be declared in `[sources.NAME]` with `type = "external"`; the path is expanded for `~` and resolved relative to the command's working directory before being saved as an absolute path.
+
 Omitted bindings are reused on subsequent bootstrap calls; a required binding with no saved value is an error.
 Duplicate names and unknown names are rejected before saving or cloning.
 A Git-only catalog needs no external binding.
+
+### Generated machine file
 
 For this walkthrough, assume Linux/WSL with `XDG_CONFIG_HOME` and `CODEX_HOME` unset.
 AEM generates `/home/me/.config/agent-env-man/machine.toml`, equivalent to the following (plus a default `skills` root):
@@ -116,15 +121,21 @@ The generated machine fields bind those declarations to this device:
 | `external_paths.personal-documents` | Binds the shared logical source name to an existing folder on this device. AEM expects `guidance/start.md` inside it for this catalog. |
 | `roots.agent` | Supplies the base to which `install.entry.destination` is appended. Use the Codex home where global AGENTS.md and hooks.json are discovered. |
 
+### Default and custom locations
+
 The default config directory is `$XDG_CONFIG_HOME/agent-env-man` or `~/.config/agent-env-man` on Linux/WSL, and `%LOCALAPPDATA%/agent-env-man` on Windows (falling back to `~/AppData/Local`).
 The default `agent` root is `CODEX_HOME` or `~/.codex`; `skills` defaults to `~/.agents/skills`.
 Saved roots take precedence over later environment changes.
+
 Optional `--root NAME=ABSOLUTE_PATH` and `--checkout-root PATH` select custom locations during bootstrap.
 An explicitly named `install.entry.root` other than `agent` must be supplied through `--root` or machine configuration.
 For separate configurations, use `aem --config /custom/machine.toml bootstrap CATALOG ...` and retain that `--config` argument in subsequent commands.
 [examples/instructions-machine.toml](../../examples/instructions-machine.toml) remains an optional manual equivalent.
 
 Machine source/storage/root paths must be absolute or start with `~/`; use forward slashes in TOML Windows examples to avoid backslash escaping.
+
+### Saved state
+
 AEM also keeps ownership and recovery data beside this machine file in `/home/me/.config/agent-env-man/machine.toml.state/`.
 Retain that state directory to manage, inspect, recover, and detach the installed targets.
 The shared catalog does not contain this installation state.
@@ -140,10 +151,15 @@ aem apply
 aem status
 ```
 
+### What each command does
+
 Bootstrap reads the bound catalog, validates the external bundle, and saves the machine binding; it does not install the document targets.
 It also supplies a default `skills` root if one is absent, but no skill is installed unless declared in the catalog.
 Dry-run shows all three planned targets, the hook definition and trust notice without creating them.
 Apply installs the directory link, original-entry link, and then the hook registration; status inspects their state without fetching anything.
+
+### Existing destinations
+
 If an existing global AGENTS.md occupies the destination, ordinary apply reports a conflict rather than overwriting it.
 Use the existing conflict/adoption/replacement workflow only after deciding how to preserve that content.
 

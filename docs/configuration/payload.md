@@ -26,11 +26,15 @@ exclude = ["scratch"]
 mode = "copy"
 ```
 
+### Combining exclusions
+
 Effective exclusions combine `payload.defaults.exclude`, `sources.NAME.exclude`, and the item's `exclude` array.
 Lists add exclusions; there is no replacement or re-inclusion syntax.
 Global and item patterns are relative to each item's payload root.
 Source patterns are relative to the source root, including the item's `subdir`.
 For example, source pattern `example/cache` excludes `cache` from `directories.example` in this example, whereas item pattern `cache` is relative to that item directly.
+
+### Pattern syntax
 
 Patterns use `/` and are anchored to their declared root; matching is case-sensitive on every platform.
 `*`, `?`, and character classes match within one component; a whole `**` component matches zero or more components.
@@ -39,19 +43,26 @@ A matched directory excludes its entire subtree without opening or inspecting it
 Absolute paths, drive prefixes, backslashes, empty components, `.` or `..`, negation, and partial `**` components are rejected.
 Excluding a declared source subtree, a skill's required `SKILL.md`, or an instruction bundle's required entry is an error.
 
+### Scope of effect
+
 The same effective policy governs fingerprints, copying, status, detach materialization, and reverse copy collection previews and writes.
 Links still expose the original source tree, including excluded entries; exclusions affect AEM's inspection and copy operations rather than the linked filesystem view.
 The existing automatic omission of top-level `.git` for source-root payloads remains independent of configured exclusions; nested `.git` paths remain included unless explicitly excluded.
 Git ignore rules do not automatically become payload exclusions.
 Exclusions also do not change repository-wide Git publication scope: a requested commit still includes every nonignored change in the selected checkout.
 
+### Preservation of excluded entries
+
 Excluded entries already in an installed copy remain local and are preserved during replacement.
 Reverse collection preserves the source's excluded entries and does not collect the copy's excluded entries.
 AEM moves these entries opaquely through temporary storage beside the directory being replaced, without reading their contents or following links.
+
 If an included ancestor would disappear or become a file or link, the operation stops rather than deleting or relocating the excluded entry.
 Apply and reverse collection previews check this boundary before reporting a planned replacement.
 If new excluded entries appear after preservation preflight, replacement stops so they remain available for inspection and retry.
 `--replace` does not override that preservation boundary.
+
+### Policy records and changes
 
 Ownership and recovery records retain the effective exclusion policy, so detach and recovery remain usable without the current catalog or source.
 A changed exclusion policy is reported as `configuration-changed`; apply it before reverse collection.
@@ -87,6 +98,8 @@ permissions = "strict"
 mode = "copy"
 ```
 
+### Level behavior
+
 The selected level controls copying and verification as follows:
 
 | Level | Permission handling | Verification |
@@ -94,10 +107,14 @@ The selected level controls copying and verification as follows:
 | `strict` | Retains existing copy and permission-error behavior. | Retains existing payload hashes, including POSIX executable bits on files and directories. |
 | `best-effort` | Attempts native permission-mode preservation, reports unsupported or denied setters and observed mode differences. | Requires identical contents, entry paths/types, empty directories, and opaque link targets, independently of native permission modes. |
 
+### Limits of preservation
+
 Neither level guarantees complete preservation of ownership, ACLs, extended attributes, or other platform-specific metadata.
 On Windows, native permission observation covers the writable/read-only flag supported by `chmod`, not ACL access rights.
 Best-effort copying retains timestamp application; timestamp failures, content I/O errors, unsupported payload types, and source or target changes remain fatal.
 It does not ensure that copied scripts can execute or reproduce the source's access restrictions.
+
+### Inspection and copy retries
 
 Guarded POSIX inspection automatically rechecks a change confined to `mtime` or `ctime` once, including for strict payloads with `preserve_symlinks`.
 It succeeds only if a fresh stable inspection matches the first content and identity capture, including native modes and included paths; persistent instability or actual changes still fail.
@@ -105,14 +122,19 @@ Copy retries support read-only directories and retain the final requested modes.
 If another process replaces or recreates the temporary destination, AEM stops and reports where it preserved that content; retain that path and resolve the conflict before retrying.
 This adds no permission level or catalog option and does not make timestamp-setting failures optional.
 
+### Ownership records and reverse collection
+
 AEM records both source permissions and the actual installed permissions in best-effort ownership.
 A changed source mode makes a managed copy stale; a later local mode edit remains a protected local modification.
 Existing installations and records without this field retain strict behavior and their original hashes.
 Changing the effective level is reported as `configuration-changed`; apply the new level before reverse collection, using the previous ownership to protect local edits.
 `--replace` authorizes replacement of a conflicting target but never bypasses content or transaction checks.
 
+### Link installation and detach
+
 Link installation does not alter source permissions.
 Its effective level is saved for later detach materialization; detach and recovery use saved policies even without a readable catalog.
+
 In best-effort reverse collection, existing source entries of the same type retain their native modes where possible.
 New entries and entries replacing a different type attempt the copy's modes.
 Permission-only edits are not exported; collection of content edits records any differences without treating installation-induced mode differences as content changes.

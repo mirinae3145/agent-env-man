@@ -35,16 +35,18 @@ Unknown fields are rejected.
 
 ### Runtime and release selection
 
-All four runtime paths are required when enabling automatic updates or requesting an explicit update.
 For final releases from `1.0.0` onward, `compatible` permits the same major.
 For a prerelease, `compatible` permits only a higher numeric subversion with the same base `X.Y.Z` and the same `a`, `b`, or `rc` label (for example, `1.0.0rc1` to `1.0.0rc2`).
 Changing the label, base version, or moving to a final release requires `breaking`.
 Final installations retain their existing compatible range and do not select prereleases in `compatible` mode.
 `breaking` permits any newer final or `a`/`b`/`rc` prerelease.
+
 Release tags use `vVERSION` in Python notation or supported SemVer-style `-alpha`/`-beta`/`-rc` notation with an optional `.N` number.
 Tag conversion and omitted-zero normalization must match the Python package version.
 Development, post, local versions, and untagged commits are excluded.
 See [version syntax and ordering](../automation/self-update.md).
+
+All four runtime paths are required when enabling automatic updates or requesting an explicit update.
 Attempts share a fixed 86,400-second interval across startup events and are recorded before launching the worker.
 An explicit update bypasses the interval and can override the mode for that attempt without changing the saved policy.
 Existing machine files remain usable with self-updates disabled until runtime registration through the installer.
@@ -87,6 +89,8 @@ Unknown fields are rejected.
 
 ### Device policy fields
 
+The `automation` table accepts these fields:
+
 | Field | Type | Default/meaning |
 | --- | --- | --- |
 | `mode` | String | `policies` (default), `off`, or `full`. |
@@ -96,6 +100,7 @@ Unknown fields are rejected.
 | `skip_unsupported` | Boolean | `false`; explicitly exclude platform-unsupported items from full content selection and report their reasons. Stored but inactive in other modes. |
 
 Boolean numeric values are rejected.
+
 `policies` retains the independent self-update, catalog-update, and skill policies and their clocks.
 `off` disables all event-driven automatic entrypoints while leaving explicit commands available.
 `full` uses the shared schedule, without consulting or modifying individual attempt clocks.

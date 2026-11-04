@@ -18,7 +18,8 @@ Keep the standalone installer and copied worker standard-library-only, and verif
 ### Installed distribution checks
 
 Source tests in an editable development environment and verification of an installed distribution are separate acceptance checks.
-For packaging or dependency changes, also install a built wheel without extras into a fresh environment with neither coverage.py nor setuptools, and run the runtime verifier from the checkout:
+For packaging or dependency changes, also install a built wheel without extras into a fresh environment with neither coverage.py nor setuptools.
+Then run the runtime verifier from the checkout:
 
 ```bash
 python -m venv --without-pip /path/to/runtime-venv
@@ -29,6 +30,7 @@ python scripts/verify_runtime.py --python /path/to/runtime-venv/bin/python
 Use a separate temporary environment; on Windows pass its `Scripts/python.exe` to the verifier.
 The pip installation command uses the development environment's pip to install only the wheel and its runtime dependencies into the target environment.
 Package acquisition may require network access; verification itself uses only temporary local Git repositories and never registers integrations.
+
 The verifier rejects editable installations and environments containing development dependencies, disables Python source-path inheritance, and checks installed CLI help, local documentation, and bootstrap/apply/status/detach behavior.
 It also exercises TOML and JSON settings reception, stage editing, application, export, local Git publication, conflict preservation, and detach through the installed CLI.
 Verify both a direct wheel and a wheel rebuilt from the sdist as required by the installed-documentation contract in [Documentation authoring](../documentation-authoring.md#installed-documentation).

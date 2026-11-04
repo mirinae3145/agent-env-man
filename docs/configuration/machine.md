@@ -3,7 +3,7 @@
 The machine file binds a catalog and its sources to device-local paths.
 This reference covers catalog delivery, agent roots, saved setup, and storage and maintenance boundaries.
 
-## Machine configuration
+## Top-level fields
 
 These top-level fields bind the catalog and control device-local storage and integrations.
 
@@ -153,9 +153,11 @@ Git catalog bindings accept these fields:
 
 Unknown fields are rejected.
 The catalog's own format is unchanged; its repository binding belongs only in the machine file.
+
 The checkout is sibling `<machine-file>.catalog`, independent of `checkout_root` and of all content checkouts, including those using the same remote URL.
 It cannot overlap external sources, content checkout storage, machine/state files, or installation targets.
 The entry and checkout must not redirect through symlinks or junctions.
+
 Reading a Git catalog validates its checkout origin, recorded branch, and tracked entry without fetching; local edits remain readable.
 Run bootstrap after manually specifying a Git binding without a branch.
 
@@ -164,8 +166,10 @@ Run bootstrap after manually specifying a Git binding without a branch.
 Only `catalog update` advances an existing catalog checkout.
 Bootstrap reuses it without pulling, and content update/sync/skill automatic policies do not refresh it.
 Catalog updates can run automatically only through the independent [catalog update policy](automation.md#catalog-automatic-update-settings).
+
 Catalog status and locate also support local bindings.
 Update and publish support Git bindings and the explicit local copy workflow; direct local file bindings do not support either operation.
+
 Switching to a local binding preserves the old Git checkout.
 Reusing the same Git checkout requires a matching origin and branch; a new binding never resets or replaces a mismatching repository.
 To switch repositories, preserve or move the old `<machine-file>.catalog` checkout explicitly before bootstrapping the new binding.
@@ -191,10 +195,12 @@ This ancillary link is attempted after core setup is saved; a recoverable link f
 The root-level source `skills/idk-aem/SKILL.md` is included through setuptools package-resource mapping; a development checkout is not required for installed use.
 Ownership uses `setup:skill-AGENT-idk-aem`, with the existing `setup` kind and `link` mode, plus official source signature and package version fields.
 No catalog declaration, machine option, or format-version migration is required.
+
 Official link removal retains its backup in `<machine-file>.state/setup-backups`, outside the agent's skill discovery root.
 Skill roots must not overlap machine state storage, so retained backups cannot become discoverable skills.
 Catalog skill replacement and detach backups are retained in `<machine-file>.state/skill-backups`; regular contents are copied and verified before the original is removed, and symbolic links retain their recorded link identity.
 Recovery continues to accept older sibling-backup journals.
+
 Existing agent integrations acquire the link on general setup; policy-only setup does not add it.
 Self-update refreshes successfully owned links and does not turn an uninstalled, failed, or detached ancillary skill into a new update prerequisite.
 
@@ -221,10 +227,12 @@ The machine file must still be parseable TOML.
 They preserve unknown fields; setup removal only edits requested saved selections.
 Offline `status` falls back to saved target observations when strict machine or state validation fails.
 `status --refresh` still requires valid installation configuration.
+
 Automatic policy attempts and ownership are generated state, not user-editable TOML settings.
 New installations use state version `2`.
 Maintenance accepts the common ownership/journal structure of versions `1` and `2` and retains its version and opaque fields on save.
 It validates only the records and operations needed for the requested cleanup; it does not restore legacy installation behavior.
 Unknown state versions or malformed ownership/journal structures are still rejected.
+
 Regular setup, bootstrap, apply, update, sync, automatic updates, and refreshed status continue to require current configuration and state.
 See [Removed interfaces](../removed-interfaces.md) before upgrading an existing installation.

@@ -8,7 +8,7 @@ Collection from the actual application and publication to a shared source remain
 `bootstrap --setting-target NAME=PATH` prepares a setting stage and binds the actual application file.
 `update NAME` receives shared settings changes; `apply --item NAME` applies the stage; explicit sync updates then applies.
 Settings have independent per-item automatic sync policies and participate by default in full automation; collection, export, and publication remain explicit.
-See [Staged settings](../settings-management.md) for schedules, exclusions, and conflict behavior.
+See [settings automation](../settings-management/automation.md) for schedules and exclusions, and [settings conflicts](../settings-management/conflicts-and-recovery.md) for conflict behavior.
 
 | Command | Behavior |
 | --- | --- |

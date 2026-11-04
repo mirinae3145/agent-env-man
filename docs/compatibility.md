@@ -30,26 +30,47 @@ Backward compatibility means a newer package continues to support previously val
 ## Final release classification
 
 For final releases from `1.0.0` onward, use PATCH for backward-compatible bug fixes, MINOR for backward-compatible functionality or public deprecation, and MAJOR for incompatible public-contract changes.
+
+### Patch eligibility
+
 PATCH eligibility never relaxes compatibility requirements.
 Previously valid calls must retain their success conditions, primary results, configuration compatibility, and ownership and recovery guarantees without user migration.
 An ancillary integration must report recoverable failures separately so the existing workflow can complete.
 Unsafe shared state and unresolved recovery remain fatal.
 Required reconfiguration, new fatal prerequisites for previously valid calls, and incompatible enum values do not qualify.
+
+### Classification rules
+
 Classify a release by its most significant change, based on the previous released contract rather than intermediate development states.
 Documentation corrections and internal maintenance that preserve the contract may ship in a PATCH release.
 Do not modify an already released version's contents.
 A bug-fix label alone does not justify breaking previously valid documented use in a PATCH release.
-Removing an option, changing a default or selection scope so previously valid use loses its promised behavior, invalidating an existing catalog, breaking an installed callback, or dropping a supported runtime requires the incompatible-change increment.
+
+The following changes require the incompatible-change increment:
+
+- Removing an option.
+- Changing a default or selection scope so previously valid use loses its promised behavior.
+- Invalidating an existing catalog.
+- Breaking an installed callback.
+- Dropping a supported runtime.
+
 Document replacements and any required user migration when deprecating or breaking an interface.
 
 ## Prereleases and the first stable release
 
 The first final `1.0.0` defines the stable public contract; its prereleases may refine that contract without requiring a `2.0.0` release.
+
+### Prerelease review
+
 Prerelease changes still require compatibility review, preservation of user data and ownership, and documented migration for changed behavior.
 Do not replace the contents of an existing release tag or package version.
 
+### Self-update permissions
+
 AEM self-update permissions are distinct from the required final-release version increment.
-For prereleases, `compatible` permits only a higher numeric subversion with the same base version and label, so releases within that series must preserve the previous released contract.
+For prereleases, `compatible` permits only a higher numeric subversion with the same base version and label.
+Releases within that series must therefore preserve the previous released contract.
+
 Changing the base version or label, or graduating to final, requires `breaking` permission even when the transition contains no incompatible change.
 The permission therefore allows a transition; it does not assert that every such transition breaks compatibility or requires another MAJOR increment.
 See [release selection](automation/self-update.md) for supported tag spellings and ordering.
@@ -57,12 +78,19 @@ See [release selection](automation/self-update.md) for supported tag spellings a
 ## Configuration and saved-state formats
 
 Catalog, machine, and state format versions are integer interpretation markers, not independently released product versions.
+
+### Version markers
+
 Do not increment them for ordinary compatible additions; change a marker when readers need to distinguish incompatible representations or interpretations.
 An unchanged marker does not make an incompatible change compatible.
 Changing a marker does not itself require a package MAJOR increment if supported reading or conversion safely preserves the previous contract.
+
+### Responsibility and migration
+
 AEM is responsible for machine and state compatibility.
 Users must not have to edit version markers or discard ownership records to upgrade.
 Removing support or requiring manual reconfiguration is an incompatible change even when the affected data is generated rather than hand-written.
+
 This policy does not imply automatic migration.
 Any future conversion must preserve contents, ownership, and recoverability, and must be documented and tested.
 Review compatibility against existing catalogs, saved machine/state data, and installed integrations, using fixtures for the affected released contracts when implementation changes.

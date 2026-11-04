@@ -23,6 +23,8 @@ aem setup [--shell SHELL ...] [--agent AGENT ...]
 
 ### Integration selection
 
+The selection rules for shells, agents, and policy-only calls are:
+
 - Shell choices are `bash`, `zsh`, and `powershell`.
 - Selections accumulate; omitted selections remain saved, and repeated setup avoids duplicate blocks/groups.
 - Initial integration setup requires at least one shell or agent selection.
