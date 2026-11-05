@@ -316,6 +316,39 @@ class Compare(Roots):
         self.assertEqual(code, 1)
         self.assertIn('settings.json', errors)
 
+    def test_non_object_profile_documents_are_refused_without_writes(self):
+        for root in (self.left, self.right):
+            for relative in ('settings.json', 'plugins/installed_plugins.json'):
+                path = root / relative
+                original = path.read_bytes()
+                for value in ([], None, 'invalid'):
+                    with self.subTest(root=root.name, document=relative, value=value):
+                        path.write_text(json.dumps(value), encoding='utf-8')
+                        before = self.snapshot()
+                        code, output, errors = self.run_compare('--json')
+                        self.assertEqual(code, 1)
+                        self.assertEqual(output, '')
+                        self.assertIn(str(path), errors)
+                        self.assertIn('must contain a JSON object', errors)
+                        self.assertEqual(self.snapshot(), before)
+                        self.assertFalse(self.config.parent.exists())
+                path.write_bytes(original)
+
+    def test_unregistered_named_profile_is_refused_without_writes(self):
+        before = self.snapshot()
+        code, output, errors = self.run_compare('--json', left='claude-missing')
+        self.assertEqual(code, 1)
+        self.assertEqual(output, '')
+        self.assertIn('Unknown profile claude-missing', errors)
+        self.assertEqual(self.snapshot(), before)
+        self.assertFalse(self.config.parent.exists())
+
+    def test_text_output_reports_unmatched_expectations(self):
+        code, output, errors = self.run_compare('--expect', 'model', '--expect', 'missing.field')
+        self.assertEqual(code, 0, errors)
+        unmatched = [line for line in output.splitlines() if line.startswith('unmatched --expect:')]
+        self.assertEqual(unmatched, ['unmatched --expect: missing.field'])
+
     def edit(self, root, change):
         data = json.loads((root / 'settings.json').read_text())
         change(data)
