@@ -39,6 +39,8 @@ Selection follows these rules:
 - Selecting an entry or hook also selects its bundle and the other instruction items.
 - Selecting only a bundle installs its linked or copied directory without selecting the entry or hook.
 - `--agent` filters installation destinations; directories remain included as agent-independent targets unless they declare `agent`.
+- **Shared instruction bundles**: With `install.bundle.shared = true`, `NAME:bundle` selects the single common bundle.
+  Selecting an agent's entry or hook includes it; refreshing this bundle affects all its consumers even with `--agent`.
 
 Explicit installation permissions have these requirements:
 

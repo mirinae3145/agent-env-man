@@ -26,7 +26,8 @@ def apply(runtime, agent, item, timeout, adopt, replace, reattach, dry_run):
     Instruction IDs are NAME:bundle, NAME:entry, and NAME:hook. Selecting an
     entry or hook also selects its instruction group. Directories remain
     included with --agent because they are independent of agent bindings,
-    unless they declare agent.
+    unless they declare agent. An opted-in shared instruction bundle has one
+    NAME:bundle target; applying through any consumer can refresh it for all.
     Named instances select only their associated settings; default product
     selectors retain legacy unbound-settings selection.
     """
@@ -99,7 +100,12 @@ def status(runtime, agent, refresh, timeout):
 @preview_option
 @pass_runtime
 def detach(runtime, item, agent, dry_run):
-    """Preserve installed contents and release ownership."""
+    """Preserve installed contents and release ownership.
+
+    Shared targets, including shared instruction bundles, require omitting
+    --agent to detach all consumers together. Agent-specific instruction
+    entries can still be detached independently.
+    """
     return runtime.run(lambda session: (session.manager.detach(item, dry_run=dry_run, agent=agent), False), maintenance=True)
 
 
