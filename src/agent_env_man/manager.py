@@ -288,9 +288,17 @@ class Manager:
             old = self.state.data["items"].get(item.key)
             if item.kind == "instruction":
                 for record in self.state.data["items"].values():
-                    if (record.get("kind") == "instruction" and record.get("source_name") == item.source_name
-                            and not record.get("detached")
-                            and bool(record.get("shared_bundle")) != item.shared_bundle):
+                    if record.get("source_name") != item.source_name or record.get("detached"):
+                        continue
+                    if record.get("kind") == "instruction":
+                        shared = bool(record.get("shared_bundle"))
+                    elif record.get("kind") in ("instruction-entry", "instruction-hook"):
+                        # Removed bindings can leave live consumers outside the
+                        # current declarations, even after the bundle detaches.
+                        shared = record.get("bundle_key") is not None
+                    else:
+                        continue
+                    if shared != item.shared_bundle:
                         raise Error(f"{item.key}: bundle sharing changed; detach before reconfiguration")
             if (old and not old.get("detached") and item.kind in ("instruction-entry", "instruction-hook")
                     and old.get("bundle_key") != item.bundle_key):

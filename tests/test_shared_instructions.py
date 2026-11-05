@@ -165,6 +165,41 @@ class SharedInstructions(InstructionFixture):
         self.assertEqual(report['status'], 'skipped')
         self.assertEqual((installed / 'start.md').read_bytes(), before)
 
+    def check_transition_with_orphaned_consumer(self, shared):
+        installed = self.configure_shared(shared=shared)
+        self.run_cli('apply')
+        orphan, remaining = ('claude', 'codex') if shared else ('codex', 'claude')
+        machine = tomlkit.parse(self.config.read_text())
+        del machine['agents'][orphan]
+        self.config.write_text(tomlkit.dumps(machine), encoding='utf-8')
+        self.run_cli('detach', 'personal:bundle')
+        self.run_cli('detach', 'personal:entry', '--agent', remaining)
+        document = tomlkit.parse(self.catalog.read_text())
+        document['instructions']['personal']['install']['bundle']['shared'] = not shared
+        self.catalog.write_text(tomlkit.dumps(document), encoding='utf-8')
+        before = deepcopy(self.manager().state.data)
+        locations = self.locations(orphan)
+        contents = (installed / 'start.md').read_bytes()
+        for preview in (('--dry-run',), ()):
+            with self.subTest(preview=preview):
+                error = self.run_cli('apply', '--item', 'personal:bundle', '--reattach', '--adopt',
+                                     *preview, code=1)
+                self.assertIn('detach', str(error))
+                self.assertEqual(self.manager().state.data, before)
+                self.assertEqual(self.locations(orphan), locations)
+                self.assertEqual((installed / 'start.md').read_bytes(), contents)
+        self.run_cli('detach', 'personal:entry', '--agent', orphan)
+        self.run_cli('apply', '--item', 'personal:bundle', '--reattach', '--adopt')
+        self.assertEqual(bool(self.manager().state.data['items']['personal:bundle'].get('shared_bundle')),
+                         not shared)
+        self.assertEqual(Path(locations['global_entry']).read_bytes(), contents)
+
+    def test_shared_to_separate_requires_detaching_orphaned_consumer(self):
+        self.check_transition_with_orphaned_consumer(True)
+
+    def test_separate_to_shared_requires_detaching_orphaned_consumer(self):
+        self.check_transition_with_orphaned_consumer(False)
+
     def test_saved_consumer_survives_machine_agent_removal(self):
         installed = self.configure_shared()
         self.run_cli('apply')

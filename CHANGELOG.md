@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **Instruction ownership transitions**: Refuse bundle sharing changes while active entries or hooks still depend on the previous ownership, including agents removed from machine configuration.
+
 ## [1.3.0-rc.2] &mdash; 2026-11-05
 
 Git tag `v1.3.0-rc.2` corresponds to Python package version `1.3.0rc2`; based on `v1.3.0-rc.1`.
