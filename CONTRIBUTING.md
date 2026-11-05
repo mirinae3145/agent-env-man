@@ -39,7 +39,11 @@ The [agent profile contracts](docs/agent-profiles.md) define the internal extens
 
 Keep [Configuration](docs/configuration.md) and [Commands](docs/commands.md) and their linked topic references authoritative for TOML fields and CLI contracts.
 Update relevant documentation, examples, and platform limitations when interfaces or workflows change.
-Follow [Documentation authoring](docs/documentation-authoring.md) for document structure, CLI help, installed resources, and official skill guidance.
+
+For Markdown changes, follow the mddt [planning and review procedure](docs/documentation-authoring.md#guide-structure) before and after editing.
+Authors and reviewers judge document purpose, placement, and structure, including findings retained after review.
+The checker and CI verify only the automated minimum requirements.
+[Documentation authoring](docs/documentation-authoring.md) also governs CLI help, installed resources, and official skill guidance.
 The README retains essential user setup and workflows; detailed references and contributor contracts belong in the linked guides.
 
 Follow the authoritative [compatibility policy](docs/compatibility.md) when changing public contracts or classifying releases.
@@ -62,6 +66,9 @@ python -m compileall -q src tests
 Select checks according to the affected behavior and remaining uncertainty; a complete suite run is not required for every change.
 Reuse passing results when subsequent changes cannot affect them.
 Tests must use temporary sources, targets, configuration, state, and local Git remotes, never actual user homes, credentials, or network remotes.
+
+For Markdown changes, complete the [document review and local check](docs/documentation-authoring.md#review-and-check).
+Report the checker revision, scope, and findings retained after judgment alongside the relevant validation results.
 
 ### Windows test processes
 

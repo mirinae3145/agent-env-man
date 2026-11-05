@@ -1,5 +1,6 @@
 # Documentation authoring
 
+This guide defines Markdown planning and review, content placement, CLI help, installed documentation, and official skill guidance.
 Use the README for getting started and user workflows, and [Contributing](https://github.com/mirinae3145/agent-env-man/blob/master/CONTRIBUTING.md) for development setup and contribution decisions.
 Keep CLI and TOML details canonical in [Commands](commands.md) and [Configuration](configuration.md).
 Detailed contributor contracts live in [Architecture](architecture.md) and [Testing](testing.md).
@@ -7,12 +8,51 @@ Keep change-specific validation results with the change, rather than adding them
 
 ## Guide structure
 
-The [mddt document model](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/model.md) governs document structure, including file hierarchy, headings, overviews, parent summaries, and the choice among sections, lists, and tables.
-CI fails on checker errors and reports warnings in changed files for review, as [document structure](testing/ci.md#document-structure) describes.
-This guide adds only the AEM-specific placement of content.
+Use [mddt](https://github.com/mirinae3145/mddt) to plan, write, and review repository Markdown, including root documents, guides, and the official skill.
+Its document model governs structure; this procedure applies it to AEM's content ownership and contribution workflow.
+Sentence-only corrections and formatting changes that preserve structure need no new placement plan.
 
-Keep the README focused on installation, a minimal working example, everyday commands, and preservation boundaries.
-Link advanced workflows to their detailed guides.
+### Plan and revise
+
+Before editing, read the applicable guidance from an installed mddt skill or an external checkout.
+Use its [document model](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/model.md) and [writing procedure](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/writing.md) to make these decisions:
+
+1. Identify the reader, the question the content answers, and its [document kind](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/kinds.md).
+1. Locate the canonical home through the [documentation index](README.md).
+   Decide whether the content belongs in an existing part, a separate topic, or a child document introduced by its parent.
+   Keep the README focused on installation, a minimal example, everyday commands, and preservation boundaries, with links to detailed guides.
+1. Choose sections, lists, or tables from the information type and the relationships between the content's parts.
+   Judge topic independence, sibling detail, and meaningful nesting rather than choosing by appearance alone.
+1. Write or revise the affected topic as a coherent unit, preserving unrelated material and the canonical ownership of CLI and TOML contracts.
+1. Once the content settles, update its overview, then its parent summaries and affected links.
+   When code and documentation change together, finish this step after the behavior settles.
+
+### Review and check
+
+Authors and reviewers remain responsible for meaning, placement, and organization even where the checker reports no findings.
+Complete this review before treating the documentation change as ready:
+
+1. Reread each changed topic as a whole against the model and its reader's task.
+   Check content boundaries, ordering, forms, and whether parent summaries accurately introduce the settled content.
+1. Run the mddt checker on the changed Markdown files, using the command that follows.
+   When adding, moving, or renaming documents or headings, check the whole tree so incoming links are covered.
+   Add `--review` when adding child documents or reviewing structure to inspect summaries and other judgment-based findings.
+1. Assess findings in context and fix structural problems before sentence-level ones.
+   Fix findings introduced or worsened by the change and existing errors in edited sections; report errors elsewhere without expanding the task.
+   For an explicitly requested restructuring, follow mddt's broader structural review scope.
+1. Rerun the checker after corrections and report the command, checker revision, checked scope, and reasons for retaining relevant findings.
+   Warnings may remain after judgment; a successful exit alone does not establish that the document is well organized.
+
+Run the local check from the repository root with uv and an installed skill or external checkout:
+
+```bash
+uv run <mddt-skill-dir>/scripts/mddt.py --root . FILE...
+```
+
+Replace `FILE...` with the changed files, or `.` for the whole tree.
+The [CI document check](testing/ci.md#document-structure) uses a pinned revision for reproducible minimum checks.
+Use the [local reproduction command](testing/ci.md#local-reproduction) at that revision when reproducing CI results.
+If the local skill differs, distinguish its findings from the pinned check; checker updates remain a separate change.
 
 ## CLI help scope
 

@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **Documentation workflow**: Require mddt-based planning, whole-topic review, local checks, and contextual judgment of findings when editing Markdown.
+  CI remains the automated minimum check within that workflow.
+
 ### Fixed
 
 - **Instruction ownership transitions**: Refuse bundle sharing changes while active entries or hooks still depend on the previous ownership, including agents removed from machine configuration.

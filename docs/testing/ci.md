@@ -40,6 +40,9 @@ Hosted Linux and Windows checks do not cover WSL interoperability, real mounted 
 ### Document structure
 
 The documents job runs the [mddt](https://github.com/mirinae3145/mddt) checker on tracked Markdown files at the revision pinned in the workflow.
+It supplies the automated minimum check within the [planning and review procedure](../documentation-authoring.md#guide-structure).
+A pass does not establish that document meaning, placement, or organization meets the model; authors and reviewers make those judgments locally.
+
 Errors fail the job across all files, since a change can break links in documents it did not edit.
 Warnings mark places that need a writer's judgment, so the job annotates only those in files the pull request changed and never fails on them.
 Update the pinned revision in a separate change, because new checker rules can report errors in unchanged documents.
