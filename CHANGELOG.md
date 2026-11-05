@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - **Instruction ownership transitions**: Refuse bundle sharing changes while active entries or hooks still depend on the previous ownership, including agents removed from machine configuration.
+- **Shared bundle status**: Include saved shared bundles in filtered status for agents removed from machine configuration, even during a pending ownership transition.
 
 ## [1.3.0-rc.2] &mdash; 2026-11-05
 

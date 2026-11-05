@@ -1569,10 +1569,13 @@ class Manager:
             try:
                 for item in self.config.declarations(source):
                     seen.add(item.key)
-                    if agent and not (item.kind == "directory" and not item.agents) and agent not in (item.agents or (item.agent,)):
+                    old = self.state.data["items"].get(item.key)
+                    consumers = set(item.agents or (item.agent,))
+                    if old and (item.shared_bundle or old.get("shared_bundle")):
+                        consumers.update(old.get("agents", []))
+                    if agent and not (item.kind == "directory" and not item.agents) and agent not in consumers:
                         continue
                     item_entry = {"item": item.key, "target": str(item.target), "mode": item.mode}
-                    old = self.state.data["items"].get(item.key)
                     observations = {}
                     def observe_target(path, **policy):
                         # Only the two read-only judgments for this item share a

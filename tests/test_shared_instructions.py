@@ -207,6 +207,15 @@ class SharedInstructions(InstructionFixture):
         del machine['agents']['claude']
         self.config.write_text(tomlkit.dumps(machine), encoding='utf-8')
         self.run_cli('apply')
+        status = {r['item']: r for r in self.run_cli('status', '--agent', 'claude')['items']}
+        self.assertIn('personal:bundle', status)
+        self.assertEqual(status['personal:bundle']['installation'], 'matches-last-apply')
+        document = tomlkit.parse(self.catalog.read_text())
+        document['instructions']['personal']['install']['bundle']['shared'] = False
+        self.catalog.write_text(tomlkit.dumps(document), encoding='utf-8')
+        status = {r['item']: r for r in self.run_cli('status', '--agent', 'claude')['items']}
+        self.assertIn('personal:bundle', status)
+        self.assertEqual(status['personal:bundle']['installation'], 'matches-last-apply')
         self.catalog.unlink()
         self.assertEqual(self.locations('claude')['root'], str(installed))
 
