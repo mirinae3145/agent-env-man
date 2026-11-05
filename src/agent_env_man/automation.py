@@ -122,6 +122,12 @@ def full_content(manager, timeout, *, dry_run=False):
             excluded.append({'source': name, 'reason': 'manual'})
             continue
         declarations = manager.config.declarations(source)
+        shared = next((item for item in declarations if item.shared_bundle), None)
+        if shared and (any(manager.state.data['items'].get(item.key, {}).get('detached') for item in declarations)
+                       or any(r.get('bundle_key') == shared.key and r.get('detached')
+                              for r in manager.state.data['items'].values())):
+            excluded.append({'source': name, 'reason': 'detached'})
+            continue
         detached_agents = {item.agent for item in declarations if item.kind not in ('skill', 'directory')
                            and manager.state.data['items'].get(item.key, {}).get('detached')}
         selected = [item.key for item in declarations

@@ -104,6 +104,8 @@ def plan(manager, names):
                 raise Error(f'{item.key}: copy is not installed; run apply first')
             if record.get('detached'):
                 raise Error(f'{item.key}: detached copies cannot be collected')
+            if item.kind == 'instruction' and bool(record.get('shared_bundle')) != item.shared_bundle:
+                raise Error(f'{item.key}: bundle sharing changed; detach before reconfiguration')
             if any(record.get(field) != value for field, value in
                    (('source', str(item.source)), ('target', str(item.target)), ('mode', 'copy'), ('kind', item.kind))):
                 raise Error(f'{item.key}: copy ownership changed; inspect status')

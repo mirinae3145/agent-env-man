@@ -1,6 +1,6 @@
 # Instruction installation variants
 
-These variants adapt the [external bundle walkthrough](install.md#original-files-before-installation) for Windows, Git, shared skills, or offline copies.
+These variants adapt the [external bundle walkthrough](install.md#original-files-before-installation) for Windows, Git, shared skills, or separate and shared offline copies.
 Each example uses the same `guidance/start.md` bundle unless stated otherwise.
 
 ## The same catalog on a Windows device
@@ -138,3 +138,41 @@ Source updates reach the copy only on apply, which refuses to overwrite local ed
 To return installed edits, preview `aem publish personal --from-copy --dry-run`, then use `aem publish personal --from-copy` for an external source or add `-m "Update instructions"` for Git.
 Competing source/copy changes and differing exports from multiple agent copies stop collection.
 External publication confirms writing the local original, not synchronization by its external service.
+
+## Share one copy between agents
+
+This variant shares one installed copy of the `personal` instruction bundle between registered Codex and Claude destinations.
+The [external bundle walkthrough](install.md) covers preparing its source declaration and machine bindings before installation.
+
+### New installation
+
+For a new installation, register both agent destinations in the machine configuration and omit `install.entry.root` from the instruction declaration.
+Keep the source and entry fields from the existing catalog, and add:
+
+```toml
+[instructions.personal.install.bundle]
+mode = "copy"
+shared = true
+```
+
+Run `aem apply --dry-run`, then `aem apply`.
+Codex and Claude retain their respective entry filenames and hook formats, but both entries point into `<machine-file>.bundles/personal`.
+An explicit bundle `root` or `destination` overrides that location without adding agent suffixes.
+`locate personal --agent codex` and `locate personal --agent claude` return the same copy; `publish personal --from-copy` collects it once.
+
+### Existing installation
+
+For an existing installation, preserve and reconcile the separate copies before switching:
+
+1. Run `aem detach personal:bundle personal:entry` while the old configuration still describes the installation.
+1. Reconcile the preserved copies with the source; AEM does not choose between differing edits.
+1. Set `shared = true` and remove an explicit `install.entry.root` if all registered agents should participate.
+1. Run `aem apply --item personal:bundle --reattach --adopt` to adopt the matching copy, or install the new shared destination if absent.
+1. Run `aem apply --item personal:entry --reattach --replace` to reconnect each entry and hook, retaining backups of replaced entries.
+
+Old per-agent bundle directories remain preserved after the transition.
+
+### Detach and automation
+
+To detach the common bundle later, use `aem detach personal:bundle` without an agent filter.
+Detaching only an agent's entry preserves that entry independently; full automation then skips the shared instruction group until explicit reattachment.

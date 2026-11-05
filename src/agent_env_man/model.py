@@ -71,6 +71,8 @@ class Item:
     link_target: Path | None = None
     exclusions: tuple[tuple[str, str], ...] = ()
     permissions: str = "strict"
+    shared_bundle: bool = False
+    bundle_key: str | None = None
 
     @property
     def link_destination(self) -> Path:
@@ -514,20 +516,29 @@ class Config(MachineFile):
             mode = self.modes.get(source.name, data.get("mode", "link"))
             entry_relative = data["entry"] if subdir == "." else subdir + "/" + data["entry"]
             result = []
-            for agent in self.instruction_agents(data):
+            names = self.instruction_agents(data)
+            shared = data.get("shared", False)
+            bundle_key = f"{source.name}:bundle" if shared else None
+            if shared:
+                target = self.target(data.get("root"), relative(data.get("destination", source.name)))
+                result.append(Item(source.name, "bundle", subdir, payload, target, mode, "instruction", data["entry"],
+                                   names[0], agents=tuple(names), shared_bundle=True,
+                                   exclusions=data.get("exclusions", ()), permissions=data.get("permissions", "strict")))
+            for agent in names:
                 adapter, tail = profile(agent), suffix(agent)
-                destination = data.get("destination", source.name) + (tail if "entry_root" not in data else "")
+                destination = data.get("destination", source.name) + (tail if "entry_root" not in data and not shared else "")
                 target = self.target(data.get("root"), relative(destination))
                 root = data.get("entry_root", f"aem-agent-{agent}")
                 entry_target = self.target(root, relative(data.get("entry_destination", adapter.entry_name)))
                 hook_target = self.target(root, relative(adapter.hook_name))
+                if not shared:
+                    result.append(Item(source.name, "bundle" + tail, subdir, payload, target, mode, "instruction", data["entry"], agent, exclusions=data.get("exclusions", ()), permissions=data.get("permissions", "strict")))
                 result.extend([
-                    Item(source.name, "bundle" + tail, subdir, payload, target, mode, "instruction", data["entry"], agent, exclusions=data.get("exclusions", ()), permissions=data.get("permissions", "strict")),
                     Item(source.name, "entry" + tail, entry_relative, payload / data["entry"], entry_target,
-                         "link", "instruction-entry", data["entry"], agent,
-                         link_target=target / data["entry"] if mode == "copy" else None),
+                         "link", "instruction-entry", data["entry"], agent, bundle_key=bundle_key,
+                         link_target=target / data["entry"] if mode == "copy" or shared else None),
                     Item(source.name, "hook" + tail, subdir, payload, hook_target, "agent-hook",
-                         "instruction-hook", data["entry"], agent, exclusions=data.get("exclusions", ()))])
+                         "instruction-hook", data["entry"], agent, bundle_key=bundle_key, exclusions=data.get("exclusions", ()))])
             return result
         data = self.catalog()[source.name]
         relative_path = data.get("subdir", ".")

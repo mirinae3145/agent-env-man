@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Shared instruction bundles**: Optional `install.bundle.shared = true` installs one linked or copied bundle for multiple agents, including named instances.
+  Entries and hooks remain separate; saved lookup works offline, and reverse collection exports the shared copy once.
+  Existing installations retain their behavior unless sharing is explicitly enabled; changing sharing requires detach and deliberate reattachment.
+
 ## [1.3.0-rc.1] &mdash; 2026-11-04
 
 Git tag `v1.3.0-rc.1` corresponds to Python package version `1.3.0rc1`; based on `v1.3.0-beta.3`.

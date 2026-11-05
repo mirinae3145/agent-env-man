@@ -25,7 +25,7 @@ It does not supply the personal instructions or decide when development, researc
 
 The [external bundle walkthrough](instruction-bundles/install.md) starts with an existing source folder, registers a shared catalog, and installs linked instructions on Linux/WSL.
 Skills are optional and are not a prerequisite for instructions.
-The [installation variants](instruction-bundles/variants.md) adapt that example for Windows, Git sources, accompanying skills, and offline copies.
+The [installation variants](instruction-bundles/variants.md) adapt that example for Windows, Git sources, accompanying skills, and separate or shared offline copies.
 
 ## Inspect and maintain
 
