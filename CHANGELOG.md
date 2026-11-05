@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **CI document check**: A CI job checks Markdown structure with a pinned [mddt](https://github.com/mirinae3145/mddt) revision.
+  Errors fail the job; warnings are annotated only in files a pull request changes.
+- `scripts/verify_documents.py` to reproduce the check locally.
 - **Shared instruction bundles**: Optional `install.bundle.shared = true` installs one linked or copied bundle for multiple agents, including named instances.
   Entries and hooks remain separate; saved lookup works offline, and reverse collection exports the shared copy once.
   Existing installations retain their behavior unless sharing is explicitly enabled; changing sharing requires detach and deliberate reattachment.

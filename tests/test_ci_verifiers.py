@@ -69,3 +69,36 @@ class AgentVerifier(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def mddt_finding(file, severity, code='paragraph-length', message='paragraph has 6 sentences'):
+    return {'file': file, 'line': 3, 'endLine': 4, 'code': code,
+            'severity': severity, 'message': message}
+
+
+class DocumentsVerifier(unittest.TestCase):
+    def setUp(self):
+        self.verifier = runpy.run_path(str(SCRIPTS / 'verify_documents.py'))
+
+    def test_errors_are_always_reported_and_warnings_only_in_changed_files(self):
+        selected = self.verifier['selected']
+        diagnostics = [
+            mddt_finding('docs/old.md', 'error', 'link-broken'),
+            mddt_finding('docs/old.md', 'warning'),
+            mddt_finding('docs/new.md', 'warning'),
+        ]
+        self.assertEqual(selected(diagnostics, {'docs/new.md'}), [diagnostics[0], diagnostics[2]])
+        self.assertEqual(selected(diagnostics, None), diagnostics)
+
+    def test_github_annotations_escape_properties_and_messages(self):
+        item = mddt_finding('docs/a,b.md', 'warning', message='first: 50%\nsecond')
+        self.assertEqual(
+            self.verifier['format_finding'](item, github=True),
+            '::warning file=docs/a%2Cb.md,line=3,endLine=4,title=mddt paragraph-length'
+            '::first: 50%25%0Asecond')
+
+    def test_plain_output_names_location_severity_and_code(self):
+        item = mddt_finding('README.md', 'error', 'doc-unlinked', 'parent does not link here')
+        self.assertEqual(
+            self.verifier['format_finding'](item, github=False),
+            'README.md:3: error doc-unlinked: parent does not link here')

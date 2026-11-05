@@ -134,6 +134,53 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
+  documents:
+    name: documents (ubuntu-24.04, Python 3.11)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONUTF8: '1'
+      PYTHONUNBUFFERED: '1'
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+      # Update deliberately; checker rule changes can add errors to unchanged documents.
+      MDDT_REPOSITORY: https://github.com/mirinae3145/mddt.git
+      MDDT_REVISION: 106276e4e28d9147b7206436f57a436063e24e37
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Install uv and the pinned mddt checker
+        run: |
+          mkdir -p ci-logs
+          {
+            python -m pip install uv
+            git init --quiet "$RUNNER_TEMP/mddt"
+            git -C "$RUNNER_TEMP/mddt" fetch --quiet --depth 1 "$MDDT_REPOSITORY" "$MDDT_REVISION"
+            git -C "$RUNNER_TEMP/mddt" checkout --quiet FETCH_HEAD
+            git -C "$RUNNER_TEMP/mddt" rev-parse HEAD
+          } 2>&1 | tee ci-logs/install.log
+      - name: Check document structure
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python scripts/verify_documents.py --mddt "$RUNNER_TEMP/mddt/skills/mddt/scripts/mddt.py" \
+            ${PR_BASE:+--base "$PR_BASE"} 2>&1 | tee ci-logs/documents.log
+      - name: Retain verification logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: logs-documents-${{ github.run_attempt }}
+          path: ci-logs/*.log
+          retention-days: 14
+          if-no-files-found: warn
+
   upgrade:
     name: upgrade (ubuntu-24.04, Python 3.11)
     runs-on: ubuntu-24.04

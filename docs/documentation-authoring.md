@@ -8,6 +8,7 @@ Keep change-specific validation results with the change, rather than adding them
 ## Guide structure
 
 The [mddt document model](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/model.md) governs document structure, including file hierarchy, headings, overviews, parent summaries, and the choice among sections, lists, and tables.
+CI fails on checker errors and reports warnings in changed files for review, as [document structure](testing/ci.md#document-structure) describes.
 This guide adds only the AEM-specific placement of content.
 
 Keep the README focused on installation, a minimal working example, everyday commands, and preservation boundaries.
