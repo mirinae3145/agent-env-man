@@ -141,6 +141,11 @@ External publication confirms writing the local original, not synchronization by
 
 ## Share one copy between agents
 
+This variant shares one installed copy of the `personal` instruction bundle between registered Codex and Claude destinations.
+The [external bundle walkthrough](install.md) covers preparing its source declaration and machine bindings before installation.
+
+### New installation
+
 For a new installation, register both agent destinations in the machine configuration and omit `install.entry.root` from the instruction declaration.
 Keep the source and entry fields from the existing catalog, and add:
 
@@ -155,6 +160,8 @@ Codex and Claude retain their respective entry filenames and hook formats, but b
 An explicit bundle `root` or `destination` overrides that location without adding agent suffixes.
 `locate personal --agent codex` and `locate personal --agent claude` return the same copy; `publish personal --from-copy` collects it once.
 
+### Existing installation
+
 For an existing installation, preserve and reconcile the separate copies before switching:
 
 1. Run `aem detach personal:bundle personal:entry` while the old configuration still describes the installation.
@@ -164,5 +171,8 @@ For an existing installation, preserve and reconcile the separate copies before 
 1. Run `aem apply --item personal:entry --reattach --replace` to reconnect each entry and hook, retaining backups of replaced entries.
 
 Old per-agent bundle directories remain preserved after the transition.
+
+### Detach and automation
+
 To detach the common bundle later, use `aem detach personal:bundle` without an agent filter.
 Detaching only an agent's entry preserves that entry independently; full automation then skips the shared instruction group until explicit reattachment.

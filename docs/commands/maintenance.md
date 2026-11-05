@@ -15,7 +15,7 @@ Detach preserves contents according to the saved target kind:
   For independent instruction copies, detach both `NAME:bundle` and `NAME:entry`.
 - Detach does not restore pre-installation content or disable retained hooks.
 - It refuses missing or unreadable content that cannot be preserved.
-- `--agent` cannot detach only one consumer of a shared target; omit it to release all consumers.
+- **Shared targets**: `--agent` cannot detach only one consumer of a shared target; omit it to release all consumers.
   This includes `NAME:bundle` when instruction sharing is enabled for multiple agents.
   An individual entry can still be detached with `--agent`, preserving the common bundle's ownership.
 - Dry run leaves targets and ownership unchanged.

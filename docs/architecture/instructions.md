@@ -38,20 +38,19 @@ An optional `install.bundle.shared = true` keeps one bundle target and ownership
 Omitting the setting or using `false` preserves the existing per-agent targets and ownership.
 An explicit entry root still selects a single agent.
 
-The shared bundle uses `NAME:bundle` and the unsuffixed destination, with its consumers recorded together.
-Entries and hooks retain their agent-specific IDs and save a reference to the shared bundle for offline lookup.
-In both modes, global entries link through the bundle target so partial bundle detach retains one consistent reading tree.
-Retain saved active consumers when machine bindings disappear, until their components are detached.
+Shared installations follow these rules:
 
-Selecting an entry or hook includes that bundle, but grants no implicit replacement permission.
-Agent filters select the common bundle along with that agent's components; reverse collection exports the bundle once.
-
-Changing between separate and shared ownership requires detaching the affected installed components before reconfiguration.
-Preserve previous copies and their edits; never merge or delete them implicitly.
-
-Detach of the shared bundle releases all consumers and rejects a single-agent filter while multiple consumers are recorded.
-Detaching an individual entry still materializes that entry and releases its hook ownership.
-Full automation skips the shared instruction group when any of its components is detached, so another consumer cannot refresh a preserved group implicitly.
+- **Ownership**: The shared bundle uses `NAME:bundle` and the unsuffixed destination, with its consumers recorded together.
+  Retain saved active consumers when machine bindings disappear, until their components are detached.
+- **Entry references**: Entries and hooks retain their agent-specific IDs and save a reference to the shared bundle for offline lookup.
+  In both modes, global entries link through the bundle target so partial bundle detach retains one consistent reading tree.
+- **Selection and collection**: Selecting an entry or hook includes that bundle, but grants no implicit replacement permission.
+  Agent filters select the common bundle along with that agent's components; reverse collection exports the bundle once.
+- **Ownership transitions**: Changing between separate and shared ownership requires detaching the affected installed components before reconfiguration.
+  Preserve previous copies and their edits; never merge or delete them implicitly.
+- **Detach and automation**: Detach of the shared bundle releases all consumers and rejects a single-agent filter while multiple consumers are recorded.
+  Detaching an individual entry still materializes that entry and releases its hook ownership.
+  Full automation skips the shared instruction group when any of its components is detached, so another consumer cannot refresh a preserved group implicitly.
 
 ## Saved location lookup
 
