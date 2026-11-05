@@ -10,7 +10,7 @@ because settings can carry secrets.
 """
 
 from dataclasses import dataclass
-from decimal import Context, Decimal
+from decimal import Decimal
 import hashlib
 import json
 import os
@@ -100,8 +100,17 @@ def _canonical(value):
         return value
     if isinstance(value, (int, float, Decimal)):
         number = Decimal(str(value))
-        # Enough precision that normalizing only drops trailing zeros and never rounds.
-        return ('number', str(number.normalize(Context(prec=max(1, len(number.as_tuple().digits))))))
+        if not number.is_finite():
+            return ('number', str(number))
+        if number.is_zero():
+            return ('number', '0')
+        # Remove insignificant zeros without Decimal arithmetic: normalization
+        # can overflow or round small values at the context's exponent limits.
+        sign, digits, exponent = number.as_tuple()
+        end = len(digits)
+        while digits[end - 1] == 0:
+            end -= 1
+        return ('number', sign, digits[:end], exponent + len(digits) - end)
     if isinstance(value, list):
         return [_canonical(item) for item in value]
     if isinstance(value, dict):

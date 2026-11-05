@@ -8,6 +8,7 @@ import shlex
 import stat
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from decimal import Decimal
 from unittest import mock
 
 from agent_env_man.cli import main
@@ -47,6 +48,20 @@ class Write(Copy):
         self.assertEqual((check['expected'], check['unexpected']), (1, []))
         self.assertEqual(self.settings(self.target)['model'], 'opus')
         self.assertEqual(self.settings(self.left)['model'], 'sonnet')
+
+    def test_extreme_numeric_settings_copy_and_verify_without_rounding(self):
+        settings = self.left / 'settings.json'
+        settings.write_text(
+            '{"huge": 1e1000000, "tiny": 1e-1000001, "samples": [-0.0, 2e-1000001]}',
+            encoding='utf-8')
+        before = settings.read_bytes()
+        result = self.report('--write')
+        self.assertEqual(result['verification']['unexpected'], [])
+        copied = json.loads((self.target / 'settings.json').read_text(encoding='utf-8'),
+                            parse_float=Decimal)
+        self.assertEqual(copied, {'huge': Decimal('1e1000000'), 'tiny': Decimal('1e-1000001'),
+                                  'samples': [Decimal('-0.0'), Decimal('2e-1000001')]})
+        self.assertEqual(settings.read_bytes(), before)
 
     def test_paths_are_rebased_and_aem_hook_groups_are_left_out(self):
         self.report('--write')

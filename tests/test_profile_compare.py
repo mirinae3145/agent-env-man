@@ -161,6 +161,35 @@ class Compare(Roots):
         items = self.items(self.report(), 'settings')
         self.assertEqual((items['interval']['status'], items['ratio']['status']), ('same', 'same'))
 
+    def test_signed_zeros_compare_as_the_same_number(self):
+        for left, right in (('0', '-0.0'), ('-0e1000000', '0e-1000000')):
+            with self.subTest(left=left, right=right):
+                for root, number in ((self.left, left), (self.right, right)):
+                    (root / 'settings.json').write_text(
+                        '{"value": ' + number + ', "samples": [{"value": ' + number + '}]}',
+                        encoding='utf-8')
+                rows = self.items(self.report(), 'settings')
+                self.assertEqual(rows['value']['status'], 'same')
+                self.assertEqual(rows['samples']['status'], 'same')
+
+    def test_extreme_exponents_compare_exactly_in_fields_and_arrays(self):
+        for left, right, expected in (
+                ('1e1000000', '10e999999', 'same'),
+                ('1e1000000', '2e1000000', 'different'),
+                ('1e-1000001', '10e-1000002', 'same'),
+                ('1e-1000001', '2e-1000001', 'different')):
+            with self.subTest(left=left, right=right):
+                for root, number in ((self.left, left), (self.right, right)):
+                    (root / 'settings.json').write_text(
+                        '{"value": ' + number + ', "samples": [{"value": ' + number + '}]}',
+                        encoding='utf-8')
+                rows = self.items(self.report(), 'settings')
+                self.assertEqual(rows['value']['status'], expected)
+                self.assertEqual(rows['samples']['status'], expected)
+                if expected == 'different':
+                    self.assertNotEqual(rows['value']['left'], rows['value']['right'])
+                    self.assertNotEqual(rows['samples']['left'], rows['samples']['right'])
+
     def test_json_values_preserve_exact_numbers_in_fields_and_nested_arrays(self):
         left_number = '0.12345678901234567890123456789012'
         right_number = '0.12345678901234567890123456789013'
