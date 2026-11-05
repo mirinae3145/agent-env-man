@@ -247,7 +247,8 @@ class Manager:
         requested = expanded | (requested - logical - {i.key for i in all_items})
         for item in all_items:
             if item.key in requested and item.kind in ("instruction-entry", "instruction-hook"):
-                requested.update(f"{item.source_name}:{part}{suffix(item.agent)}" for part in ("bundle", "entry", "hook"))
+                requested.update(f"{item.source_name}:{part}{suffix(item.agent)}" for part in ("entry", "hook"))
+                requested.add(item.bundle_key or f"{item.source_name}:bundle{suffix(item.agent)}")
         registered = {i.key for i in all_items}
         detached = {k for k, r in self.state.data["items"].items() if r.get("detached")}
         if requested - registered:
@@ -285,6 +286,15 @@ class Manager:
             raise Error("Skill roots must be separate from manager state and backups")
         for item in items:
             old = self.state.data["items"].get(item.key)
+            if item.kind == "instruction":
+                for record in self.state.data["items"].values():
+                    if (record.get("kind") == "instruction" and record.get("source_name") == item.source_name
+                            and not record.get("detached")
+                            and bool(record.get("shared_bundle")) != item.shared_bundle):
+                        raise Error(f"{item.key}: bundle sharing changed; detach before reconfiguration")
+            if (old and not old.get("detached") and item.kind in ("instruction-entry", "instruction-hook")
+                    and old.get("bundle_key") != item.bundle_key):
+                raise Error(f"{item.key}: bundle ownership changed; detach before reconfiguration")
             if old and not old.get("detached") and (old["target"] != str(item.target) or old["mode"] != item.mode
                                                     or old["source"] != str(item.source)
                                                     or old.get("link_target", old["source"]) != str(item.link_destination)):
@@ -409,7 +419,7 @@ class Manager:
                     raise Error(f"{name}: saved directory is missing or is not a directory")
                 return {"root": str(root), "entry": str(root), "installed_root": str(target),
                         "detached": bool(record.get("detached")), "location": "source" if linked else "copy"}
-            record = self.state.data["items"].get(f"{name}:bundle{suffix(agent)}")
+            record = self.instruction_record(name, agent)
             if record is not None:
                 return self.locate_instruction(name, agent)
             records = [r for r in self.state.data["items"].values()
@@ -534,6 +544,26 @@ class Manager:
         if not entry.is_file():
             raise Error(f"Source entry is missing: {entry}")
 
+    def instruction_record(self, name, agent):
+        """Resolve a saved consumer reference, including orphaned agent entries."""
+        identifier(name)
+        records = self.state.data["items"]
+        entry = records.get(f"{name}:entry{suffix(agent)}", {})
+        key = entry.get("bundle_key")
+        if key is not None:
+            record = records.get(f"{name}:bundle")
+            if (key != f"{name}:bundle" or not record or not record.get("shared_bundle")
+                    or record.get("kind") != "instruction" or record.get("source_name") != name):
+                raise Error(f"{name}: saved shared bundle is missing or incompatible; inspect status")
+            return record
+        record = records.get(f"{name}:bundle{suffix(agent)}")
+        if record and not record.get("shared_bundle"):
+            return record
+        shared = records.get(f"{name}:bundle", {})
+        if shared.get("shared_bundle") and agent in shared.get("agents", []):
+            return shared
+        return None
+
     def locate_instruction(self, name, agent="codex"):
         """Resolve a saved installation without loading its catalog or fetching sources.
 
@@ -541,8 +571,7 @@ class Manager:
         active links must retain their recorded destination.
         """
         self.state.ready()
-        key = f"{identifier(name)}:bundle{suffix(agent)}"
-        record = self.state.data["items"].get(key)
+        record = self.instruction_record(name, agent)
         if not record or record.get("kind") != "instruction":
             raise Error(f"{name}: instruction bundle has not been installed")
         target = Path(record["target"])
@@ -667,6 +696,14 @@ class Manager:
         record.update(saved_policy(payload_options(item)))
         if item.permissions == "best-effort":
             record["source_observation"] = source_observed
+        if item.shared_bundle:
+            record["shared_bundle"] = True
+            # Removed machine bindings may still have installed callbacks.
+            consumers = {r.get("agent") for r in self.state.data["items"].values()
+                         if r.get("bundle_key") == item.key and not r.get("detached")}
+            record["agents"] = sorted(set(record["agents"]) | (consumers - {None}))
+        if item.bundle_key is not None:
+            record["bundle_key"] = item.bundle_key
         if item.link_target is not None:
             record["link_target"] = str(item.link_target)
         if item.kind == "directory":

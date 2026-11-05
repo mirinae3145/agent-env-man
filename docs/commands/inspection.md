@@ -94,4 +94,8 @@ aem locate report --source
 aem publish report -m "Clarify guidance"
 ```
 
+For an opted-in shared instruction bundle, participating agents resolve the same installed root.
+Saved entries retain the bundle reference, so lookup and callbacks remain usable without the catalog or source.
+The existing default agent selection still applies.
+
 Instruction callbacks continue to use saved instruction installations only, without catalog fallback or source lookup.
