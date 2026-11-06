@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **Documentation workflow**: Require mddt-based planning, whole-topic review, local checks, and contextual judgment of findings when editing Markdown.
   CI remains the automated minimum check within that workflow.
+- **Document check**: CI runs the mddt checker from mddt's current default branch and records the commit it used, instead of a pinned revision.
+  New checker rules can therefore report findings in unchanged documents.
 
 ### Fixed
 
