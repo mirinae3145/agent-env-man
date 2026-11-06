@@ -14,6 +14,8 @@ The checker then covers only the requirements a parser can decide, and authors a
 Read the procedure from an installed mddt skill or a checkout of the mddt repository, which also provides the checker.
 Sentence-only corrections and formatting changes that preserve structure need no new placement plan.
 
+A requested reorganization of existing documents follows the procedure's [restructuring order](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/writing.md#restructuring-an-existing-tree).
+
 ### Plan and revise
 
 The procedure's [placement steps](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/writing.md#placing-a-document) decide where content goes, and AEM adds these placement rules:

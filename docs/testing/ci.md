@@ -41,6 +41,7 @@ Hosted Linux and Windows checks do not cover WSL interoperability, real mounted 
 
 The documents job runs the [mddt](https://github.com/mirinae3145/mddt) checker from mddt's current default branch on tracked Markdown files.
 It prints the mddt commit in its log and job summary, and supplies the automated minimum check within the [writing procedure](../documentation-authoring.md#guide-structure).
+Following the current branch instead of a pinned revision is one of the two approaches in mddt's [adoption guide](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/adopting.md#continuous-integration).
 A pass does not establish that document meaning, placement, or organization meets the model; authors and reviewers make those judgments locally.
 
 Errors fail the job across all files, since a change can break links in documents it did not edit.
