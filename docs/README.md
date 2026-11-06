@@ -32,4 +32,4 @@ These local guides describe the contracts and checks relevant to a change.
 - [Architecture and preservation contracts](architecture.md) introduces delivery, installation, ownership, and integration responsibilities.
 - [Agent profile contracts](agent-profiles.md) defines the internal product extension boundary and supported profile behavior.
 - [Testing and distribution verification](testing.md) explains how to select and run environment, packaging, and integration checks.
-- [Documentation authoring](documentation-authoring.md) defines Markdown planning and review, content placement, CLI help, installed documentation, and official skill guidance.
+- [Documentation authoring](documentation-authoring.md) defines the Markdown writing procedure, content placement, CLI help, installed documentation, and official skill guidance.

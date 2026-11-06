@@ -40,7 +40,8 @@ The [agent profile contracts](docs/agent-profiles.md) define the internal extens
 Keep [Configuration](docs/configuration.md) and [Commands](docs/commands.md) and their linked topic references authoritative for TOML fields and CLI contracts.
 Update relevant documentation, examples, and platform limitations when interfaces or workflows change.
 
-For Markdown changes, follow the mddt [planning and review procedure](docs/documentation-authoring.md#guide-structure) before and after editing.
+For Markdown changes, follow the mddt writing procedure as [Documentation authoring](docs/documentation-authoring.md#guide-structure) applies it.
+Place content before writing it, and reread changed topics whole once they settle.
 Authors and reviewers judge document purpose, placement, and structure, including findings retained after review.
 The checker and CI verify only the automated minimum requirements.
 [Documentation authoring](docs/documentation-authoring.md) also governs CLI help, installed resources, and official skill guidance.
@@ -68,7 +69,7 @@ Reuse passing results when subsequent changes cannot affect them.
 Tests must use temporary sources, targets, configuration, state, and local Git remotes, never actual user homes, credentials, or network remotes.
 
 For Markdown changes, complete the [document review and local check](docs/documentation-authoring.md#review-and-check).
-Report the checker revision, scope, and findings retained after judgment alongside the relevant validation results.
+Report the checker commit, scope, and findings retained after judgment alongside the relevant validation results.
 
 ### Windows test processes
 

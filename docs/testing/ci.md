@@ -18,7 +18,7 @@ The CI workflow runs these independent checks:
 | Source | Ubuntu 24.04, Windows Server 2025 | 3.11, 3.15 | Full unittest discovery under coverage, and compileall |
 | Distribution | Ubuntu 24.04, Windows Server 2025 | 3.11 | Direct wheel and sdist-rebuilt wheel runtime verification |
 | Upgrade | Ubuntu 24.04 | 3.11 | Self-update from previous releases to the tested revision |
-| Documents | Ubuntu 24.04 | 3.11 | Markdown structure check with a pinned mddt revision |
+| Documents | Ubuntu 24.04 | 3.11 | Markdown structure check with mddt's current default branch |
 
 Every matrix job requires working file and directory symlinks; Windows also requires Windows PowerShell.
 A missing capability fails preparation instead of silently skipping its success paths.
@@ -39,13 +39,16 @@ Hosted Linux and Windows checks do not cover WSL interoperability, real mounted 
 
 ### Document structure
 
-The documents job runs the [mddt](https://github.com/mirinae3145/mddt) checker on tracked Markdown files at the revision pinned in the workflow.
-It supplies the automated minimum check within the [planning and review procedure](../documentation-authoring.md#guide-structure).
+The documents job runs the [mddt](https://github.com/mirinae3145/mddt) checker from mddt's current default branch on tracked Markdown files.
+It prints the mddt commit in its log and job summary, and supplies the automated minimum check within the [writing procedure](../documentation-authoring.md#guide-structure).
+Following the current branch instead of a pinned revision is one of the two approaches in mddt's [adoption guide](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/adopting.md#continuous-integration).
 A pass does not establish that document meaning, placement, or organization meets the model; authors and reviewers make those judgments locally.
 
 Errors fail the job across all files, since a change can break links in documents it did not edit.
 Warnings mark places that need a writer's judgment, so the job annotates only those in files the pull request changed and never fails on them.
-Update the pinned revision in a separate change, because new checker rules can report errors in unchanged documents.
+Because the branch is not pinned, findings can change without a change to this repository.
+A new checker rule can therefore fail the job on unchanged documents.
+The printed commit identifies the rules a run applied.
 
 ### Upgrade verification
 
@@ -92,7 +95,7 @@ python scripts/verify_agents.py                        # Requires codex and clau
 
 Both helpers install AEM into temporary homes and uv tool directories and remove them when they exit.
 
-The document check needs uv and an mddt checkout at the pinned revision:
+The document check needs uv and an mddt checkout; check out the commit a CI run printed to reproduce its findings:
 
 ```bash
 python scripts/verify_documents.py --mddt ../mddt/skills/mddt/scripts/mddt.py --base master
