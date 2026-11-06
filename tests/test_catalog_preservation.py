@@ -60,7 +60,10 @@ class CatalogPreservation(unittest.TestCase):
                     (case.entry / 'keep.txt').write_text('Unrelated contents\n', encoding='utf-8')
                 with patch.object(Git, 'fetch', side_effect=AssertionError('locate fetched')):
                     error = case.cli('catalog', 'locate', code=1)
-                self.assertIn(str(case.entry), error)
+                self.assertTrue(
+                    str(case.entry) in error or repr(str(case.entry)) in error,
+                    error,
+                )
                 if replacement == 'missing':
                     self.assertFalse(case.entry.exists())
                 else:
