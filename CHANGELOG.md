@@ -7,12 +7,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.3.0] &mdash; 2026-11-07
+
+Git tag `v1.3.0` corresponds to Python package version `1.3.0`; based on `v1.3.0-rc.2`.
+
 ### Changed
 
 - **Documentation workflow**: Require mddt-based planning, whole-topic review, local checks, and contextual judgment of findings when editing Markdown.
   CI remains the automated minimum check within that workflow.
 - **Document check**: CI runs the mddt checker from mddt's current default branch and records the commit it used, instead of a pinned revision.
-  New checker rules can therefore report findings in unchanged documents.
+  New checker rules can therefore fail the job on unchanged documents.
 
 ### Fixed
 
@@ -515,7 +519,8 @@ See [Removed interfaces and existing installations](docs/removed-interfaces.md) 
 - Linux/WSL and native Windows path handling, with Python 3.11 or later and Git required.
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
-[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-rc.2...HEAD
+[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-rc.2...v1.3.0
 [1.3.0-rc.2]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-rc.1...v1.3.0-rc.2
 [1.3.0-rc.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-beta.3...v1.3.0-rc.1
 [1.3.0-beta.3]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-beta.2...v1.3.0-beta.3
