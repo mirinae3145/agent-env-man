@@ -31,6 +31,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Unsupported-item skipping**: Remove setup/installer skip options after retiring the Windows-only case.
   Legacy Boolean machine fields remain readable without suppressing operation failures.
   Effective policy JSON omits the obsolete field.
+- **PowerShell shell integration**: Remove the `powershell` choice from `aem setup` and the installer; setup, installation, and update commands reject machine files selecting `setup.shells.powershell`.
+  Remove the integration with the previous release before upgrading; see the [workflow migration guidance](docs/removed-interfaces.md#unreleased-workflow-changes).
+- **Native Windows code paths**: Remove Windows-only locking, process, permission, link-spelling, and encoded hook handling, including recognition of encoded PowerShell hook commands written on Windows.
 
 ## [1.3.0] &mdash; 2026-11-07
 

@@ -1,16 +1,14 @@
 """Preserve unrelated agent hooks while owning explicit groups per event."""
 
-import base64
 import hashlib
 import json
-import os
 from pathlib import Path
 import re
 import shlex
 import sys
 
 from .model import Error
-from .storage import exists, is_reparse
+from .storage import exists
 
 
 TRUST_NOTICE = ("Codex hook trust must be reviewed separately: in the next Codex session, "
@@ -27,25 +25,8 @@ HOOK_ID_ARGUMENT = "--aem-hook-id"
 _MARKER = re.compile(r"AEM [^\[\]']+ \[[0-9a-f]{20}\]")
 
 
-_ENCODED_PREFIX = "powershell.exe -NoProfile -NonInteractive -EncodedCommand "
-
-
-def script(command):
-    """The PowerShell script inside AEM's encoded Windows command; any other command is returned unchanged."""
-    if isinstance(command, str) and command.startswith(_ENCODED_PREFIX):
-        try:
-            return base64.b64decode(command[len(_ENCODED_PREFIX):], validate=True).decode("utf-16le")
-        except (ValueError, UnicodeError):
-            pass
-    return command
-
-
 def generated(command):
-    """Whether a hook command has the shape AEM writes: a hook-id argument or a quoted marker.
-
-    Commands written on Windows are encoded, so their script is inspected instead.
-    """
-    command = script(command)
+    """Whether a hook command has the shape AEM writes: a hook-id argument or a quoted marker."""
     return isinstance(command, str) and (HOOK_ID_ARGUMENT in command or _MARKER.search(command) is not None)
 
 
@@ -61,30 +42,22 @@ def interpreter():
     and versioned names, and uv launchers switch between them on reinstall.
     Prefer the environment's `python` so reinstalling does not rewrite hooks.
     """
-    if os.name != "nt" and sys.prefix != sys.base_prefix:
+    if sys.prefix != sys.base_prefix:
         canonical = Path(sys.prefix) / "bin" / "python"
         if Path(sys.executable).parent == canonical.parent and canonical.exists():
             return str(canonical)
     return sys.executable
 
 
-def command(config_path, arguments, *, preserve_exit=False):
-    args = [interpreter(), "-m", "agent_env_man", "--config", str(config_path), *arguments]
-    result = ("& " + " ".join("'" + arg.replace("'", "''") + "'" for arg in args)
-              if os.name == "nt" else shlex.join(args))
-    if os.name == "nt":
-        if preserve_exit:
-            result += "; exit $LASTEXITCODE"
-        encoded = base64.b64encode(result.encode("utf-16le")).decode("ascii")
-        return "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded
-    return result
+def command(config_path, arguments):
+    return shlex.join([interpreter(), "-m", "agent_env_man", "--config", str(config_path), *arguments])
 
 
 def read(path: Path) -> dict:
     """Reject invalid/redirected hook files rather than losing unrelated configuration."""
     if not exists(path):
         return {}
-    if path.is_symlink() or is_reparse(path) or not path.is_file():
+    if path.is_symlink() or not path.is_file():
         raise Error(f"Hook configuration must be a regular JSON file: {path}")
 
     def unique(pairs):
@@ -136,15 +109,7 @@ def matching(doc: dict, marker: str, *, marker_field="statusMessage", event="Ses
         value = handler.get(marker_field)
         if marker_field != "command":
             return value == marker
-        if not isinstance(value, str):
-            return False
-        prefix = "powershell.exe -NoProfile -NonInteractive -EncodedCommand "
-        if value.startswith(prefix):
-            try:
-                value = base64.b64decode(value[len(prefix):], validate=True).decode("utf-16le")
-            except (ValueError, UnicodeError):
-                return False
-        return marker in value
+        return isinstance(value, str) and marker in value
     return [i for i, group in enumerate(doc.get("hooks", {}).get(event, []))
             if any(owns(h) for h in group["hooks"])]
 

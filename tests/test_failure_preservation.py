@@ -501,7 +501,6 @@ class CollectionConflicts(TemporaryCases):
         self.assertEqual((parent / 'nested/value.txt').read_text(), 'same edit')
         self.assertEqual((child / 'value.txt').read_text(), 'same edit')
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX opaque-link payload policy')
     def test_redirected_nested_copy_refuses_without_following_link(self):
         case, parent, child = self.nested_copies()
         case.require_links()
@@ -516,7 +515,6 @@ class CollectionConflicts(TemporaryCases):
         self.assertTrue((parent / 'nested').is_symlink())
         self.assertEqual((parent / 'alias/value.txt').read_text(), 'same edit')
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX opaque-link payload policy')
     def test_child_collection_cannot_add_links_under_live_parent_that_rejects_them(self):
         case = self.fixture(publications.CopyPublication)
         case.require_links()
@@ -529,7 +527,7 @@ class CollectionConflicts(TemporaryCases):
         case.cli('apply', '--item', 'nested')
         child = case.root / 'installed/nested'
         (child / 'alias').symlink_to('value.txt')
-        self.refused(case, ('nested',), 'symlinks/junctions are unsupported')
+        self.refused(case, ('nested',), 'symlinks are unsupported')
         self.assertTrue(parent.is_symlink())
         self.assertFalse((case.shared / 'nested/alias').exists())
         self.assertTrue((child / 'alias').is_symlink())

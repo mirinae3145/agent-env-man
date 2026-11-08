@@ -1,5 +1,4 @@
 """Claude integration through the existing agent-profile boundary with temporary homes."""
-import base64
 from contextlib import redirect_stdout, redirect_stderr, nullcontext
 import io
 import json
@@ -11,7 +10,7 @@ from unittest.mock import patch
 
 import tomlkit
 
-from agent_env_man import agents, hooks, automation, self_update
+from agent_env_man import agents, automation, self_update
 from agent_env_man.manager import Manager
 from agent_env_man.storage import State
 from agent_env_man.cli import main
@@ -54,10 +53,7 @@ class ClaudeIntegration(SetupFixture):
         self.assertEqual(doc['hooks']['SessionStart'][:-1], initial['hooks']['SessionStart'])
         handler = doc['hooks']['SessionStart'][-1]['hooks'][0]
         self.assertEqual(set(handler), {'type', 'command', 'timeout'})
-        command = handler['command']
-        if os.name == 'nt':
-            command = base64.b64decode(command.split()[-1]).decode('utf-16le')
-        self.assertIn('--aem-hook-id', command)
+        self.assertIn('--aem-hook-id', handler['command'])
         with patch.dict(os.environ, {'CLAUDE_CONFIG_DIR': str(self.home / 'new')}):
             self.setup_cli()
         self.assertFalse((self.home / 'new').exists())
@@ -132,19 +128,6 @@ class ClaudeIntegration(SetupFixture):
         self.assertEqual(before, path.read_bytes())
         self.assertFalse((self.home / '.bashrc').exists())
 
-    def test_unrelated_malformed_encoded_hooks_survive_setup_and_removal(self):
-        self.claude.mkdir()
-        path = self.claude / 'settings.json'
-        prefix = 'powershell.exe -NoProfile -NonInteractive -EncodedCommand '
-        commands = [None, prefix + '!invalid-base64!', prefix + base64.b64encode(b'x').decode()]
-        groups = [{'hooks': [{'type': 'command', 'command': value}]} for value in commands]
-        initial = {'hooks': {'SessionStart': groups}, 'permissions': {'allow': ['Read']}}
-        path.write_text(json.dumps(initial))
-        self.setup_cli('--agent', 'claude')
-        self.assertEqual(json.loads(path.read_text())['hooks']['SessionStart'][:-1], groups)
-        self.setup_cli('--remove-agent', 'claude')
-        self.assertEqual(json.loads(path.read_text()), initial)
-
     def test_invalid_saved_hook_identity_blocks_removal_without_losing_settings(self):
         self.setup_cli('--agent', 'claude')
         path = self.claude / 'settings.json'
@@ -159,27 +142,6 @@ class ClaudeIntegration(SetupFixture):
                 self.setup_cli('--remove-agent', 'claude', code=1)
                 self.assertEqual(path.read_bytes(), before)
                 self.assertEqual(self.config.read_bytes(), machine)
-
-    def test_windows_encoded_identity_and_retired_profile_removal(self):
-        # Encode on Linux without claiming a native Windows integration run.
-        with patch.object(hooks.os, 'name', 'nt'):
-            marker, group = agents.profile('claude').definition(self.config, '', startup=True)
-        handler = group['hooks'][0]
-        self.assertIn(marker, base64.b64decode(handler['command'].split()[-1]).decode('utf-16le'))
-        self.assertEqual(hooks.saved_matching({'hooks': {'SessionStart': [group]}}, marker, group), [0])
-        self.setup_cli('--agent', 'claude')
-        path = self.claude / 'settings.json'
-        path.write_text(json.dumps({'keep': True, 'hooks': {'SessionStart': [group]}}))
-        state = self.state()
-        record = state['items'].pop('setup:agent-claude')
-        record.update(hook_marker=marker, hook_group=group, agent='retired', agents=['retired'])
-        state['items']['setup:agent-retired'] = record
-        (Config(self.config).state_dir / 'state.json').write_text(json.dumps(state))
-        doc = tomlkit.parse(self.config.read_text())
-        doc['agents']['retired'] = doc['agents'].pop('claude')
-        self.config.write_text(tomlkit.dumps(doc))
-        self.run_cli('setup', '--remove-agent', 'retired')
-        self.assertEqual(json.loads(path.read_text()), {'keep': True, 'hooks': {'SessionStart': []}})
 
     def test_reserved_claude_folder_names_fail_before_installation(self):
         self.setup_cli('--agent', 'claude')
@@ -239,18 +201,6 @@ class ClaudeIntegration(SetupFixture):
         path.write_text(json.dumps(doc))
         self.run_cli('apply', '--item', 'other:entry', '--replace', code=1)
         self.assertEqual(json.loads(path.read_text()), doc)
-
-    def test_windows_claude_command_preserves_callback_exit_code(self):
-        with patch.object(hooks.os, 'name', 'nt'):
-            marker, group = agents.profile('claude').definition(self.config, 'personal')
-            _, codex = agents.profile('codex').definition(self.config, 'personal')
-        decoded = base64.b64decode(group['hooks'][0]['command'].split()[-1]).decode('utf-16le')
-        self.assertTrue(decoded.endswith('; exit $LASTEXITCODE'))
-        self.assertIn('--aem-hook-id', decoded)
-        self.assertEqual(hooks.saved_matching({'hooks': {'SessionStart': [group]}}, marker, group), [0])
-        # Existing Codex hook serialization must retain its released contract.
-        decoded_codex = base64.b64decode(codex['hooks'][0]['command'].split()[-1]).decode('utf-16le')
-        self.assertNotIn('exit $LASTEXITCODE', decoded_codex)
 
     def test_claude_startup_reloads_initial_install_and_updated_skills(self):
         self.setup_cli('--agent', 'claude')

@@ -27,7 +27,7 @@ class BootstrapArguments(InstructionFixture):
         self.catalog.write_text(tomlkit.dumps(catalog), encoding='utf-8')
         for context in (patch.object(Path, 'home', return_value=self.home),
                         patch.dict(os.environ, {'XDG_CONFIG_HOME': str(self.home / 'config'),
-                            'LOCALAPPDATA': str(self.home / 'config'), 'CODEX_HOME': str(self.agent)})):
+                            'CODEX_HOME': str(self.agent)})):
             context.start()
             self.addCleanup(context.stop)
         self.config = default_config()
@@ -104,7 +104,6 @@ class BootstrapArguments(InstructionFixture):
         self.catalog.write_text(tomlkit.dumps(catalog), encoding='utf-8')
         other = self.root / 'reference'
         other.mkdir()
-        # Relative paths must share a drive with the working directory on Windows.
         from contextlib import chdir
         with chdir(self.root):
             relative = os.path.relpath(other, Path.cwd())

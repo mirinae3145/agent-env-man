@@ -18,9 +18,8 @@ from pathlib import Path
 import re
 
 from .agents import PROFILES, bindings, product_name
-from .hooks import HOOK_ID_ARGUMENT, generated, script, without_marker
+from .hooks import HOOK_ID_ARGUMENT, generated, without_marker
 from .model import Error
-from .link_paths import destination_key
 
 # Claude Code's file names come from its profile; the rest of its layout is fixed here.
 CLAUDE = PROFILES['claude']
@@ -182,19 +181,18 @@ def _hook_groups(hooks):
             for owner, owned in parts.items():
                 if not owned and (owner == 'aem' or parts['aem']):
                     continue
-                scripts = [script(command) for command in owned]
                 # Startup and instruction handlers name their machine configuration, so only their presence compares;
                 # a personal hook carries a per-agent marker, so it compares by its command without the marker.
-                identity = ('' if any(isinstance(text, str) and AEM_HOOK_MARKER in text for text in scripts)
+                identity = ('' if any(isinstance(text, str) and AEM_HOOK_MARKER in text for text in owned)
                             else '\n'.join(without_marker(text) if isinstance(text, str) else json.dumps(text)
-                                           for text in scripts))
+                                           for text in owned))
                 groups.setdefault((event, entry.get('matcher', ''), owner, identity), []).append(owned)
     return groups
 
 
 def _target(link):
     """A link's target with a relative target resolved against the link's folder, as a copy writes it."""
-    return destination_key(os.path.normpath(os.path.join(link.parent, os.readlink(link))))
+    return os.path.normpath(os.path.join(link.parent, os.readlink(link)))
 
 
 def _links(directory, root):

@@ -1,5 +1,4 @@
 """Instruction metadata reaches child agents without changing session callbacks."""
-import base64
 from copy import deepcopy
 from dataclasses import replace
 import json
@@ -7,14 +6,14 @@ import os
 from pathlib import Path
 import shlex
 import shutil
+import subprocess
 from unittest.mock import patch
 
 import tomlkit
 
-from agent_env_man import agents, hooks
+from agent_env_man import agents
 from agent_env_man.model import Config
 from agent_env_man.storage import State
-from process_support import run_hidden
 from test_setup import SetupFixture
 
 
@@ -31,7 +30,7 @@ class SubagentHooks(SetupFixture):
         return self.state()['items'][key]
 
     def invoke(self, group, event):
-        return run_hidden(shlex.split(group['hooks'][0]['command']),
+        return subprocess.run(shlex.split(group['hooks'][0]['command']),
                           input=json.dumps({'hook_event_name': event, 'agent_type': 'Explore',
                                             'agent_id': 'test-child'}),
                           capture_output=True, text=True, encoding='utf-8')
@@ -243,14 +242,3 @@ class SubagentHooks(SetupFixture):
                 self.assertIsNone(self.state()['pending'])
                 self.run_cli('apply', '--agent', agent)
                 self.assertEqual(self.status_for(agent)['status'], 'current')
-
-    def test_windows_subagent_commands_retain_literal_arguments_and_exit_transport(self):
-        config = Path("C:/Users/space ' and $name/machine.toml")
-        for agent in ('codex', 'claude'):
-            with self.subTest(agent=agent), patch.object(hooks.os, 'name', 'nt'):
-                _, _, additional = agents.instruction_definition(agent, config, 'personal')
-                command = additional['SubagentStart']['hooks'][0]['command']
-            decoded = base64.b64decode(command.split()[-1]).decode('utf-16le')
-            self.assertIn("'--hook-event' 'SubagentStart'", decoded)
-            self.assertIn("'" + str(config).replace("'", "''") + "'", decoded)
-            self.assertEqual(decoded.endswith('; exit $LASTEXITCODE'), agent == 'claude')

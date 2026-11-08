@@ -1,6 +1,5 @@
 """Repeated command decisions share observations without caching across guards."""
 
-import os
 from pathlib import Path
 import stat
 import tempfile
@@ -43,20 +42,18 @@ class InspectionReuse(unittest.TestCase):
                         counts = count_inspections(self.config, args, self.external_root, self.target)
                         self.assertLessEqual(counts.get('content:source', 0), source_limit)
                         self.assertLessEqual(counts.get('content:target', 0), target_limit)
-                        if os.name != 'nt' and level == 'best-effort':
+                        if level == 'best-effort':
                             self.assertEqual(sum(n for kind, n in counts.items() if kind.startswith('permissions:')), 0)
                 (self.target / 'first.md').write_bytes(b'fixture replacement edit')
                 counts = count_inspections(self.config, ('apply', '--item', 'cases', '--replace'),
                                            self.external_root, self.target)
                 self.assertEqual((self.target / 'first.md').read_bytes(), original)
                 if level == 'best-effort':
-                    # Windows validates the source separately before copying;
-                    # POSIX combines that validation with its copy scan.
-                    self.assertLessEqual(counts.get('content:source', 0), 4 if os.name == 'nt' else 3)
+                    # Source validation is combined with the copy scan.
+                    self.assertLessEqual(counts.get('content:source', 0), 3)
                     self.assertLessEqual(counts.get('content:target', 0), 4)
                     self.assertLessEqual(counts.get('content:other', 0), 2)
-                    if os.name != 'nt':
-                        self.assertEqual(sum(n for kind, n in counts.items() if kind.startswith('permissions:')), 0)
+                    self.assertEqual(sum(n for kind, n in counts.items() if kind.startswith('permissions:')), 0)
 
     def test_install_still_rechecks_source_and_target_after_plan(self):
         self.document['payload'] = {'defaults': {'permissions': 'best-effort'}}
@@ -105,7 +102,6 @@ class InspectionReuse(unittest.TestCase):
         self.assertEqual((self.target / 'first.md').read_bytes(), original)
         self.assertFalse(manager.state.data['pending'])
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX source-root link race')
     def test_observed_source_root_cannot_be_replaced_with_a_link(self):
         self.document['payload'] = {'defaults': {'permissions': 'best-effort'}}
         self.external(mode='copy')
@@ -119,7 +115,6 @@ class InspectionReuse(unittest.TestCase):
 
 
 class CombinedPermissionObservation(unittest.TestCase):
-    @unittest.skipIf(os.name == 'nt', 'POSIX descriptor and permission checks')
     def test_combined_observation_matches_legacy_hash_and_permission_digest(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory).resolve()
@@ -139,7 +134,6 @@ class CombinedPermissionObservation(unittest.TestCase):
                 self.assertEqual(storage.observation(root, modes=modes, **policy), expected)
                 self.assertEqual(modes, permissions.snapshot(root, **policy))
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX descriptor and permission checks')
     def test_permission_change_during_content_read_is_refused(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory).resolve()

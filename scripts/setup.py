@@ -13,9 +13,9 @@ import tomllib
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--shell', action='append', default=[], choices=['bash', 'zsh', 'powershell'])
+    parser.add_argument('--shell', action='append', default=[], choices=['bash', 'zsh'])
     parser.add_argument('--agent', action='append', default=[], choices=['codex', 'claude'])
-    parser.add_argument('--remove-shell', action='append', default=[], choices=['bash', 'zsh', 'powershell'])
+    parser.add_argument('--remove-shell', action='append', default=[], choices=['bash', 'zsh'])
     parser.add_argument('--remove-agent', action='append', default=[], choices=['codex', 'claude'])
     parser.add_argument('--config', type=Path)
     parser.add_argument('--self-update', choices=['off', 'compatible', 'breaking'],
@@ -57,8 +57,7 @@ def main(argv=None):
         if tool_dir in Path(sys.executable).absolute().parents or tool_dir in Path(sys.executable).resolve().parents:
             raise RuntimeError('Run the installer with a Python outside the uv tools directory')
         mode = args.self_update
-        machine = args.config or (Path(os.environ.get('LOCALAPPDATA', Path.home() / 'AppData/Local')) if os.name == 'nt'
-                                 else Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config'))) / 'agent-env-man/machine.toml'
+        machine = args.config or Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config')) / 'agent-env-man/machine.toml'
         saved = tomllib.loads(machine.expanduser().read_text(encoding='utf-8')) if machine.expanduser().exists() else {}
         selected_automation = args.automation
         if (selected_automation is None and not args.dry_run and not machine.expanduser().exists()
@@ -72,7 +71,7 @@ def main(argv=None):
                 print('Automatic AEM updates: off / compatible (compatible releases) / breaking (all releases)')
                 while mode not in ('off', 'compatible', 'breaking'):
                     mode = input('Update mode [off]: ').strip() or 'off'
-        executable = bin_dir / ('aem.exe' if os.name == 'nt' else 'aem')
+        executable = bin_dir / 'aem'
         command = [str(executable)]
         if args.config:
             command += ['--config', str(args.config.expanduser().absolute())]

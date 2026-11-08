@@ -17,7 +17,7 @@ import tomlkit
 from .model import Error, Item, identifier, overlaps, relative
 from .progress import operation
 from .settings_formats import FORMATS, SettingsFormat
-from .storage import atomic_write, exists, is_reparse, observation, saved_path
+from .storage import atomic_write, exists, observation, saved_path
 
 
 def regular(path, *, missing=False):
@@ -27,7 +27,7 @@ def regular(path, *, missing=False):
         if missing:
             return
         raise Error(f"Missing settings file: {path}")
-    if path.is_symlink() or is_reparse(path) or not path.is_file():
+    if path.is_symlink() or not path.is_file():
         raise Error(f"Settings require a regular file: {path}")
 
 
@@ -387,7 +387,7 @@ class Settings:
         root = self.config.sources[item.source_name].path
         cursor = item.source
         while cursor != root:
-            if exists(cursor) and (cursor.is_symlink() or is_reparse(cursor)):
+            if cursor.is_symlink():
                 raise Error("Settings source path redirects")
             cursor = cursor.parent
         format = self.config._settings[item.source_name]["format"]
@@ -455,7 +455,7 @@ class Settings:
             return {"setting": item.source_name, "status": "already-prepared"}
         source = self.source(item)
         root = self.config.path.parent / (self.config.path.name + ".stages") / item.source_name
-        if exists(root) and (root.is_symlink() or is_reparse(root) or not root.is_dir() or any(root.iterdir())):
+        if exists(root) and (root.is_symlink() or not root.is_dir() or any(root.iterdir())):
             raise Error(f"Unmanaged settings stage exists: {root}")
         record = {"kind": "setting", "mode": item.mode, "id": "settings", "source_name": item.source_name,
                   "source": str(item.source), "relative": item.relative, "target": str(item.target),

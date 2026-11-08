@@ -1,8 +1,7 @@
 """Full automation uses temporary homes, local repositories, and fake uv installs."""
-from process_support import run_hidden
 import json
-import os
 from pathlib import Path
+import subprocess
 import sys
 import time
 import unittest
@@ -162,7 +161,6 @@ class FullAutomation(SetupFixture):
         self.assertTrue(failed)
         self.assertEqual((target / 'SKILL.md').read_text(), 'user file')
 
-    @unittest.skipIf(os.name == 'nt', 'Fake executable integration uses a POSIX shebang')
     def test_worker_restarts_fresh_cli_after_tool_install_before_catalog_and_content(self):
         manager = self.register(tool='compatible')
         self.setup_cli('--agent', 'codex')
@@ -198,7 +196,6 @@ class FullAutomation(SetupFixture):
         self.assertTrue((self.destination / 'report/SKILL.md').exists())
         self.assertTrue((self.agent / 'AGENTS.md').exists())
 
-    @unittest.skipIf(os.name == 'nt', 'Fake executable integration uses a POSIX shebang')
     def test_worker_tool_failure_blocks_continuation_and_failure_is_throttled(self):
         manager = self.register(tool='compatible')
         self.uv.write_text('#!' + sys.executable + '\nraise SystemExit(1)\n')
@@ -210,7 +207,6 @@ class FullAutomation(SetupFixture):
         self.assertFalse((self.destination / 'report').exists())
         self.assertEqual(self.run_cli('automation', '--trigger', 'interval')['status'], 'throttled')
 
-    @unittest.skipIf(os.name == 'nt', 'Fake executable integration uses a POSIX shebang')
     def test_queued_full_run_cancelled_when_mode_changes(self):
         manager = self.register()
         with lock(manager.config.state_dir):
@@ -244,7 +240,6 @@ class FullGitCatalog(unittest.TestCase):
         self.config.write_text(tomlkit.dumps(doc))
         return Config(self.config)
 
-    @unittest.skipIf(os.name == 'nt', 'Fake executable integration uses a POSIX shebang')
     def test_real_cli_worker_refreshes_catalog_then_prepares_new_declarations(self):
         config = self.register()
         self.document['skills']['new'] = dict(self.document['skills']['tool'])
@@ -261,7 +256,7 @@ class FullGitCatalog(unittest.TestCase):
         executable = self.bin / 'aem'
         executable.write_text('#!' + sys.executable + '\nfrom agent_env_man.cli import main\nraise SystemExit(main())\n')
         executable.chmod(0o755)
-        response = run_hidden([sys.executable, '-m', 'agent_env_man', '--json', '--config', str(self.config),
+        response = subprocess.run([sys.executable, '-m', 'agent_env_man', '--json', '--config', str(self.config),
                                    'automation', '--trigger', 'interval'], capture_output=True, text=True, timeout=5)
         self.assertEqual(response.returncode, 0, response.stderr)
         self.assertEqual(json.loads(response.stdout)['status'], 'queued')

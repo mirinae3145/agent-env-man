@@ -141,8 +141,7 @@ def full_content(manager, timeout, *, dry_run=False):
     if not sources:
         return {**report, 'status': 'skipped'}, False
     try:
-        manager.require_items_supported(manager.selected(items))
-        manager.require_sources_supported(sources)
+        manager.selected(items)
     except (Error, OSError, ValueError) as exc:
         return {**report, 'status': 'failed', 'error': str(exc)}, True
     if dry_run:

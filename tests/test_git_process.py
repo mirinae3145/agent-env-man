@@ -1,9 +1,7 @@
 """Git deadlines and process failures must remain bounded and diagnosable."""
 
-import os
 import signal
 import subprocess
-from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
@@ -12,24 +10,6 @@ from agent_env_man.model import Error
 
 
 class GitProcess(unittest.TestCase):
-    def test_windows_timeout_terminates_tree_and_reaps_child(self):
-        process = Mock(pid=12345)
-        process.communicate.side_effect = [subprocess.TimeoutExpired("git", 1), (b"", b"")]
-        windows = SimpleNamespace(name="nt", devnull=os.devnull, environ={})
-        with patch("agent_env_man.git_source.os", windows), patch.object(
-                subprocess, "CREATE_NEW_PROCESS_GROUP", 512, create=True), patch(
-                "agent_env_man.git_source.subprocess.CREATE_NO_WINDOW", 0x08000000, create=True), patch(
-                "agent_env_man.git_source.subprocess.Popen", return_value=process) as launch, patch(
-                "agent_env_man.git_source.subprocess.run") as terminate:
-            with self.assertRaisesRegex(Error, "checkout may need inspection"):
-                Git().run(None, "fetch")
-        self.assertEqual(launch.call_args.kwargs["creationflags"], 512 | 0x08000000)
-        self.assertNotIn("start_new_session", launch.call_args.kwargs)
-        terminate.assert_called_once_with(["taskkill", "/PID", "12345", "/T", "/F"],
-                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5,
-                                          creationflags=0x08000000)
-        process.kill.assert_called_once_with()
-        self.assertEqual(process.communicate.call_count, 2)
 
     def test_expired_budget_does_not_start_another_process(self):
         git = Git()
@@ -39,7 +19,6 @@ class GitProcess(unittest.TestCase):
                 git.run(None, "status")
         launch.assert_not_called()
 
-    @unittest.skipIf(os.name == "nt", "POSIX process group termination")
     def test_timeout_terminates_process_group_and_reaps_child(self):
         process = Mock(pid=12345)
         process.communicate.side_effect = [subprocess.TimeoutExpired("git", 1), (b"", b"")]

@@ -30,4 +30,3 @@ Linux measurement does not establish WSL mounted-filesystem behavior.
 
 Workers copied into temporary request directories are outside the configured source roots; subprocess measurement does not map those copies back to their originals.
 Test the original worker's policy, failure, and continuation behavior separately from copied-worker lifetime integration.
-Retained mocks of legacy platform helpers check branching and resource handling; native Windows execution is unsupported.

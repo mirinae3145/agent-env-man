@@ -44,19 +44,12 @@ class Git:
                    GIT_OPTIONAL_LOCKS="0")
         # Existing SSH_COMMAND customizations remain usable, but cannot prompt.
         env["GIT_SSH_COMMAND"] = env.get("GIT_SSH_COMMAND", "ssh") + " -oBatchMode=yes"
-        kwargs = {"start_new_session": True} if os.name != "nt" else {
-            "creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW}
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                   stdin=subprocess.DEVNULL, env=env, **kwargs)
+                                   stdin=subprocess.DEVNULL, env=env, start_new_session=True)
         try:
             stdout, stderr = process.communicate(timeout=remaining)
         except subprocess.TimeoutExpired as exc:
-            if os.name == "nt":
-                subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5,
-                               creationflags=subprocess.CREATE_NO_WINDOW)
-            else:
-                os.killpg(process.pid, signal.SIGKILL)
+            os.killpg(process.pid, signal.SIGKILL)
             process.kill()
             process.communicate()
             raise Error("Git operation timed out; checkout may need inspection") from exc
@@ -280,9 +273,7 @@ class Git:
 
     def directory_descriptor(self, source, relative, revision="HEAD", *, preserve_symlinks=False, exclusions=()):
         """Validate Git kinds and opaque link text before advancing live sources."""
-        from .payload_links import validate_link, require_posix, directory_fd
-        if preserve_symlinks:
-            require_posix()
+        from .payload_links import validate_link, directory_fd
         if relative != ".":
             listing = self.run(source.path, "ls-tree", "-z", revision, "--", relative).stdout
             if not listing or listing.split(" ", 1)[0] != "040000":
@@ -322,8 +313,8 @@ class Git:
     def skill_descriptor(self, source: Source, relative: str, revision: str = "HEAD", *, exclusions=()):
         """Require a tracked descriptor and a skill tree of regular Git files.
 
-        Inspect Git modes too: Windows can check out Git symlinks as ordinary
-        text files, so filesystem inspection alone cannot enforce this contract.
+        Inspect Git modes too: with core.symlinks disabled, Git checks out symlinks
+        as ordinary text files, so filesystem inspection alone cannot enforce this contract.
         """
         descriptor = "SKILL.md" if relative == "." else relative + "/SKILL.md"
         listing = self.run(source.path, "ls-tree", "-z", revision, "--", descriptor).stdout

@@ -120,7 +120,7 @@ For a regular uv tool installation, reinstall the updated checkout before testin
 
 Test setup with temporary homes and fake installer subprocesses, never actual user profiles or live remote repositories.
 Exercise repeat/add/remove, edited blocks, invalid hook files, redirected paths, grouped hook writes, partial failure/retry, offline previews, and fail-open startup.
-Shell quoting and PowerShell serialization tests do not establish native shell execution.
+Shell quoting tests do not establish native shell execution.
 
 ### Installed CLI verification
 

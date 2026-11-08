@@ -27,6 +27,11 @@ Keep its machine file, state, source content, and backups; WSL needs its own pat
 The legacy Boolean `automation.skip_unsupported` is accepted without effect, and its setup/installer options are removed.
 Ordinary failures are never skipped.
 
+PowerShell shell integration is removed; `bash` and `zsh` remain.
+Setup, installation, and update commands reject a machine file that still selects `setup.shells.powershell`; offline status and other saved-state maintenance remain usable.
+Before upgrading, run `aem setup --remove-shell powershell` with the previous release.
+Otherwise delete the AEM block from the PowerShell profile and the `powershell` entry under `setup.shells` manually.
+
 ## Removed interfaces
 
 | Removed interface | Current approach |

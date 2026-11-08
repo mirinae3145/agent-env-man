@@ -219,11 +219,9 @@ def launch(config, settings, attempt, *, filename='self-update.json', extra=None
                    'saved_settings': dict(config.doc.get('self_update', {})), 'filename': filename, **(extra or {})}
         request_path = directory / 'request.json'
         write_json(request_path, request)
-        options = ({'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS}
-                   if os.name == 'nt' else {'start_new_session': True})
         child = subprocess.Popen([settings['python'], str(directory / 'self_update.py'), str(request_path)],
                                  stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                 close_fds=True, **options)
+                                 close_fds=True, start_new_session=True)
     except (OSError, ValueError) as exc:
         shutil.rmtree(directory, ignore_errors=True)
         write_json(result, {**attempt, 'status': 'failed', 'error': str(exc), 'finished': time.time()})
@@ -244,20 +242,8 @@ atexit.register(close_workers)
 
 def git(*arguments, cwd=None):
     environment = dict(os.environ, GIT_TERMINAL_PROMPT='0', GIT_SSH_COMMAND='ssh -oBatchMode=yes')
-    return run_captured(['git', *arguments], cwd=cwd, env=environment, check=True,
+    return subprocess.run(['git', *arguments], cwd=cwd, env=environment, check=True,
                           capture_output=True, text=True, encoding='utf-8', timeout=TIMEOUT).stdout.strip()
-
-
-def run_captured(*arguments, **options):
-    """Suppress console windows for worker children, including their descendants.
-
-    The copied worker has no parent console on Windows. Redirecting its child
-    streams alone does not prevent console allocation by Git, uv or fresh CLI.
-    Keep this helper standard-library-only for copied-worker execution.
-    """
-    if os.name == 'nt':
-        options['creationflags'] = subprocess.CREATE_NO_WINDOW
-    return subprocess.run(*arguments, **options)
 
 
 def git_url(repository):
@@ -275,7 +261,7 @@ def tool_environment(settings):
 
 
 def installed_version(settings):
-    listing = run_captured([settings['uv'], 'tool', 'list'], env=tool_environment(settings), check=True,
+    listing = subprocess.run([settings['uv'], 'tool', 'list'], env=tool_environment(settings), check=True,
                              capture_output=True, text=True, timeout=TIMEOUT).stdout
     installed = re.search(r'^agent-env-man v(\S+)', listing, re.MULTILINE)
     if installed is None:
@@ -322,35 +308,18 @@ def perform(request, records=None, *, prepared=None):
                '--from', git_url(repository) + '@' + selected['revision'], 'agent-env-man']
     if records is not None:
         check_official_skills(records, package_version=installed)
-    run_captured(command, env=tool_environment(settings), check=True, capture_output=True, text=True, timeout=TIMEOUT)
+    subprocess.run(command, env=tool_environment(settings), check=True, capture_output=True, text=True, timeout=TIMEOUT)
     return {'status': 'updated', **selected}
 
 
 def wait_for_parent(pid):
     """Wait for OS termination as well as EOF, which can arrive during atexit.
 
-    On Windows the original interpreter can remain locked until its process
-    terminates. POSIX children can observe reparenting without signalling or
-    probing an unrelated process that might reuse the original PID.
+    The child observes reparenting without signalling or probing an unrelated
+    process that might reuse the original PID.
     """
     if not pid:
         return True
-    if os.name == 'nt':
-        import ctypes
-        from ctypes import wintypes
-        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
-        kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
-        kernel.OpenProcess.restype = wintypes.HANDLE
-        kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
-        kernel.WaitForSingleObject.restype = wintypes.DWORD
-        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
-        handle = kernel.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE only.
-        if not handle:
-            return ctypes.get_last_error() == 87  # Invalid PID: already exited.
-        try:
-            return kernel.WaitForSingleObject(handle, TIMEOUT * 1000) == 0
-        finally:
-            kernel.CloseHandle(handle)
     deadline = time.monotonic() + TIMEOUT
     while os.getppid() == pid:
         if time.monotonic() >= deadline:
@@ -446,9 +415,9 @@ def worker(request_path):
             else:
                 write_json(result, {**previous, **outcome, 'finished': time.time()})
         if refresh_skills:
-            executable = Path(request['settings']['bin_dir']) / ('aem.exe' if os.name == 'nt' else 'aem')
+            executable = Path(request['settings']['bin_dir']) / 'aem'
             try:
-                process = run_captured([str(executable), '--config', str(config), '--json', '_self-skill-refresh',
+                process = subprocess.run([str(executable), '--config', str(config), '--json', '_self-skill-refresh',
                                           '--token', request['token'], '--result-file', result.name],
                                          capture_output=True, text=True, timeout=TIMEOUT)
                 if process.returncode:
@@ -471,9 +440,9 @@ def worker(request_path):
         if continue_full:
             # Release both locks before the fresh CLI acquires them. Keep a
             # one-use token in the result so retries cannot repeat a continuation.
-            executable = Path(request['settings']['bin_dir']) / ('aem.exe' if os.name == 'nt' else 'aem')
+            executable = Path(request['settings']['bin_dir']) / 'aem'
             try:
-                process = run_captured([str(executable), '--config', str(config), '_full-run',
+                process = subprocess.run([str(executable), '--config', str(config), '_full-run',
                                           '--token', request['token']], capture_output=True)
                 failed = process.returncode != 0
             except (OSError, subprocess.SubprocessError):

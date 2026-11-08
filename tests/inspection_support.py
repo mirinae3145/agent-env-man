@@ -4,7 +4,6 @@ from collections import Counter
 from contextlib import ExitStack, redirect_stderr, redirect_stdout
 import io
 import json
-import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -48,9 +47,7 @@ def count_inspections(config, args, source, target):
         return scan(path, **policy)
 
     def modes(path, **policy):
-        # POSIX snapshots delegate to scan; Windows snapshots have their own walk.
-        if os.name == 'nt':
-            counts[f'permissions:{location(path)}'] += 1
+        # Snapshots delegate to scan, which counts the permission walk.
         return snapshot(path, **policy)
 
     with ExitStack() as stack:

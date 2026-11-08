@@ -23,7 +23,7 @@ aem apply
 
 ### Connect agents and shells
 
-Select only the agent and shell requested; Claude uses `--agent claude`, and other supported shells are `zsh` and `powershell`.
+Select only the agent and shell requested; Claude uses `--agent claude`, and the other supported shell is `zsh`.
 A second profile of the same product is a named agent such as `--agent claude-lab` or `--agent codex-lab`, with its own default root.
 `aem compare`, `aem copy-profile` and `aem check-tool-hooks` inspect, seed or check Claude Code profiles; read their help before use.
 

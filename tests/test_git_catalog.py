@@ -1,11 +1,11 @@
 """Git inventories bootstrap and round-trip through local remotes only."""
-from process_support import run_hidden
 
 from contextlib import redirect_stderr, redirect_stdout
 import io
 import json
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -43,7 +43,7 @@ class GitCatalog(unittest.TestCase):
         self.save_remote()
 
     def git(self, path, *args):
-        result = run_hidden(["git", "-C", str(path), *map(str, args)], capture_output=True, text=True)
+        result = subprocess.run(["git", "-C", str(path), *map(str, args)], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout.strip()
 
@@ -541,7 +541,7 @@ class GitCatalog(unittest.TestCase):
         self.boot()
 
     def test_tracked_symlink_catalog_rejected_even_without_os_symlink_support(self):
-        # Build a Git symlink entry directly so this also exercises Windows Git modes.
+        # Build a Git symlink entry directly so the Git mode check runs without OS symlink support.
         blob = self.git(self.seed, "hash-object", "-w", "catalogs/personal.toml")
         self.git(self.seed, "update-index", "--cacheinfo", f"120000,{blob},catalogs/personal.toml")
         self.git(self.seed, "commit", "-m", "Unsupported catalog symlink")

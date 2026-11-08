@@ -13,9 +13,9 @@ from .agents import profile, suffix, product_name, instruction_definition
 from .git_source import Git, now
 from .model import Config, MachineFile, Error, Item, identifier, overlaps, relative
 from .progress import operation, step
-from .payload_links import CopyCleanupError, require_supported, unsupported_reason, options as payload_options, replace as replace_link_entry, remove as remove_link_entry
+from .payload_links import CopyCleanupError, options as payload_options, replace as replace_link_entry, remove as remove_link_entry
 from .payload_policy import saved as saved_policy, preservation_paths, retention, park, restore_retained
-from .storage import State, copy_payload, exists, fingerprint, is_reparse, observation, remove, saved_path, link_matches
+from .storage import State, copy_payload, exists, fingerprint, observation, remove, saved_path, link_matches
 
 
 @dataclass
@@ -43,27 +43,6 @@ class Manager:
             return replace(source, branch=branch)
         return source
 
-    def require_items_supported(self, items):
-        """Check desired and saved policies before any selected payload changes."""
-        for item in items:
-            require_supported(item, item.key)
-            old = self.state.data['items'].get(item.key, {})
-            if not old.get('detached'):
-                require_supported(old, item.key)
-
-    def require_sources_supported(self, names=(), *, sources=None):
-        """Shared delivery must satisfy even unselected consumers and orphaned links."""
-        sources = self.config.sources if sources is None else sources
-        paths = {source.path for name, source in sources.items() if not names or name in names}
-        for source in self.config.sources.values():
-            if source.path in paths:
-                self.require_items_supported(self.config.declarations(source))
-        for key, old in self.state.data['items'].items():
-            if old.get('detached') or old.get('mode') != 'link':
-                continue
-            if any(old.get('source') == str(path / old.get('relative', '.')) for path in paths):
-                require_supported(old, key)
-
     @operation('Preparing sources')
     def prepare_skills(self, names=(), *, timeout=30, defer_payloads=False):
         """Clone listed repositories, validating consumers before publishing a checkout.
@@ -79,7 +58,6 @@ class Manager:
         if set(names) - sources.keys():
             raise Error("Unknown catalog source selection")
         self.check_destinations([i for s in sources.values() for i in self.config.declarations(s)])
-        self.require_sources_supported(names)
         report, failed = [], False
         groups = {}
         for name, source in sources.items():
@@ -162,8 +140,8 @@ class Manager:
                         raise Error(f"{skill_name}: skill path must contain SKILL.md")
                     cursor = payload
                     while cursor != local_path:
-                        if cursor.is_symlink() or is_reparse(cursor):
-                            raise Error(f"Skill source contains a symlink/junction: {cursor}")
+                        if cursor.is_symlink():
+                            raise Error(f"Skill source contains a symlink: {cursor}")
                         cursor = cursor.parent
                     inspect_payload(payload, exclude_git=item.relative == ".", **payload_options(item))
                 revision = git.run(local_path, "rev-parse", "HEAD").stdout
@@ -194,13 +172,7 @@ class Manager:
                                    "status": "failed", "error": str(exc)})
             finally:
                 if temporary:
-                    # Git can mark object files read-only on Windows; a failed
-                    # staged clone must still be removable before returning.
-                    def writable_retry(operation, path, error):
-                        os.chmod(path, stat.S_IWRITE)
-                        operation(path)
-
-                    shutil.rmtree(temporary, onerror=writable_retry)
+                    shutil.rmtree(temporary)
             for skill_name, _ in selected:
                 self.state.data["sources"].setdefault(skill_name, {})["last_attempt"] = now()
             self.state.save()
@@ -348,8 +320,8 @@ class Manager:
         # Intermediate source symlinks would bypass directory-tree validation.
         cursor = item.source
         while cursor != root:
-            if cursor.is_symlink() or is_reparse(cursor):
-                raise Error(f"Source path contains a symlink/junction: {cursor}")
+            if cursor.is_symlink():
+                raise Error(f"Source path contains a symlink: {cursor}")
             cursor = cursor.parent
         if item.kind == "skill" and (not item.source.is_dir() or not (item.source / "SKILL.md").is_file()):
             raise Error(f"{item.key}: skill path must be a directory containing SKILL.md")
@@ -430,7 +402,7 @@ class Manager:
             if target:
                 raise Error('--target is supported only for settings')
             path = saved_path(hook_record.get('source'))
-            if not path.is_file() or path.is_symlink() or is_reparse(path):
+            if not path.is_file() or path.is_symlink():
                 raise Error('Saved hook source is missing or redirected; inspect status')
             return {'root': str(path.parent), 'entry': str(path), 'hook_file': hook_record['target'],
                     'hook_event': hook_record['hook_event'], 'detached': bool(hook_record.get('detached')),
@@ -449,7 +421,7 @@ class Manager:
                         raise Error(f"{name}: installed directory link was replaced; inspect status")
                 elif record.get("mode") not in ("link", "copy"):
                     raise Error(f"{name}: unsupported saved directory mode")
-                elif target.is_symlink() or is_reparse(target):
+                elif target.is_symlink():
                     raise Error(f"{name}: saved directory copy was replaced by a link")
                 root = target.resolve(strict=True)
                 if not root.is_dir():
@@ -473,7 +445,7 @@ class Manager:
                         raise Error(f"{name}: installed skill link was replaced; inspect status")
                 elif record.get("mode") not in ("link", "copy"):
                     raise Error(f"{name}: unsupported saved skill mode")
-                elif target.is_symlink() or is_reparse(target):
+                elif target.is_symlink():
                     raise Error(f"{name}: saved skill copy was replaced by a link")
                 root = target.resolve(strict=True)
                 self.locate_entry(root, root / "SKILL.md")
@@ -498,7 +470,7 @@ class Manager:
         if item.kind == "directory":
             cursor = entry
             while cursor != selected.path:
-                if cursor.is_symlink() or is_reparse(cursor):
+                if cursor.is_symlink():
                     raise Error(f"Directory source redirects through a link: {cursor}")
                 cursor = cursor.parent
             if not entry.is_dir():
@@ -573,8 +545,8 @@ class Manager:
             raise Error(f"Source directory is missing: {root}")
         cursor = entry
         while True:
-            if cursor.is_symlink() or (cursor.exists() and is_reparse(cursor)):
-                raise Error(f"Source entry contains a symlink/junction: {cursor}")
+            if cursor.is_symlink():
+                raise Error(f"Source entry contains a symlink: {cursor}")
             if cursor == root:
                 break
             cursor = cursor.parent
@@ -614,7 +586,7 @@ class Manager:
         target = Path(record["target"])
         if record.get("detached") or record.get("mode") == "copy":
             saved_path(str(target))
-            if target.is_symlink() or is_reparse(target):
+            if target.is_symlink():
                 raise Error(f"{name}: copied/detached bundle directory was replaced by a link")
         elif not target.is_symlink() or not link_matches(observation(target), record.get("link_target", record["source"])):
             raise Error(f"{name}: installed bundle link was replaced; inspect status")
@@ -622,11 +594,11 @@ class Manager:
         if not root.is_dir():
             raise Error(f"{name}: installed bundle root is not a directory")
         entry = root / relative(record["entry"])
-        # Refuse redirected entry paths, including intermediate links/junctions.
+        # Refuse redirected entry paths, including intermediate links.
         cursor = entry
         while cursor != root:
-            if cursor.is_symlink() or is_reparse(cursor):
-                raise Error(f"{name}: entry path contains a symlink/junction")
+            if cursor.is_symlink():
+                raise Error(f"{name}: entry path contains a symlink")
             cursor = cursor.parent
         if not entry.is_file():
             raise Error(f"{name}: original entry document is missing: {entry}")
@@ -642,7 +614,7 @@ class Manager:
         target = Path(record["target"])
         if not target.is_file():
             raise Error(f"{name}: installed global entry is unavailable")
-        if record.get("detached") and (target.is_symlink() or is_reparse(target)):
+        if record.get("detached") and target.is_symlink():
             raise Error(f"{name}: detached global entry was replaced by a link")
         if not record.get("detached") and not link_matches(observation(target), record.get("link_target", record["source"])):
             raise Error(f"{name}: global entry link was replaced; inspect status")
@@ -656,7 +628,7 @@ class Manager:
                 source_root = source_root.parent
             cursor = source_entry
             while True:
-                if cursor.is_symlink() or is_reparse(cursor):
+                if cursor.is_symlink():
                     raise Error(f"{name}: live entry source was redirected")
                 if cursor == source_root:
                     break
@@ -879,10 +851,10 @@ class Manager:
                     stage.symlink_to(item.link_destination, target_is_directory=item.source.is_dir())
                 except OSError as exc:
                     if item.kind == "instruction-entry":
-                        raise Error("Cannot create the instruction entry symbolic link; enable Windows "
-                                    "Developer Mode/link privileges. Instruction entries require links.") from exc
-                    raise Error("Cannot create a symbolic link; enable Windows Developer Mode/link privileges "
-                                "or explicitly configure this item as copy") from exc
+                        raise Error("Cannot create the instruction entry symbolic link on this filesystem; "
+                                    "instruction entries require links.") from exc
+                    raise Error("Cannot create a symbolic link on this filesystem; "
+                                "explicitly configure this item as copy") from exc
             elif item.mode == "copy":
                 copy_payload(item.source, stage, exclude_git=plan.record.get("exclude_git", False), permission_failures=permission_failures, **copy_policy)
                 if best_effort:
@@ -1090,7 +1062,6 @@ class Manager:
         if (adopt or replace) and not requested:
             raise Error("--adopt and --replace require explicit --item selections")
         items = self.selected(requested, reattach=reattach, agent=agent)
-        self.require_items_supported(items)
         from .settings import Settings, transaction
         settings = Settings(self)
         setting_items = [i for i in items if i.kind == "setting"]
@@ -1234,9 +1205,6 @@ class Manager:
             hook_key = f"{old.get('source_name')}:hook{suffix(old.get('agent', 'codex'))}"
             if old.get("kind") == "instruction-entry" and hook_key in self.state.data["items"] and hook_key not in keys:
                 keys.append(hook_key)
-        for key in keys:
-            if not records[key].get("detached"):
-                require_supported(records[key], key)
         plans, untouched = [], []
         for number, key in enumerate(keys, 1):
             step(f"Planning detach {number}/{len(keys)}", key)
@@ -1316,7 +1284,6 @@ class Manager:
         groups = {}
         for name, source in sources.items():
             groups.setdefault(source.path, []).append((name, source))
-        self.require_sources_supported(names)
         results, failed = [], False
         for path, members in groups.items():
             selected = sorted(name for name, _ in members if name in names)
@@ -1425,7 +1392,6 @@ class Manager:
                 if not members:
                     sources[source.name] = source
                     selected_names.add(source.name)
-        self.require_sources_supported(selected_names, sources=sources)
         results, failed = [], False
         groups = {}
         for name, source in sources.items():
@@ -1653,12 +1619,6 @@ class Manager:
                         item_entry["installation"] = self.installed_status(old, target_observation=observe_target)
                         if old.get("permissions") == "best-effort":
                             item_entry.update(permissions="best-effort", permission_differences=old.get("permission_differences", []), collection_permission_differences=old.get("collection_permission_differences", []))
-                    reason = unsupported_reason(item) or unsupported_reason(old or {})
-                    if reason:
-                        item_entry.update(status="detached" if old and old.get("detached") else "unavailable",
-                                          error=reason)
-                        report["items"].append(item_entry)
-                        continue
                     try:
                         status, note = self.item_status(item, old, target_observation=observe_target)
                         item_entry.update(status=status)

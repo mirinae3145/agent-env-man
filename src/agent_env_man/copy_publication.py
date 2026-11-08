@@ -13,7 +13,7 @@ import uuid
 from .model import Error, Item, overlaps, relative
 from .payload_links import CopyCleanupError, options as payload_options, scan, replace as replace_link_entry, chmod_directory, remove as remove_link_entry
 from .payload_policy import excluded, child_options, saved as saved_policy, preservation_paths, retention, park, restore_retained, validate_retention
-from .storage import atomic_write, copy_payload, exists, fingerprint, is_reparse, observation, remove, saved_path
+from .storage import atomic_write, copy_payload, exists, fingerprint, observation, remove, saved_path
 
 
 @dataclass
@@ -150,14 +150,12 @@ def plan(manager, names, *, installed_only=False):
             if changed and not conflict:
                 preservation_paths(item.source, item.target, payload_options(item))
             compare = ['git', 'difftool', '--no-index', '--', str(item.source), str(item.target)]
-            command = ("& " + ' '.join("'" + part.replace("'", "''") + "'" for part in compare)
-                       if os.name == 'nt' else shlex.join(compare))
             report = {'item': item.key, 'source': str(item.source), 'copy': str(item.target),
                       'baseline_hash': baseline, 'source_hash': source_hash, 'copy_hash': copy_hash,
                       'changed': changed, 'stale': copy_hash == baseline and source_changed,
                       'conflict': conflict, 'changes': sorted(p for p in left.keys() | right.keys() if left.get(p) != right.get(p)),
                       'compare': compare,
-                      'compare_command': command}
+                      'compare_command': shlex.join(compare)}
             result.append(Collection(item, {**record, **({'preserve_symlinks': item.preserve_symlinks} if item.kind == 'directory' else {})}, source_hash, copy_hash, report, source_observed, copy_observed))
     return result
 
@@ -178,7 +176,7 @@ def selected_writes(plans):
             incoming = other.item.target / relative
             cursor = incoming
             while cursor != other.item.target:
-                if cursor.is_symlink() or (exists(cursor) and is_reparse(cursor)):
+                if cursor.is_symlink():
                     raise Error('Overlapping collection redirects through a link')
                 cursor = cursor.parent
             if not incoming.is_dir() or fingerprint(incoming, exclude_git=plan.record.get('exclude_git', False), **payload_options(plan.item)) != plan.copy_hash:
@@ -225,10 +223,10 @@ def guard_links(writes, records):
                 if write.item.target in candidate.parents:
                     cursor = candidate.parent
                     while cursor != write.item.target:
-                        if cursor.is_symlink() or (exists(cursor) and is_reparse(cursor)):
+                        if cursor.is_symlink():
                             raise Error(f'{key}: collection redirects a required live link source; detach first')
                         cursor = cursor.parent
-            redirected = candidate.is_symlink() or (exists(candidate) and is_reparse(candidate))
+            redirected = candidate.is_symlink()
             valid = not redirected and (candidate.is_dir() if directory else candidate.is_file())
             if not valid:
                 raise Error(f'{key}: collection removes or changes a required live link source: {path}; '
@@ -247,14 +245,10 @@ def guard_links(writes, records):
                 continue
             if candidate != write.item.target and write.item.target not in candidate.parents:
                 continue  # Excluded live sources remain in place.
-            if os.name != 'nt':
-                scan(candidate, source_relative=logical, exclude_git=exclude_git,
-                     allow_symlinks=bool(payload_options(record).get('preserve_symlinks')),
-                     exclusions=write.item.exclusions,
-                     exclude_prefix=candidate.relative_to(write.item.target).as_posix() if candidate != write.item.target else '')
-            else:
-                fingerprint(candidate, exclude_git=exclude_git, exclusions=write.item.exclusions,
-                            exclude_prefix=candidate.relative_to(write.item.target).as_posix() if candidate != write.item.target else '')
+            scan(candidate, source_relative=logical, exclude_git=exclude_git,
+                 allow_symlinks=bool(payload_options(record).get('preserve_symlinks')),
+                 exclusions=write.item.exclusions,
+                 exclude_prefix=candidate.relative_to(write.item.target).as_posix() if candidate != write.item.target else '')
 
 
 def validate(manager, plans, *, capture=False):
@@ -465,7 +459,7 @@ def recover(state):
         target = saved_path(mode['target'])
         if ((target != root and root not in target.parents) or not target.is_dir()
                 or (target != root and target.relative_to(root).parts[0] == '.git')
-                or target.is_symlink() or is_reparse(target)):
+                or target.is_symlink()):
             raise Error('Invalid copy collection mode path')
         for key in ('before', 'after'):
             if isinstance(mode[key], bool) or not isinstance(mode[key], int) or not 0 <= mode[key] <= 0o7777:

@@ -1,9 +1,9 @@
 """Bootstrap code must work before third-party site packages are available."""
-from process_support import run_hidden
 
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -15,7 +15,7 @@ class StandaloneRuntime(unittest.TestCase):
     def test_installer_help_runs_without_site_packages(self):
         script = Path(__file__).parents[1] / "scripts/setup.py"
         with tempfile.TemporaryDirectory(prefix="aem-standalone-installer-") as directory:
-            result = run_hidden([sys.executable, "-I", "-S", str(script), "--help"],
+            result = subprocess.run([sys.executable, "-I", "-S", str(script), "--help"],
                                     cwd=directory, capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("--automation", result.stdout)
@@ -42,7 +42,7 @@ class StandaloneRuntime(unittest.TestCase):
             program = ("import runpy, sys; from pathlib import Path; "
                        "sys.path.insert(0, str(Path(sys.argv[1]).parent)); "
                        "sys.argv = sys.argv[1:]; runpy.run_path(sys.argv[0], run_name='__main__')")
-            result = run_hidden([sys.executable, "-I", "-S", "-c", program,
+            result = subprocess.run([sys.executable, "-I", "-S", "-c", program,
                                      str(request_directory / "self_update.py"), str(request_path)],
                                     cwd=root, input="", capture_output=True, text=True, timeout=10)
             self.assertEqual(result.returncode, 0, result.stderr)

@@ -15,7 +15,7 @@ from ..updates import TRIGGERS, startup_briefing, startup_skills_changed
 
 
 @click.command()
-@click.option("--shell", multiple=True, type=click.Choice(("bash", "zsh", "powershell")), help="Connect a shell; repeat to select more.")
+@click.option("--shell", multiple=True, type=click.Choice(("bash", "zsh")), help="Connect a shell; repeat to select more.")
 @click.option("--agent", multiple=True, type=AGENT, help="Connect an agent or named instance (claude-lab, codex-lab); repeat to select more.")
 @click.option("--remove-shell", multiple=True, callback=identifier_value, metavar="NAME", help="Remove a saved shell integration, including retired names.")
 @click.option("--remove-agent", multiple=True, callback=identifier_value, metavar="NAME", help="Remove a saved agent integration, including retired names.")

@@ -105,13 +105,12 @@ def retained_paths(root, policy):
 
 
 def checked_parent(root, relative):
-    from .storage import is_reparse
     path = root
-    if path.is_symlink() or not path.is_dir() or is_reparse(path):
+    if path.is_symlink() or not path.is_dir():
         raise Error(f'Cannot preserve excluded entry beneath removed or redirected directory: {relative}')
     for part in relative.split('/')[:-1]:
         path /= part
-        if path.is_symlink() or not path.is_dir() or is_reparse(path):
+        if path.is_symlink() or not path.is_dir():
             raise Error(f'Cannot preserve excluded entry beneath removed or redirected directory: {relative}')
     return path
 

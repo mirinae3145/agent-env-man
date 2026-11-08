@@ -18,12 +18,6 @@ def exists(path: Path) -> bool:
     return os.path.lexists(path)
 
 
-def is_reparse(path: Path) -> bool:
-    # Path.is_junction is unavailable on supported Python 3.11 installations.
-    # Reject all Windows reparse payloads rather than following a junction.
-    return bool(getattr(path.lstat(), "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT)
-
-
 def atomic_write(path: Path, data: bytes, mode: int = 0o600):
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=".aem-write-", dir=path.parent)
@@ -74,12 +68,12 @@ def fingerprint(path: Path, *, exclude_git: bool = False, preserve_symlinks=Fals
 
     def metadata(current, relative):
         info = current.lstat()
-        if stat.S_ISLNK(info.st_mode) or getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT:
-            raise Error(f"Payload symlinks/junctions are unsupported: {current}")
+        if stat.S_ISLNK(info.st_mode):
+            raise Error(f"Payload symlinks are unsupported: {current}")
         kind = "d" if stat.S_ISDIR(info.st_mode) else "f" if stat.S_ISREG(info.st_mode) else None
         if kind is None:
             raise Error(f"Special files are unsupported: {current}")
-        executable = info.st_mode & 0o111 if os.name != "nt" and permissions == "strict" else 0
+        executable = info.st_mode & 0o111 if permissions == "strict" else 0
         return info, kind, json.dumps([relative, kind, executable], ensure_ascii=True).encode() + b"\0"
 
     def file_piece(current, relative):
@@ -92,7 +86,7 @@ def fingerprint(path: Path, *, exclude_git: bool = False, preserve_symlinks=Fals
                 file_hash.update(block)
         content = file_hash.digest()
         if entries is not None:
-            executable = info.st_mode & 0o111 if os.name != "nt" and permissions == "strict" else 0
+            executable = info.st_mode & 0o111 if permissions == "strict" else 0
             entries[relative.lstrip('/') or '.'] = (kind, executable, content)
         return encoded + content
 
@@ -103,7 +97,7 @@ def fingerprint(path: Path, *, exclude_git: bool = False, preserve_symlinks=Fals
             return
         append(encoded)
         if entries is not None:
-            executable = info.st_mode & 0o111 if os.name != "nt" and permissions == "strict" else 0
+            executable = info.st_mode & 0o111 if permissions == "strict" else 0
             entries[relative.lstrip('/') or '.'] = (kind, executable, None)
         with os.scandir(current) as listing:
             children = sorted(listing, key=lambda entry: entry.name)
@@ -136,7 +130,7 @@ def observation(path: Path, *, modes=None, entries=None, **policy) -> dict:
     if not exists(path):
         return {"kind": "missing"}
     kind = "directory" if path.is_dir() else "file"
-    if policy.get("permissions") == "best-effort" and os.name != "nt":
+    if policy.get("permissions") == "best-effort":
         from .payload_links import scan
         from .permissions import digest
         captured = {}
@@ -151,18 +145,11 @@ def observation(path: Path, *, modes=None, entries=None, **policy) -> dict:
             entries.update(tree)
         return {"kind": kind, "hash": hashed, "permissions_hash": digest(captured)}
     options = {"entries": entries} if entries is not None else {}
-    result = {"kind": kind, "hash": fingerprint(path, **options, **policy)}
-    if policy.get("permissions") == "best-effort":
-        from .permissions import snapshot, digest
-        captured = snapshot(path, **policy)
-        if modes is not None:
-            modes.update(captured)
-        result["permissions_hash"] = digest(captured)
-    return result
+    return {"kind": kind, "hash": fingerprint(path, **options, **policy)}
 
 
 def copy_payload(source: Path, destination: Path, *, exclude_git: bool = False, permission_failures=None, destination_modes=None, **policy):
-    if policy.get("preserve_symlinks") or (policy.get("permissions") == "best-effort" and os.name != "nt"):
+    if policy.get("preserve_symlinks") or policy.get("permissions") == "best-effort":
         from .payload_links import scan
         scan(source, destination=destination, exclude_git=exclude_git, allow_symlinks=policy.get("preserve_symlinks", False), permission_failures=permission_failures, destination_modes=destination_modes, **{k: v for k, v in policy.items() if k != "preserve_symlinks"})
         return

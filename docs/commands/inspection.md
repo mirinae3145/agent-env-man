@@ -110,7 +110,7 @@ aem publish report -m "Clarify guidance"
 
 ### Shell directory selection
 
-Use `--cd` to change the current shell directory after registering the shell integration with `aem setup --shell bash`, `--shell zsh`, or `--shell powershell` and reloading the profile.
+Use `--cd` to change the current shell directory after registering the shell integration with `aem setup --shell bash` or `--shell zsh` and reloading the profile.
 It moves to the selected content root; `--source --cd` moves to the prepared source, while `catalog locate --cd` moves to the directory containing the catalog entry.
 Use `--repo --cd` to move to the source Git checkout root rather than the item's content subdirectory.
 Without the shell integration, `--cd` prints only the absolute directory path, so Bash/Zsh can also use `cd -- "$(aem locate NAME --cd)"`.

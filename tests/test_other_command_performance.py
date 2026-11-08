@@ -1,7 +1,6 @@
 """Command costs fall without weakening collection, Git, or recovery guards."""
 
 from pathlib import Path
-import os
 import shutil
 import unittest
 
@@ -110,17 +109,15 @@ class PayloadCommandCosts(unittest.TestCase):
         (self.external_root / 'nested/file').write_bytes(b'nested content')
         (self.external_root / 'nested/ignored').write_bytes(b'unowned')
         (self.external_root / 'empty').mkdir()
-        if os.name != 'nt':
-            (self.external_root / 'nested/file').chmod(0o751)
-            try:
-                (self.external_root / 'alias').symlink_to('nested/file')
-            except OSError:
-                pass  # Regular-node projection remains testable without links.
+        (self.external_root / 'nested/file').chmod(0o751)
+        try:
+            (self.external_root / 'alias').symlink_to('nested/file')
+        except OSError:
+            pass  # Regular-node projection remains testable without links.
         for permission in ('strict', 'best-effort'):
             with self.subTest(permissions=permission):
-                policy = {'permissions': permission, 'exclusions': (('', 'nested/ignored'),)}
-                if os.name != 'nt':
-                    policy.update(preserve_symlinks=True, source_relative='.')
+                policy = {'permissions': permission, 'exclusions': (('', 'nested/ignored'),),
+                          'preserve_symlinks': True, 'source_relative': '.'}
                 entries, modes = {}, {}
                 storage.observation(self.external_root, entries=entries, modes=modes, **policy)
                 projected = copy_publication.child_observations(entries, modes, permissions=permission)

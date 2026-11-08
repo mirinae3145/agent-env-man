@@ -36,7 +36,7 @@ The installer installs AEM and connects the selected shell and agent, including 
 It does not bind a catalog or install user catalog content.
 Open a new selected shell to use the updated PATH.
 
-Supported integrations are Bash, Zsh, PowerShell, Codex, and Claude Code; use `--agent claude` for Claude or repeat `--agent` to select both.
+Supported integrations are Bash, Zsh, Codex, and Claude Code; use `--agent claude` for Claude or repeat `--agent` to select both.
 Run AEM inside WSL with its own machine configuration, checkouts, and targets.
 
 For additional accounts of the same product, use named instances such as `aem setup --agent claude-lab --agent codex-lab`.

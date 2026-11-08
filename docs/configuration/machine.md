@@ -184,7 +184,7 @@ Saved setup records startup integrations and controls the package-owned operatio
 `setup` accepts only `executable`, `shells`, and `startup_hook_timeout`.
 See [Agent startup hook duration](automation.md#agent-startup-hook-duration) for the independent callback limit.
 `executable` is an absolute path to the installed `aem` executable.
-`setup.shells` maps `bash`, `zsh`, or `powershell` to absolute profile paths.
+`setup.shells` maps `bash` or `zsh` to absolute profile paths.
 Manage these selections with `aem setup`; editing TOML does not itself install or remove profile blocks, hook groups, or official skill links.
 Setup rejects an invalid executable path before writing profiles and requires an existing executable except during dry run.
 

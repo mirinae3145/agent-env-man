@@ -1,10 +1,10 @@
 """Staged settings tests use isolated homes and local sources/remotes only."""
-from process_support import run_hidden
 
 from copy import deepcopy
 import json
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -308,8 +308,7 @@ class StagedSettings(unittest.TestCase):
         text = self.target.read_bytes()
         self.assertIn(b'other = 8 # keep\r\n', text)
         self.assertIn(b'count = 1\r\n', text)
-        if os.name != 'nt':
-            self.assertEqual(self.target.stat().st_mode & 0o777, 0o640)
+        self.assertEqual(self.target.stat().st_mode & 0o777, 0o640)
         before = self.target.read_bytes()
         self.apply()
         self.assertEqual(self.target.read_bytes(), before)
@@ -614,7 +613,7 @@ class GitSettings(unittest.TestCase):
         self.git(self.checkout, 'config', 'user.email', 'test@example.invalid')
 
     def git(self, cwd, *args):
-        result = run_hidden(['git', '-C', str(cwd), *args], text=True, capture_output=True)
+        result = subprocess.run(['git', '-C', str(cwd), *args], text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout.strip()
 

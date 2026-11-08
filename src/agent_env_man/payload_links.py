@@ -26,20 +26,6 @@ class CopyCleanupError(Error):
         super().__init__(f'{message}; preserved at {self.preserved_path}')
 
 
-def unsupported_reason(value):
-    """Describe a platform limitation without inspecting or following payloads."""
-    enabled = value.get('preserve_symlinks', False) if isinstance(value, dict) else value.preserve_symlinks
-    if enabled and os.name == 'nt':
-        return 'preserve_symlinks is unsupported on Windows'
-    return None
-
-
-def require_supported(value, label):
-    reason = unsupported_reason(value)
-    if reason:
-        raise Error(f'{label}: {reason}')
-
-
 def options(value):
     """Read optional payload policy from a current item or saved ownership."""
     if isinstance(value, dict):
@@ -63,20 +49,13 @@ def options(value):
         result['exclude_prefix'] = prefix
     if not enabled:
         return result
-    require_posix()
     if not isinstance(relative, str) or PurePosixPath(relative).is_absolute() or '..' in relative.split('/'):
         raise Error('Invalid logical payload location')
     return {**result, 'preserve_symlinks': True, 'source_relative': relative}
 
 
-def require_posix():
-    if os.name == 'nt':
-        raise Error('preserve_symlinks is unsupported on Windows')
-
-
 def validate_link(target, location):
     """Reject a relative target at its first step above the source root."""
-    require_posix()
     if not target or '\0' in target:
         raise Error(f'Invalid symbolic link target: {location}')
     if target.startswith('/'):
@@ -94,7 +73,6 @@ def validate_link(target, location):
 @contextmanager
 def directory_fd(path):
     """Pin every ancestor without resolving any symbolic links."""
-    require_posix()
     path = Path(os.path.abspath(path))
     fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY)
     try:
@@ -267,7 +245,6 @@ def _scan(path, *, state, source_relative='.', exclude_git=False, destination=No
     referents. Non-timestamp changes abort; the caller compares complete captures
     before accepting a deferred timestamp change.
     """
-    require_posix()
     from .permissions import validate, apply as apply_permissions
     validate(permissions)
     from .payload_policy import excluded
@@ -313,7 +290,7 @@ def _scan(path, *, state, source_relative='.', exclude_git=False, destination=No
         file_hash = None
         if kind == 'l':
             if not allow_symlinks:
-                raise Error(f'Payload symlinks/junctions are unsupported: {logical}')
+                raise Error(f'Payload symlinks are unsupported: {logical}')
             target = os.readlink(name, dir_fd=parent)
             validate_link(target, logical)
             if out_parent is not None:

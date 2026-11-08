@@ -1,6 +1,5 @@
 """Git process counts fall while binding and operation guards remain fresh."""
 
-import os
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -65,7 +64,6 @@ class GitCommandCosts(unittest.TestCase):
         with self.assertRaisesRegex(Error, 'MERGE_HEAD'):
             Git().idle(self.source(linked))
 
-    @unittest.skipIf(os.name == 'nt', 'Windows filenames cannot contain newlines')
     def test_idle_retains_newline_paths_in_worktree_administration(self):
         moved = self.root / 'checkout\nwith newline'
         self.checkout.rename(moved)

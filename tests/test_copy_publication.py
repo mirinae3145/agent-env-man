@@ -698,7 +698,6 @@ class CopyPublication(unittest.TestCase):
         self.assertEqual(self.manager().state.data['items'], items)
         self.assertIsNone(self.manager().state.data['pending'])
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX directory permissions')
     def test_recovery_preserves_later_directory_permission_edits(self):
         self.interrupted_collection()
         state = self.manager().state
@@ -751,7 +750,6 @@ class CopyPublication(unittest.TestCase):
         self.assertEqual(self.manager().state.data['items'], items)
         self.assertIsNone(self.manager().state.data['pending'])
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX executable bits')
     def test_root_and_file_executable_changes_are_collected_and_recoverable(self):
         copy = self.external()
         os.chmod(copy, 0o700)

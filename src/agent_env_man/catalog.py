@@ -9,7 +9,6 @@ from dataclasses import replace
 import os
 from pathlib import Path
 import shutil
-import stat
 import tempfile
 import time
 from types import SimpleNamespace
@@ -19,7 +18,7 @@ import tomlkit
 from .git_source import Git, now
 from .model import Config, Error, overlaps
 from .progress import operation
-from .storage import exists, is_reparse
+from .storage import exists
 
 
 def source_for(config):
@@ -32,7 +31,7 @@ def source_for(config):
 
 
 def descriptor(git, source, entry, revision="HEAD"):
-    """Require a tracked regular file, including on Windows without symlinks."""
+    """Require a tracked regular file, even when the checkout does not create symlinks."""
     listing = git.run(source.path, "ls-tree", "-z", revision, "--", entry).stdout
     if not listing or listing.split(" ", 1)[0] not in ("100644", "100755"):
         raise Error(f"Catalog needs a tracked regular file: {entry}")
@@ -46,8 +45,8 @@ def local_entry(config, git=None):
     descriptor(git, source, config.doc["catalog"]["path"])
     cursor = config.catalog_path
     while cursor != source.path:
-        if cursor.is_symlink() or is_reparse(cursor):
-            raise Error(f"Catalog path redirects through a symlink or junction: {cursor}")
+        if cursor.is_symlink():
+            raise Error(f"Catalog path redirects through a symlink: {cursor}")
         cursor = cursor.parent
     if not config.catalog_path.is_file():
         raise Error(f"Catalog file is missing: {config.catalog_path}")
@@ -129,11 +128,7 @@ def prepare(config, state, *, timeout=30):
             temporary = None
     finally:
         if temporary:
-            # Git objects can be read-only on Windows, including after a failed clone.
-            def writable_retry(operation, path, error):
-                os.chmod(path, stat.S_IWRITE)
-                operation(path)
-            shutil.rmtree(temporary, onerror=writable_retry)
+            shutil.rmtree(temporary)
 
 
 @operation(lambda config, state, args: "Catalog " + args.catalog_command)

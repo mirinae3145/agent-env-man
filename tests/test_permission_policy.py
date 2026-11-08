@@ -1,14 +1,13 @@
 """Permission policies preserve payloads and independently protect native modes."""
-from process_support import run_hidden
 
 import errno
 import json
 import shutil
+import subprocess
 import sys
 import os
 import unittest
-from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from agent_env_man.catalog_schema import normalize
 from agent_env_man.model import Error
@@ -33,15 +32,9 @@ class PermissionPolicy(unittest.TestCase):
         self.document['payload'] = {'defaults': {'permissions': 'best-effort'}}
         self.document['directories']['cases']['preserve_symlinks'] = links
         self.external(mode=mode)
-        if os.name != 'nt':
-            (self.external_root / 'first.md').chmod(0o755)
+        (self.external_root / 'first.md').chmod(0o755)
 
     def setter(self, function):
-        if os.name == 'nt':
-            # Payload denial must not also deny chmod for journals and state files.
-            native = SimpleNamespace(**vars(os))
-            native.chmod = Mock(side_effect=function)
-            return patch.object(permissions, 'os', native)
         return patch.object(permissions.os, 'fchmod', side_effect=function)
 
     def test_hierarchy_and_invalid_values(self):
@@ -70,7 +63,6 @@ class PermissionPolicy(unittest.TestCase):
         self.assertTrue(self.run_cli('status')['items'][0]['permission_differences'])
         self.assertEqual(self.run_cli('apply', '--item', 'cases')[0]['action'], 'record')
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX modes')
     def test_silent_mode_mismatch_does_not_hide_content_damage(self):
         self.prepare()
         real = os.fchmod
@@ -98,7 +90,6 @@ class PermissionPolicy(unittest.TestCase):
         self.assertEqual(observation(self.target, permissions='best-effort'), before)
         self.assertIsNone(self.manager().state.data['pending'])
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX modes')
     def test_local_read_write_permission_changes_are_protected(self):
         self.prepare()
         self.run_cli('apply', '--item', 'cases')
@@ -108,7 +99,6 @@ class PermissionPolicy(unittest.TestCase):
         self.assertIn('locally modified copy', self.run_cli('apply', '--item', 'cases', code=1))
         self.assertEqual(file.stat().st_mode & 0o777, 0o775)
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX modes')
     def test_source_mode_change_becomes_stale_and_refreshes(self):
         self.prepare()
         self.run_cli('apply', '--item', 'cases')
@@ -132,7 +122,6 @@ class PermissionPolicy(unittest.TestCase):
         self.run_cli('apply', '--item', 'cases')
         self.assertEqual(self.run_cli('status')['items'][0]['status'], 'current')
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX descriptor links')
     def test_detach_uses_saved_policy_without_catalog(self):
         self.require_links(); self.prepare(mode='link', links=True)
         self.run_cli('apply', '--item', 'cases')
@@ -145,7 +134,6 @@ class PermissionPolicy(unittest.TestCase):
         self.assertEqual((self.target / 'first.md').read_text(), 'External case\n')
         self.assertTrue(result[0]['permission_differences'])
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX modes')
     def test_collection_preserves_source_modes_and_adds_files(self):
         self.prepare()
         self.run_cli('apply', '--item', 'cases')
@@ -159,7 +147,6 @@ class PermissionPolicy(unittest.TestCase):
         self.assertEqual((self.external_root / 'new.md').stat().st_mode & 0o777, 0o744)
         self.assertEqual(self.run_cli('status')['items'][0]['status'], 'current')
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX modes')
     def test_permission_only_collection_does_not_export_modes(self):
         self.prepare(); self.run_cli('apply', '--item', 'cases')
         (self.target / 'first.md').chmod(0o644)
@@ -175,7 +162,6 @@ class PermissionPolicy(unittest.TestCase):
         self.assertEqual(result[0]['permission_check'], 'pending-copy')
         self.assertFalse(self.target.exists())
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX permission races')
     def test_source_permission_change_during_copy_is_fatal(self):
         self.prepare(); self.run_cli('apply', '--item', 'cases')
         (self.external_root / 'first.md').write_text('updated')
@@ -187,7 +173,6 @@ class PermissionPolicy(unittest.TestCase):
             self.assertIn('source changed while copying', self.run_cli('apply', '--item', 'cases', code=1))
         self.assertEqual(observation(self.target, permissions='best-effort'), before)
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX permission races')
     def test_target_permission_change_during_staging_is_fatal(self):
         self.prepare(); self.run_cli('apply', '--item', 'cases')
         (self.external_root / 'first.md').write_text('updated')
@@ -199,7 +184,6 @@ class PermissionPolicy(unittest.TestCase):
         self.assertEqual((self.target / 'first.md').stat().st_mode & 0o777, 0o744)
         self.assertEqual((self.target / 'first.md').read_text(), 'External case\n')
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX recovery permissions')
     def test_interrupted_install_recovery_protects_later_permissions(self):
         self.prepare(); self.run_cli('apply', '--item', 'cases')
         (self.external_root / 'first.md').write_text('updated')
@@ -219,7 +203,6 @@ class PermissionPolicy(unittest.TestCase):
         self.run_cli('recover')
         self.assertEqual((self.target / 'first.md').read_text(), 'External case\n')
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX recovery permissions')
     def test_collection_failure_rolls_back_and_protects_permissions(self):
         self.prepare(); self.run_cli('apply', '--item', 'cases')
         (self.target / 'first.md').write_text('collected')
@@ -258,11 +241,9 @@ class PermissionPolicy(unittest.TestCase):
         self.assertEqual(self.run_cli('status')['items'][0]['status'], 'current')
         self.assertIsNone(self.manager().state.data['pending'])
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX opaque links')
     def test_collection_retargets_top_level_link(self):
         self.check_link_retarget_collection(nested=False)
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX opaque links')
     def test_collection_retargets_nested_link(self):
         self.check_link_retarget_collection(nested=True)
 
@@ -305,15 +286,13 @@ class PermissionPolicy(unittest.TestCase):
         if incoming_directory:
             self.assertTrue(source_entry.is_dir())
             self.assertEqual((source_entry / 'new.txt').read_text(encoding='utf-8'), 'New directory\n')
-            if os.name != 'nt':
-                self.assertEqual(source_entry.stat().st_mode & 0o777, 0o750)
-                self.assertEqual((source_entry / 'new.txt').stat().st_mode & 0o777, 0o640)
+            self.assertEqual(source_entry.stat().st_mode & 0o777, 0o750)
+            self.assertEqual((source_entry / 'new.txt').stat().st_mode & 0o777, 0o640)
         else:
             self.assertTrue(source_entry.is_file())
             self.assertEqual(source_entry.read_text(encoding='utf-8'), 'New file\n')
-            if os.name != 'nt':
-                self.assertEqual(source_entry.stat().st_mode & 0o777, 0o640)
-        if nested and os.name != 'nt':
+            self.assertEqual(source_entry.stat().st_mode & 0o777, 0o640)
+        if nested:
             self.assertEqual(source_entry.parent.stat().st_mode & 0o777, 0o755)
         self.assertEqual((self.external_root / 'first.md').read_text(encoding='utf-8'), 'External case\n')
         self.assertEqual(self.run_cli('status')['items'][0]['status'], 'current')
@@ -331,7 +310,6 @@ class PermissionPolicy(unittest.TestCase):
     def test_collection_replaces_nested_directory_with_file(self):
         self.check_type_replacement_collection(nested=True, incoming_directory=False)
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX symlinks and exclusions')
     def test_exclusions_and_opaque_links_share_permission_policy(self):
         self.require_links(); self.prepare(links=True)
         self.document['payload']['defaults']['exclude'] = ['**/._DAV']; self.write()
@@ -375,7 +353,6 @@ class PermissionPolicy(unittest.TestCase):
         self.assertNotIn('permissions', records['rules:entry'])
         self.assertEqual((self.destination / 'rules/first.md').read_text(), 'External case\n')
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX setter behavior')
     def test_strict_preserved_link_copy_rejects_denied_permissions(self):
         self.prepare(links=True)
         self.document['directories']['cases']['permissions'] = 'strict'; self.write()
@@ -386,7 +363,7 @@ class PermissionPolicy(unittest.TestCase):
     def test_fresh_cli_processes_apply_status_collection_and_detach(self):
         self.prepare()
         def cli(*args):
-            result = run_hidden([sys.executable, '-m', 'agent_env_man', '--json', '--config', str(self.config), *args],
+            result = subprocess.run([sys.executable, '-m', 'agent_env_man', '--json', '--config', str(self.config), *args],
                                     capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             return json.loads(result.stdout)
@@ -406,7 +383,6 @@ class PermissionPolicy(unittest.TestCase):
         self.assertEqual(self.run_cli('apply', '--item', 'cases')[0]['action'], 'record')
         self.assertEqual(self.run_cli('status')['items'][0]['installation'], 'matches-last-apply')
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX source modes')
     def test_source_permission_and_local_content_edits_are_conflicting(self):
         self.prepare(); self.run_cli('apply', '--item', 'cases')
         (self.target / 'first.md').write_text('local edit')

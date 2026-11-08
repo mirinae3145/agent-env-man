@@ -14,7 +14,6 @@ from agent_env_man.storage import copy_payload, observation
 import test_directories as directory_tests
 
 
-@unittest.skipIf(os.name == 'nt', 'POSIX guarded payload inspection')
 class TimestampReinspection(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='aem-timestamps-')
@@ -315,7 +314,6 @@ class TimestampReinspection(unittest.TestCase):
         self.assertEqual(self.leaf.read_bytes(), b'original')
 
 
-@unittest.skipIf(os.name == 'nt', 'POSIX guarded payload inspection')
 class TimestampCommands(unittest.TestCase):
     setUp = directory_tests.Directories.setUp
     git = directory_tests.Directories.git

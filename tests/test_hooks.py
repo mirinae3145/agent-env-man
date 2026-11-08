@@ -1,6 +1,5 @@
 """Offline Codex hook installation preserves other hooks and never grants trust."""
 
-import base64
 from copy import deepcopy
 from contextlib import ExitStack
 import json
@@ -12,7 +11,6 @@ import unittest
 from unittest.mock import patch
 
 from agent_env_man import hooks
-from agent_env_man.agents import profile
 from agent_env_man.manager import Manager
 from agent_env_man.model import Config, Error
 from agent_env_man.storage import State, lock
@@ -282,17 +280,6 @@ class HookInstallation(InstructionFixture):
         self.run_cli("apply")
         self.assertEqual(self.hook_file().read_bytes(), before)
 
-    def test_windows_command_encodes_literal_arguments(self):
-        # Verify platform-independent encoding without claiming a Windows run.
-        path = Path("C:/Users/space ' and $name/machine.toml")
-        with patch.object(hooks.os, "name", "nt"):
-            _, group = profile("codex").definition(path, "personal")
-        command = group["hooks"][0]["command"]
-        self.assertTrue(command.startswith("powershell.exe -NoProfile -NonInteractive -EncodedCommand "))
-        decoded = base64.b64decode(command.split()[-1]).decode("utf-16le")
-        self.assertIn("'" + str(path).replace("'", "''") + "'", decoded)
-        self.assertIn("'agent-hook' 'personal' '--agent' 'codex'", decoded)
-
     def test_removed_hook_is_not_silently_reinstalled(self):
         self.configure()
         self.run_cli("apply")
@@ -403,7 +390,6 @@ class HookInstallation(InstructionFixture):
         self.assertEqual(json.loads(context.split("\n")[1]), {'root': str(self.rules / 'personal'), 'entry': str(self.rules / 'personal/start.md'), 'global_entry': str(self.agent / 'AGENTS.md')})
 
 
-@unittest.skipIf(os.name == 'nt', 'Windows hook commands use the launcher interpreter path')
 class HookInterpreter(unittest.TestCase):
     def setUp(self):
         import tempfile

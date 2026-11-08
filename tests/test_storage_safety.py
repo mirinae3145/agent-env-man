@@ -82,7 +82,7 @@ class ParallelPayloadInspection(unittest.TestCase):
             def serial(current, relative):
                 info = current.lstat()
                 kind = "d" if stat.S_ISDIR(info.st_mode) else "f"
-                executable = info.st_mode & 0o111 if os.name != "nt" else 0
+                executable = info.st_mode & 0o111
                 digest.update(json.dumps([relative, kind, executable], ensure_ascii=True).encode() + b"\0")
                 if kind == "d":
                     for child in sorted(current.iterdir(), key=lambda p: p.name):
@@ -117,32 +117,30 @@ class ParallelPayloadInspection(unittest.TestCase):
 
             with patch.object(Path, "open", opened):
                 self.assertEqual(fingerprint(root), expected)
-            if os.name == "posix":
-                from agent_env_man import payload_links
-                identities = {(p.stat().st_dev, p.stat().st_ino) for p in (root / "a").iterdir() if p.is_file()}
-                barrier = Barrier(4, timeout=5)
-                seen = set()
-                lock = Lock()
-                real_read = payload_links.os.read
-                probe = (root / "0-probe").stat()
-                probe_identity = probe.st_dev, probe.st_ino
+            from agent_env_man import payload_links
+            identities = {(p.stat().st_dev, p.stat().st_ino) for p in (root / "a").iterdir() if p.is_file()}
+            barrier = Barrier(4, timeout=5)
+            seen = set()
+            lock = Lock()
+            real_read = payload_links.os.read
+            probe = (root / "0-probe").stat()
+            probe_identity = probe.st_dev, probe.st_ino
 
-                def read(fd, size):
-                    info = os.fstat(fd)
-                    identity = info.st_dev, info.st_ino
-                    with lock:
-                        synchronize = identity in identities and identity not in seen
-                        seen.add(identity)
-                    if identity == probe_identity:
-                        time.sleep(0.005)
-                    if synchronize:
-                        barrier.wait()
-                    return real_read(fd, size)
+            def read(fd, size):
+                info = os.fstat(fd)
+                identity = info.st_dev, info.st_ino
+                with lock:
+                    synchronize = identity in identities and identity not in seen
+                    seen.add(identity)
+                if identity == probe_identity:
+                    time.sleep(0.005)
+                if synchronize:
+                    barrier.wait()
+                return real_read(fd, size)
 
-                with patch.object(payload_links.os, "read", side_effect=read):
-                    self.assertEqual(fingerprint(root, preserve_symlinks=True), expected)
+            with patch.object(payload_links.os, "read", side_effect=read):
+                self.assertEqual(fingerprint(root, preserve_symlinks=True), expected)
 
-    @unittest.skipUnless(os.name == "posix", "Permission snapshots require POSIX")
     def test_parallel_inspection_preserves_permission_policy_and_node_types(self):
         from agent_env_man import payload_links, permissions
         with tempfile.TemporaryDirectory(prefix="aem-parallel-permissions-") as directory:
@@ -185,7 +183,6 @@ class ParallelPayloadInspection(unittest.TestCase):
                 self.assertEqual(fingerprint(root, permissions="best-effort"), before)
                 self.assertEqual(fingerprint(root, permissions="best-effort", preserve_symlinks=True), before)
 
-    @unittest.skipUnless(os.name == "posix", "Pinned descriptor scan requires POSIX")
     def test_failed_parallel_copy_keeps_parents_pinned_until_readers_finish(self):
         from agent_env_man import payload_links
         with tempfile.TemporaryDirectory(prefix="aem-parallel-failure-") as directory:
