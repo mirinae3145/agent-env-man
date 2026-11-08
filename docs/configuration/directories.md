@@ -91,7 +91,7 @@ Source-root copy and detach automatically omit the top-level `.git` entry; Git-i
 
 Existing link/copy conflict, transaction, backup, detach, and recovery contracts apply.
 
-Ordinary publication does not collect copy edits; use explicit `publish NAME --from-copy` to collect an installed, managed directory copy.
+Explicit `publish NAME` collects installed managed directory copies; use `--local` for local handoff only, or `--source-only` to bypass collection.
 Collection compares the last common baseline, preserves conflicting source edits, and retains backups; see [publication](../commands/publish.md).
 Links expose writes and source updates immediately.
 External transport remains outside AEM; copy publication only hands content to the local external source.

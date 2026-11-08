@@ -136,7 +136,9 @@ aem publish report -m "Clarify guidance"
 Publication commits and pushes the whole selected Git repository, including changes outside the named skill or bundle.
 Review unrelated edits and outgoing commits before publishing.
 Editing through an installed link changes the source immediately.
-To return managed-copy edits, use explicit `publish --from-copy`; ordinary publication does not collect them.
+
+Publication gathers selected managed copies and settings stages by default.
+Use `publish --local` to gather without Git publication, or `publish --source-only` to share only source edits.
 See [publish](docs/commands/publish.md) for collection, conflicts, external sources, and retry behavior.
 
 ## Preservation and recovery

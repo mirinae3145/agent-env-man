@@ -154,13 +154,13 @@ class CopyPublication(unittest.TestCase):
         self.cli('apply', '--item', 'files')
         return self.root / 'installed/files'
 
-    def test_git_collection_is_explicit_and_whole_checkout_publication_remains(self):
+    def test_git_collection_is_default_and_source_only_bypasses_it(self):
         copy = self.install()
         (copy / 'SKILL.md').write_text('# Copy edit\n', encoding='utf-8')
-        self.cli('publish', 'one')
+        self.cli('publish', 'one', '--source-only')
         self.assertEqual((self.checkout / 'skill/SKILL.md').read_text(), '# Skill\n')
         (self.checkout / 'unrelated.txt').write_text('Include as before', encoding='utf-8')
-        report = self.cli('publish', 'one', '--from-copy', '-m', 'Copy edits')[0]
+        report = self.cli('publish', 'one', '-m', 'Copy edits')[0]
         self.assertEqual(report['status'], 'published')
         self.assertTrue(report['collection'][0]['changed'])
         self.assertEqual(self.git(self.remote, 'show', 'main:skill/SKILL.md'), '# Copy edit')
@@ -301,7 +301,6 @@ class CopyPublication(unittest.TestCase):
         (copy / 'first.txt').unlink()
         (copy / 'empty').mkdir()
         (copy / 'new name.txt').write_text('New', encoding='utf-8')
-        self.assertEqual(self.cli('publish', 'files', code=1)[0]['status'], 'failed')
         with patch.object(Git, 'run', side_effect=AssertionError('External used Git')):
             report = self.cli('publish', 'files', '--from-copy')[0]
         self.assertEqual(report['status'], 'published')

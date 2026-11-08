@@ -1,4 +1,4 @@
-"""Opt-in copy collection with a common hash baseline and recoverable source writes."""
+"""Selected copy collection with a common hash baseline and recoverable source writes."""
 
 from copy import deepcopy
 from dataclasses import dataclass
@@ -89,7 +89,7 @@ def child_observations(entries, modes, *, permissions='strict', details=None):
     return observations
 
 
-def plan(manager, names):
+def plan(manager, names, *, installed_only=False):
     """Inspect only selected, owned copies; never adopt or collect detached content."""
     result = []
     for name in names:
@@ -97,9 +97,16 @@ def plan(manager, names):
         for item in items:
             if item.kind in ('instruction-entry', 'instruction-hook'):
                 continue
+            record = manager.state.data['items'].get(item.key)
+            if installed_only:
+                if item.kind not in ('skill', 'directory', 'instruction'):
+                    continue
+                if not record or record.get('detached'):
+                    continue
+                if item.mode != 'copy' and record.get('mode') != 'copy':
+                    continue
             if item.kind not in ('skill', 'directory', 'instruction') or item.mode != 'copy':
                 raise Error(f'{name}: --from-copy requires installed skill, directory, or instruction copies')
-            record = manager.state.data['items'].get(item.key)
             if not record:
                 raise Error(f'{item.key}: copy is not installed; run apply first')
             if record.get('detached'):
@@ -113,6 +120,8 @@ def plan(manager, names):
                 raise Error(f'{item.key}: copy has no saved baseline')
             if record.get('exclude_git', False) != (item.relative == '.'):
                 raise Error(f'{item.key}: copy payload boundary changed; inspect status')
+            if item.kind == 'directory' and record.get('preserve_symlinks', False) != item.preserve_symlinks:
+                raise Error(f'{item.key}: symlink policy changed; apply before collection')
             if record.get('permissions', 'strict') != item.permissions:
                 raise Error(f'{item.key}: permission policy changed; apply before collection')
             if record.get('exclusions', []) != saved_policy(payload_options(item)).get('exclusions', []):

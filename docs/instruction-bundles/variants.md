@@ -106,7 +106,7 @@ The entry replacement preserves the detached entry in a backup and re-registers 
 For multiple agents these selectors cover each agent destination; use `--agent` for a single agent.
 
 Source updates reach the copy only on apply, which refuses to overwrite local edits without explicit replacement.
-To return installed edits, preview `aem publish personal --from-copy --dry-run`, then use `aem publish personal --from-copy` for an external source or add `-m "Update instructions"` for Git.
+To return installed edits, preview `aem publish personal --dry-run`, then use `aem publish personal` for an external source or add `-m "Update instructions"` for Git.
 Competing source/copy changes and differing exports from multiple agent copies stop collection.
 External publication confirms writing the local original, not synchronization by its external service.
 
@@ -129,7 +129,7 @@ shared = true
 Run `aem apply --dry-run`, then `aem apply`.
 Codex and Claude retain their respective entry filenames and hook formats, but both entries point into `<machine-file>.bundles/personal`.
 An explicit bundle `root` or `destination` overrides that location without adding agent suffixes.
-`locate personal --agent codex` and `locate personal --agent claude` return the same copy; `publish personal --from-copy` collects it once.
+`locate personal --agent codex` and `locate personal --agent claude` return the same copy; `publish personal` collects it once.
 
 ### Existing installation
 

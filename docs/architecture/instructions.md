@@ -60,7 +60,7 @@ Shared installations follow these rules:
 - User-facing `locate` also supports saved skills and current catalog source lookup for uninstalled content or explicit `--source` requests.
 - Keep callbacks on saved instruction lookup only; never fall back from a broken saved installation to a different source.
 - Source lookup validates paths and Git identity without requiring a clean checkout, fetching, or installing content.
-- Keep copy/detached locations distinct from source editing paths; ordinary publication never implies collecting installed-copy edits, and reverse collection requires explicit `--from-copy`.
+- Keep copy/detached locations distinct from source editing paths; explicit publication gathers managed copies by default; `--source-only` bypasses collection.
 
 ## Callback transport and locking
 

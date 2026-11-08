@@ -1265,18 +1265,25 @@ class Manager:
         return report
 
     @operation('Collecting and publishing content', detail=lambda self, names=(), **options: names[0] if isinstance(names, (tuple, list)) and len(names) == 1 else None)
-    def publish(self, names, *, message=None, from_copy=False, dry_run=False, timeout=30):
-        """Publish each selected checkout once, reporting every catalog consumer.
+    def publish(self, names, *, message=None, from_copy=False, source_only=False, local=False, dry_run=False, timeout=30):
+        """Gather selected edits, then hand off each source independently.
 
-        Names select sources, not Git file scopes. Explicit copy collection
-        advances only matching copy baselines; automatic clocks are untouched.
+        Copy and settings plans are checked together before any source writes.
+        Local handoff and remote publication share preservation and selection;
+        Git commit scope remains the entire checkout.
         """
+        from .copy_publication import plan, selected_writes, guard_links, collect
+        from .settings import Settings, changed, Bundle
         self.state.ready()
         sources = self.config.sources
         if not names or set(names) - sources.keys():
             raise Error("publish requires known catalog skill, directory, instruction bundle, setting or personal hook names")
         if message is not None and not message.strip():
             raise Error("--message must not be empty")
+        if source_only and (from_copy or local):
+            raise Error('--source-only cannot be combined with --from-copy or --local')
+        if local and message is not None:
+            raise Error('--local does not create commits; omit --message')
         groups = {}
         for name, source in sources.items():
             groups.setdefault(source.path, []).append((name, source))
@@ -1293,67 +1300,74 @@ class Manager:
             results.append(report)
             try:
                 self.state.ready()
-                collection = None
-                if from_copy:
-                    from .copy_publication import plan, selected_writes, guard_links, collect
+                if not source.path.is_dir():
+                    raise Error(f'{source.name}: source is missing; run bootstrap or restore the external folder')
+                settings = Settings(self)
+                setting_names = [] if source_only else [n for n in selected if n in self.config._settings]
+                collection = []
+                if not source_only:
                     self.check_destinations(self.items())
-                    collection = plan(self, selected)
+                    collection = plan(self, selected, installed_only=not from_copy)
                     report['collection'] = [p.report for p in collection]
+                    report['excluded_copies'] = sorted({r.get('source_name') for r in self.state.data['items'].values()
+                        if r.get('source_name') in selected and r.get('mode') == 'copy' and r.get('detached')})
                     if any(p.report['conflict'] for p in collection):
                         raise Error('Copy and source changed since the common baseline; reconcile the reported paths and retry')
-                    guard_links(selected_writes(collection), self.state.data['items'])
-                if not source.git:
-                    if collection is not None:
-                        report['transport_complete'] = False
-                        if not dry_run:
-                            report['collection_backup'] = collect(self, source, collection)
-                            report.update(status='published', collection_complete=True)
-                        continue
-                    raise Error(f"{source.name}: external source publication is managed outside AEM")
-                source = self.delivery_source(source)
-                git = Git(timeout)
-                report.update(git.publication(source))
-                if collection is not None:
-                    if not dry_run:
+                    writes = selected_writes(collection)
+                    guard_links(writes, self.state.data['items'])
+                    # Validate all settings (including shared-file disagreement)
+                    # before collecting copies; never let one overwrite the other.
+                    if setting_names:
+                        report['export'] = settings.export(setting_names, dry_run=True)
+                        for name in setting_names:
+                            for destination, _, _ in settings.export_plan(name)[0][:2]:
+                                if any(overlaps(destination, p.item.source) for p in writes):
+                                    raise Error('Copy collection overlaps settings export; publish them separately')
+                if not source_only:
+                    report["unpublished_settings"] = [n for n, _ in members if n not in setting_names and n in self.config._settings
+                        and (r := settings.record(n, required=False))
+                        and changed(Bundle.from_snapshot(r["shared"], format=r["format"]), settings.working(r, conflicts=True))]
+                git = None
+                if source.git:
+                    source = self.delivery_source(source)
+                    git = Git(timeout)
+                    report.update(git.publication(source))
+                report['transport_complete'] = False
+                if not dry_run:
+                    if git and not local:
+                        needs_commit = (report['changes'] or any(p.report['changed'] for p in collection)
+                                        or any(e['changed'] for e in report.get('export', [])))
+                        if message is None and needs_commit:
+                            raise Error('Source, copy or settings changes require --message for publication')
                         observed = git.publication_preflight(source)
-                        if observed is not None and git.relation(source) not in ('ahead', 'equal-at-last-fetch'):
-                            raise Error('Reconcile Git history before copy collection/publication')
-                        if message is None and (any(p.report['changed'] for p in collection) or report['changes']):
-                            raise Error('Copy changes require --message for publication')
+                        relation = git.relation(source) if observed is not None else None
+                        if relation is not None and relation not in ('ahead', 'equal-at-last-fetch'):
+                            raise Error(f'Checkout is {relation}; reconcile Git history before collection/publication')
+                    if collection:
                         report['collection_backup'] = collect(self, source, collection)
                         report['collection_complete'] = True
-                        report.update(git.publication(source))
-                from .settings import Settings, changed, Bundle
-                settings = Settings(self)
-                setting_names = [n for n in selected if n in self.config._settings]
-                report["unpublished_settings"] = [n for n, _ in members if n not in selected and n in self.config._settings
-                    and (r := settings.record(n, required=False))
-                    and changed(Bundle.from_snapshot(r["shared"], format=r["format"]), settings.working(r, conflicts=True))]
-                if setting_names:
-                    if not dry_run:
-                        observed = git.publication_preflight(source)
-                        if observed is not None and git.relation(source) not in ("ahead", "equal-at-last-fetch"):
-                            raise Error("Reconcile Git history before settings export/publication")
-                    report["export"] = settings.export(setting_names, dry_run=True)
-                    if message is None and (any(e["changed"] for e in report["export"]) or report["changes"]):
-                        raise Error("Settings changes require --message for publication")
-                    if not dry_run:
-                        report["export"] = settings.export(setting_names)
-                if not dry_run:
-                    git.publish(source, report, message=message)
-                    for setting_name in setting_names:
-                        key = f"{setting_name}:settings"
-                        self.state.data["items"][key]["published"] = self.state.data["items"][key]["shared"]
                     if setting_names:
-                        self.state.save()
+                        report['export'] = settings.export(setting_names)
+                    if git and not local:
+                        git.publish(source, report, message=message)
+                        report['transport_complete'] = True
+                        for setting_name in setting_names:
+                            record = self.state.data['items'][f'{setting_name}:settings']
+                            record['published'] = record['shared']
+                        if setting_names:
+                            self.state.save()
+                    else:
+                        report['status'] = 'exported' if local else 'published'
             except (Error, OSError) as exc:
                 failed = True
                 report.update(status="failed", error=str(exc))
             if not dry_run and "last_fetch" in report:
                 for name, _ in members:
-                    self.state.data["sources"].setdefault(name, {}).update(
-                        {key: report[key] for key in ("last_fetch", "observed_revision", "last_publish", "revision")
-                         if key in report})
+                    record = self.state.data["sources"].setdefault(name, {})
+                    record.update({key: report[key] for key in ("last_fetch", "observed_revision", "last_publish", "revision")
+                                   if key in report})
+                    if report['status'] == 'published':
+                        record['error'] = None
                 self.state.save()
         return results, failed
 

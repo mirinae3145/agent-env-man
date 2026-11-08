@@ -36,7 +36,7 @@ Read-only commands and dry runs may create the lock directory/file; `setup --dry
 
 ## Permission preservation reports
 
-Catalog [permission levels](../configuration/payload.md#permission-preservation) apply to payload copying in `apply`, link materialization in `detach`, and explicit `publish --from-copy` collection.
+Catalog [permission levels](../configuration/payload.md#permission-preservation) apply to payload copying in `apply`, link materialization in `detach`, and explicit publication collection.
 For best-effort payloads, apply and detach results include `permissions = "best-effort"` and `permission_differences`.
 Each difference identifies the payload-relative `path` (`.` for the root), integer native mode `requested`, observed `actual`, and an optional permission-setter `error`.
 Modes are POSIX permission bits; these fields do not describe ACLs or effective access rights.

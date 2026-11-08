@@ -42,7 +42,8 @@ Bootstrap prepares sources without updating existing checkouts or installing tar
 General directories are independent of agent integrations and default to links under the saved `home` root.
 A directory that declares `agent` instead installs below that destination's root and skips machines without it.
 For custom destination roots, consult bootstrap help before preparing sources.
-Use a link when writes at the installed path should reach the publish source; copy edits reach it only through explicit `publish --from-copy`.
+Use a link when writes at the installed path should reach the publish source; explicit `publish` gathers managed copy edits, and `publish --local` stops at local handoff.
+
 For directories with symbolic links, consult the local directory configuration guidance for preservation and platform limits before choosing an installation mode.
 Copy and detach preserve their target text, so relative referents may change after relocation; they do not produce dependency-free copies.
 
@@ -112,18 +113,20 @@ Locating content through AEM does not replace or waive that guidance.
 
 ### Installed copies and detached content
 
-Installed copies and detached contents can differ from the source; ordinary publishing does not collect their edits.
+Installed copies and detached contents can differ from the source.
+Explicit publication gathers selected managed copies by default; detached content is excluded.
 Editing through an active link changes the source immediately.
 For copies, edit the source, then preview and apply to refresh the installation.
 
-For requested publication of installed-copy edits, consult publish help for `--from-copy` eligibility and preview collection before proceeding.
+For requested publication of installed-copy edits, preview collection with `publish NAME --dry-run` before proceeding.
+Use `--source-only` when the request covers source edits alone.
 Collection compares source and copy against their saved baseline and preserves active links' required paths.
 Reconcile reported conflicts rather than bypassing them.
 
 Catalog payload exclusions skip matching entries during inspection and copying, preserve excluded destination entries, and do not filter repository-wide Git commits.
 Apply changed exclusion policies before collection.
 Consult the local configuration guide for the global/source/item scopes and path rules.
-Detached content, entry links, hooks, and actual settings are not collected by this option.
+Detached content, entry links, hooks, and actual application settings are not gathered.
 
 ### Publish content
 
@@ -166,7 +169,9 @@ aem apply --item NAME
 For first preparation, bind the actual application file with `aem bootstrap --setting-target NAME=/absolute/app/config.toml`, supplying the catalog if it is not already bound.
 To collect edits made in the application, use `aem settings collect NAME --dry-run`, then `aem settings collect NAME`.
 Ordinary collection includes only already managed fields; consult the relevant help when adding or reclaiming fields with `--path`.
-To share stage edits, use `aem export NAME` for a Git or external source, or authorized `aem publish NAME -m "Update preferences"` for export, commit, and push to Git.
+
+To gather stage edits locally, use `aem publish NAME --local` for a Git or external source.
+Authorized `aem publish NAME -m "Update preferences"` also commits and pushes Git sources; external sources report local handoff only.
 Publication never implicitly collects actual-file edits.
 
 Removing a managed field from the stage requests deletion.

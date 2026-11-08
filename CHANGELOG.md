@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **Publication workflow**: Gather selected managed copies and settings stages during `publish`; `--local` stops at local handoff and `--source-only` bypasses gathering.
+  External sources support the same workflow, `export` becomes the local-gathering alias with grouped reports, and actual application fields still require explicit collection.
 - **Compatibility policy**: Distinguish explicit guarantees from descriptions of current behavior using workflow reliance, migration cost, and preservation criteria.
   See the [workflow migration guidance](docs/removed-interfaces.md#unreleased-workflow-changes) for the combined migration.
 
