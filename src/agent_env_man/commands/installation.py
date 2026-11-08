@@ -91,7 +91,7 @@ def status(runtime, agent, refresh, timeout):
         if "catalog_automation" in session.state.data:
             report["catalog_automation"] = session.state.data["catalog_automation"]
         return report, False
-    return runtime.run(operation, status_fallback=not refresh)
+    return runtime.run(operation, status_fallback=not refresh, read_only=not refresh)
 
 
 @click.command()
@@ -143,7 +143,7 @@ def locate(runtime, name, agent, source, repo, target, cd):
     if cd and runtime.json_output:
         raise click.UsageError("--cd cannot be combined with --json")
     return runtime.run(lambda session: (session.manager.locate(name, agent, source=source, target=target, repo=repo), False),
-                       maintenance=True, output=(lambda report: click.echo(report["root"])) if cd else None)
+                       maintenance=True, read_only=True, output=(lambda report: click.echo(report["root"])) if cd else None)
 
 
 @click.command()

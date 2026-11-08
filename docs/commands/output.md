@@ -27,8 +27,12 @@ JSON whitespace, object key order, and human-readable diagnostic wording are not
 
 ## Locks and shared sources
 
-Commands using machine state lock one configuration; installations registered for self-updates also share a lock for their uv tools directory.
+Commands using machine state lock one configuration; offline status and locate use shared locks, while mutations use exclusive locks.
+Callbacks attempt locks immediately: startup fails open on contention, and instruction lookup may use an unchanged, recovery-free saved snapshot.
+Ordinary commands fail promptly if an incompatible lock is held; no command deletes an active lock file.
+Installations registered for self-updates share a lock for their uv tools directory.
 `docs` and `self publish` operate independently of machine state and acquire neither lock.
+
 Content and catalog updates allow Git-ignored regular caches in their checkouts and refuse any fast-forward that would overwrite them.
 In content status, `sources[].checkout` is `dirty` for tracked edits or nonignored untracked files; ignored files alone leave it `clean`.
 External editors and other package-manager processes do not participate in these locks.

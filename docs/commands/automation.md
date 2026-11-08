@@ -42,6 +42,7 @@ AEM self-update completion does not produce a skill-change briefing.
 Operational failures are recorded in status when possible; failures before state access go to stderr.
 It exits `0` on handled operational failures so startup can continue; CLI usage errors still exit `2`.
 With an agent, completed changes can return an agent-specific briefing; shell callbacks return `{}`.
+Lock contention returns immediately without scheduling work.
 This command does not install integrations.
 
 `setup --startup-hook-timeout SECONDS` saves the agent startup callback limit and rewrites registered startup hooks, preserving omitted values and unrelated hook groups.
@@ -64,7 +65,8 @@ Apply reports retain the primary `hook_group` object and add `additional_hook_gr
 New Codex registrations require `/hooks` trust review; AEM never grants trust.
 
 Unrelated machine fields and obsolete unselected state modes do not block lookup; the selected saved entry and bundle must still pass locator checks.
-It waits up to five seconds total for the installation and configuration locks within the installed ten-second hook timeout.
+It attempts locks immediately and uses a stable saved snapshot if only the configuration lock is busy.
+Pending recovery or a configuration/state change during lookup still fails.
 For Codex SessionStart, handled lookup errors return a structured stop response with exit `0`; usage errors still exit `2`.
 For SubagentStart, Codex instead returns a `systemMessage` warning with exit `0`; this event cannot prevent child creation.
 Old source registration, `codex-hook`, and throttled `sync` syntax are removed; see [Removed interfaces](../removed-interfaces.md).

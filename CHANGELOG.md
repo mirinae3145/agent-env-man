@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - **Agent lookup**: Infer the sole saved or declared destination when `locate --agent` is omitted; ambiguous destinations require a selector.
+- **Lock contention**: Use shared configuration locks for offline inspection and avoid callback waits behind content work, while retaining guarded instruction snapshots and exclusive mutations.
 
 ### Removed
 

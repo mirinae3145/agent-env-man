@@ -76,11 +76,11 @@ Callback output follows these rules:
 
 Callback lock handling follows these rules:
 
-- Instruction callbacks wait at most 5 seconds total for the installation and configuration locks within their 10-second hook limit.
+- Instruction callbacks attempt both locks immediately, preserving the hook budget for lookup.
 - On POSIX, CLI processes hold a shared installation lock; package-replacement workers retain the exclusive lock.
 - If only the configuration lock remains busy, instruction callbacks may resolve read-only location metadata from saved state.
 - Reject pending recovery, invalid or replaced links, and any change to the machine file or ownership state during lookup before emitting context.
-- Startup callbacks also wait up to 5 seconds for contention instead of skipping immediately; other commands retain immediate configuration contention failure.
+- Startup callbacks fail open immediately on contention; ordinary commands also fail promptly when an incompatible lock is held.
 
 ## Reading-location metadata
 

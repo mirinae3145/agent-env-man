@@ -45,7 +45,7 @@ See [Personal hooks](personal-hooks.md).
 
 ## Startup contention and shared fetches
 
-Startup callbacks wait up to five seconds for short lock contention.
+Startup callbacks fail open immediately on lock contention, keeping agent startup responsive.
 On Linux/WSL, instruction callbacks can return validated saved location metadata while a content update holds the configuration lock.
 They still refuse package-replacement contention, pending recovery, replaced links, or a saved configuration/state change during lookup.
 

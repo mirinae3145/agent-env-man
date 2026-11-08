@@ -6,7 +6,6 @@ import json
 import math
 from pathlib import Path
 import subprocess
-import time
 import sys
 
 import click
@@ -143,7 +142,7 @@ class Runtime:
             return self._run(operation, **options)
 
     def _run(self, operation, *, maintenance=False, missing_ok=False, preview=False,
-            status_fallback=False, callback=None, agent=None, output=None, hook_event='SessionStart'):
+            status_fallback=False, read_only=False, callback=None, agent=None, output=None, hook_event='SessionStart'):
         """Run an operation returning (report, failed) under the required locks.
 
         Help and usage parsing finish before this boundary. Preview commands
@@ -160,19 +159,13 @@ class Runtime:
                 tool_lock = self_update.installation_lock(self_update.validate(config.doc.get("self_update", {})))
             except ValueError:
                 tool_lock = None  # Opaque settings must not block offline maintenance.
-            # Both locks share the callback budget so installation contention
-            # cannot fail immediately or consume a second five-second wait.
-            deadline = time.monotonic() + 5 if callback in ("agent-hook", "startup") else None
-
-            def remaining():
-                return max(0, deadline - time.monotonic()) if deadline is not None else 0
-
+            # Callbacks must not spend their hook budget waiting for content work.
             step("Acquiring operation locks")
-            with (lock(tool_lock, timeout=remaining(), shared=True) if tool_lock and not preview else nullcontext()), ExitStack() as locks:
+            with (lock(tool_lock, timeout=0, shared=True) if tool_lock and not preview else nullcontext()), ExitStack() as locks:
                 snapshot = None
                 if not preview:
                     try:
-                        locks.enter_context(lock(config.state_dir, timeout=remaining()))
+                        locks.enter_context(lock(config.state_dir, timeout=0, shared=read_only or callback == "agent-hook"))
                     except Error:
                         if callback != 'agent-hook' or not maintenance:
                             raise

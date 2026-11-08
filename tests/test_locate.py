@@ -16,6 +16,8 @@ import unittest
 from unittest.mock import patch
 
 from agent_env_man.git_source import Git
+from agent_env_man.model import Config
+from agent_env_man.storage import lock
 import test_publish as publication_tests
 
 
@@ -25,6 +27,14 @@ class Locate(unittest.TestCase):
     commit = publication_tests.Publication.commit
     cli = publication_tests.Publication.cli
     edit = publication_tests.Publication.edit
+
+    def test_readers_share_lock_and_mutations_still_refuse(self):
+        config = Config(self.config)
+        with lock(config.state_dir, shared=True):
+            self.cli('locate', 'one')
+            self.cli('status')
+            self.assertIn('lock', self.cli('apply', '--item', 'one', code=1))
+
 
     def test_cd_path_output_and_json_usage_validation(self):
         runner = CliRunner()
