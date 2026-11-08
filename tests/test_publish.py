@@ -38,6 +38,7 @@ class Publication(unittest.TestCase):
         self.git(self.seed, "push", "origin", "main")
         self.catalog = self.root / "catalog.toml"
         self.document = {'version': 2, 'sources': {'shared': {'type': 'git', 'repository': str(self.remote)}}, 'skills': {'one': {'subdir': 'skill', 'source': 'shared', 'install': {'mode': 'copy'}}, 'two': {'subdir': 'skill', 'source': 'shared', 'install': {'mode': 'copy'}}}, 'instructions': {'personal': {'entry': 'AGENTS.md', 'source': 'shared', 'install': {'entry': {'root': 'agent', 'destination': 'AGENTS.md'}}}}}
+        self.document['payload'] = {'defaults': {'permissions': 'strict', 'exclude': []}}
         self.catalog.write_text(tomlkit.dumps(self.document), encoding="utf-8")
         self.config = self.root / "machine.toml"
         self.cli("bootstrap", self.catalog, "--checkout-root", self.root / "checkouts",

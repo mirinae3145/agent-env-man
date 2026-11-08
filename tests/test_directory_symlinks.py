@@ -192,7 +192,7 @@ class DirectorySymlinks(unittest.TestCase):
 
     def test_strict_orphaned_consumer_stops_shared_git_update(self):
         self.enable('link')
-        self.document['directories']['strict'] = {
+        self.document['directories']['strict'] = {'preserve_symlinks': False,
             'source': 'store', 'subdir': 'cases', 'install': {'root': 'personal', 'destination': 'strict'}}
         self.write()
         self.bootstrap()
@@ -208,7 +208,7 @@ class DirectorySymlinks(unittest.TestCase):
     def test_collection_protects_strict_orphaned_ancestor_consumer(self):
         self.enable()
         self.external()
-        self.document['directories']['strict'] = {'source': 'store',
+        self.document['directories']['strict'] = {'preserve_symlinks': False, 'source': 'store',
             'install': {'root': 'personal', 'destination': 'strict'}}
         self.write()
         self.run_cli('apply')

@@ -11,6 +11,8 @@ from .updates import TRIGGERS, policy_fields
 
 TOP_LEVEL = {"version", "sources", "skills", "directories", "instructions", "settings", "hooks", "updates", "payload"}
 SKILL_FIELDS = {"source", "subdir", "install", "update", "exclude", "permissions"}
+DEFAULT_EXCLUSIONS = ("**/._DAV", "**/@eaDir")
+
 INSTRUCTION_FIELDS = {"source", "subdir", "entry", "install", "exclude", "permissions"}
 
 
@@ -53,7 +55,7 @@ def validate(document):
     payload = table(document.get("payload", {}), {"defaults"}, "payload")
     defaults = table(payload.get("defaults", {}), {"exclude", "permissions"}, "payload.defaults")
     permission_policy(defaults.get("permissions", "strict"), "payload.defaults.permissions")
-    patterns(defaults.get("exclude", []), "payload.defaults.exclude")
+    patterns(defaults.get("exclude", DEFAULT_EXCLUSIONS), "payload.defaults.exclude")
     sources = document.get("sources", {})
     if not isinstance(sources, dict):
         raise Error("Catalog sources must be a TOML table")
@@ -78,7 +80,7 @@ def validate(document):
             patterns(data.get("exclude", []), f"{kind}.{name}.exclude")
             permission_policy(data.get("permissions", "strict"), f"{kind}.{name}.permissions")
             if kind == "directories":
-                enabled = data.get("preserve_symlinks", False)
+                enabled = data.get("preserve_symlinks", True)
                 if not isinstance(enabled, bool):
                     raise Error(f"{kind}.{name}.preserve_symlinks: expected Boolean")
                 if "agent" in data:
@@ -89,7 +91,7 @@ def validate(document):
             source = data.get("source")
             if not isinstance(source, str) or source not in sources:
                 raise Error(f"{kind}.{name}: source must name a declared source")
-            policy = effective(defaults.get('exclude', []), sources[source].get('exclude', []),
+            policy = effective(defaults.get('exclude', DEFAULT_EXCLUSIONS), sources[source].get('exclude', []),
                                data.get('exclude', []), data.get('subdir', '.'))
             required = 'SKILL.md' if kind == 'skills' else data.get('entry') if kind == 'instructions' else None
             if kind == 'instructions':
@@ -174,7 +176,7 @@ def normalize(document):
     validate(document)
     sources = document.get("sources", {})
     from .payload_policy import effective
-    defaults = document.get("payload", {}).get("defaults", {}).get("exclude", [])
+    defaults = document.get("payload", {}).get("defaults", {}).get("exclude", DEFAULT_EXCLUSIONS)
     result = {"repositories": {name: dict(data) for name, data in sources.items() if data["type"] == "git"},
               "externals": {name: {} for name, data in sources.items() if data["type"] == "external"}}
     for kind in ("skills", "directories", "instructions"):
@@ -183,7 +185,7 @@ def normalize(document):
             source = data["source"]
             field = "repo" if sources[source]["type"] == "git" else "external"
             entry = {field: source, **{k: data[k] for k in ("subdir", "entry") if k in data}}
-            permission_policy = data.get("permissions", sources[source].get("permissions", document.get("payload", {}).get("defaults", {}).get("permissions", "strict")))
+            permission_policy = data.get("permissions", sources[source].get("permissions", document.get("payload", {}).get("defaults", {}).get("permissions", "best-effort")))
             if permission_policy != "strict":
                 entry["permissions"] = permission_policy
             exclusions = effective(defaults, sources[source].get('exclude', []), data.get('exclude', []), data.get('subdir', '.'))
@@ -197,7 +199,7 @@ def normalize(document):
                         entry["agent"] = data["agent"]  # the machine resolves the default root from this profile
                     else:
                         entry.setdefault("root", "home")
-                    entry["preserve_symlinks"] = data.get("preserve_symlinks", False)
+                    entry["preserve_symlinks"] = data.get("preserve_symlinks", True)
                 if "update" in data:
                     entry["update"] = _policy_model(data["update"])
             else:

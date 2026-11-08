@@ -87,7 +87,7 @@ class CopyPublication(unittest.TestCase):
         (self.shared / 'nested').mkdir()
         (self.shared / 'nested/value.txt').write_text('Keep', encoding='utf-8')
         self.document['directories']['nested'] = {
-            'source': 'files', 'subdir': 'nested', 'install': {'root': 'skills'}}
+            'source': 'files', 'preserve_symlinks': False, 'subdir': 'nested', 'install': {'root': 'skills'}}
         self.catalog.write_text(tomlkit.dumps(self.document), encoding='utf-8')
         self.cli('apply', '--item', 'files', '--item', 'nested')
         source = fingerprint(self.shared)
@@ -147,8 +147,8 @@ class CopyPublication(unittest.TestCase):
         self.shared = self.root / 'synced folder'
         self.shared.mkdir()
         (self.shared / 'first.txt').write_text('First\n', encoding='utf-8')
-        self.document = {'version': 2, 'sources': {'files': {'type': 'external'}},
-                         'directories': {'files': {'source': 'files', 'install': {'root': 'skills', 'mode': mode}}}}
+        self.document = {'version': 2, 'payload': {'defaults': {'permissions': 'strict', 'exclude': []}}, 'sources': {'files': {'type': 'external'}},
+                         'directories': {'files': {'source': 'files', 'preserve_symlinks': False, 'install': {'root': 'skills', 'mode': mode}}}}
         self.catalog.write_text(tomlkit.dumps(self.document), encoding='utf-8')
         self.cli('bootstrap', '--external', f'files={self.shared}')
         self.cli('apply', '--item', 'files')
@@ -718,7 +718,7 @@ class CopyPublication(unittest.TestCase):
         copy = self.external()
         (self.shared / 'nested').mkdir()
         (self.shared / 'nested/value.txt').write_text('Original', encoding='utf-8')
-        self.document['directories']['nested'] = {'source': 'files', 'subdir': 'nested',
+        self.document['directories']['nested'] = {'source': 'files', 'preserve_symlinks': False, 'subdir': 'nested',
                                                 'install': {'root': 'skills', 'mode': 'copy'}}
         self.catalog.write_text(tomlkit.dumps(self.document), encoding='utf-8')
         self.cli('apply', '--item', 'files', '--item', 'nested')

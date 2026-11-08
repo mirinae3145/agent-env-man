@@ -9,6 +9,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **Payload defaults**: Use best-effort permission preservation and preserve nested directory symlinks by default.
+  Explicit strict permissions and link rejection remain available; saved ownership retains its previous policy until apply safely transitions it.
+- **Payload exclusions**: Default to `**/._DAV` and `**/@eaDir`; an explicit global array replaces this list, including `[]` to include those names.
+  Excluded destination and source entries retain their preservation guarantees.
 - **Publication workflow**: Gather selected managed copies and settings stages during `publish`; `--local` stops at local handoff and `--source-only` bypasses gathering.
   External sources support the same workflow, `export` becomes the local-gathering alias with grouped reports, and actual application fields still require explicit collection.
 - **Compatibility policy**: Distinguish explicit guarantees from descriptions of current behavior using workflow reliance, migration cost, and preservation criteria.

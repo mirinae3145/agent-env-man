@@ -7,7 +7,8 @@ These policies govern inspection and copying without filtering the live filesyst
 
 Exclusions belong in the catalog and apply to skill, directory, and instruction bundle trees.
 They do not exclude explicitly declared instruction entry links, application setting files, or personal hook scripts.
-Omitting all exclusion declarations preserves the existing payload behavior.
+Omitting `payload.defaults.exclude` selects `["**/._DAV", "**/@eaDir"]`, generated metadata names used by WebDAV and NAS storage.
+These names can also hold intentional user content; set `payload.defaults.exclude = []` to include them, or provide a replacement list.
 
 ```toml
 [payload.defaults]
@@ -29,7 +30,10 @@ mode = "copy"
 ### Combining exclusions
 
 Effective exclusions combine `payload.defaults.exclude`, `sources.NAME.exclude`, and the item's `exclude` array.
-Lists add exclusions; there is no replacement or re-inclusion syntax.
+The explicit global array replaces the built-in defaults; source and item arrays add to that chosen list.
+To include a default name for one item, remove it from the global list and add exclusions to the other sources or items that need them.
+There is no per-pattern negation syntax.
+
 Global and item patterns are relative to each item's payload root.
 Source patterns are relative to the source root, including the item's `subdir`.
 For example, source pattern `example/cache` excludes `cache` from `directories.example` in this example, whereas item pattern `cache` is relative to that item directly.
@@ -72,7 +76,7 @@ Nested or differently filtered overlapping copy collection with exclusions requi
 ## Permission preservation
 
 `permissions` selects `"strict"` or `"best-effort"` for skill, directory, and instruction bundle payloads.
-The item's value overrides its source's value, which overrides `payload.defaults.permissions`; omission at every level selects `"strict"`.
+The item's value overrides its source's value, which overrides `payload.defaults.permissions`; omission at every level selects `"best-effort"`.
 Unlike exclusion lists, permission levels replace rather than accumulate.
 Application settings, generated instruction hooks, personal hook scripts, and instruction entry links do not inherit this option.
 
@@ -125,7 +129,9 @@ This adds no permission level or catalog option and does not make timestamp-sett
 
 AEM records both source permissions and the actual installed permissions in best-effort ownership.
 A changed source mode makes a managed copy stale; a later local mode edit remains a protected local modification.
-Existing installations and records without this field retain strict behavior and their original hashes.
+Saved records without this field retain strict behavior and their original hashes until apply safely records the current catalog policy.
+Existing catalogs that omit the field now select best-effort; set `payload.defaults.permissions = "strict"` to retain the previous default.
+
 Changing the effective level is reported as `configuration-changed`; apply the new level before reverse collection, using the previous ownership to protect local edits.
 `--replace` authorizes replacement of a conflicting target but never bypasses content or transaction checks.
 

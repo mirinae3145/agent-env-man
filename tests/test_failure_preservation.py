@@ -469,7 +469,7 @@ class CollectionConflicts(TemporaryCases):
         parent = case.external()
         (case.shared / 'nested').mkdir()
         (case.shared / 'nested/value.txt').write_text('original', encoding='utf-8')
-        case.document['directories']['nested'] = dict(source='files', subdir='nested',
+        case.document['directories']['nested'] = dict(source='files', subdir='nested', preserve_symlinks=False,
             install={'root': 'skills', 'mode': 'copy'}, **child_options)
         case.catalog.write_text(tomlkit.dumps(case.document), encoding='utf-8')
         case.cli('apply', '--item', 'files', '--item', 'nested')

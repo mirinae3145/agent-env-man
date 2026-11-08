@@ -77,7 +77,7 @@ class InspectionReuse(unittest.TestCase):
         self.external(mode='copy')
         self.run_cli('apply', '--item', 'cases')
         (self.target / 'local').write_bytes(b'local edit')
-        self.document['payload'] = {'defaults': {'exclude': ['local']}}
+        self.document['payload'] = {'defaults': {'exclude': ['local'], 'permissions': 'strict'}}
         self.write()
         report = self.run_cli('status')['items'][0]
         self.assertEqual(report['status'], 'configuration-changed')
