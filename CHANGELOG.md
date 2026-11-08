@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **Agent lookup**: Infer the sole saved or declared destination when `locate --agent` is omitted; ambiguous destinations require a selector.
+
 ## [1.3.1] &mdash; 2026-11-18
 
 Git tag `v1.3.1` corresponds to Python package version `1.3.1`; based on `v1.3.0`.
