@@ -19,9 +19,29 @@ from agent_env_man.manager import Manager
 from agent_env_man.model import Config
 from agent_env_man.storage import State
 import test_skill_catalog
+import test_publish
 
 
 class OutputTests(unittest.TestCase):
+    def test_status_does_not_present_saved_failure_as_current(self):
+        c = test_publish.Publication()
+        self.addCleanup(c.doCleanups)
+        c.setUp()
+        state = State(Config(c.config).state_dir)
+        state.data['sources']['one']['error'] = 'old source failure'
+        state.data['startup'] = {'error': 'old startup failure'}
+        state.save()
+        runner = CliRunner()
+        text = runner.invoke(cli, ['--config', str(c.config), 'status'])
+        self.assertEqual(text.exit_code, 0, text.output)
+        self.assertNotIn('old source failure', text.output)
+        self.assertNotIn('old startup failure', text.output)
+        report = c.cli('status')
+        self.assertEqual(report['sources'][0]['last_update_error'], 'old source failure')
+        verbose = runner.invoke(cli, ['--config', str(c.config), '--verbose', 'status'])
+        self.assertIn('old startup failure', verbose.output)
+
+
     def test_nested_reports_preserve_paths_failures_and_notices(self):
         report = {"items": [{"item": "한글-skill", "status": "conflict",
                              "target": "/path with spaces/SKILL.md",
@@ -90,7 +110,7 @@ class OutputTests(unittest.TestCase):
                   "notice": "Review /hooks"}
         text = human_report(report, command="status")
         for expected in ("Instructions:", "conflict", "/path with spaces/AGENTS.md", "first", "second",
-                         "/old path", "/new path", "aem recover", "/recover here", "past failure", "Review /hooks"):
+                         "/old path", "/new path", "aem recover", "/recover here", "Review /hooks"):
             self.assertIn(expected, text)
         self.assertNotIn("all healthy", text.lower())
 

@@ -66,6 +66,7 @@ Inspection and updates are separate steps, and an update reaches the installatio
 
 For an inspection, use `aem status`; use global `--verbose` for detailed text or `--json` when later actions need to parse the report.
 Read bootstrap JSON `items` for content names and kinds.
+Historical failures remain available in verbose/JSON status and do not establish a current fault.
 Status is offline; `aem status --refresh` fetches observations without advancing checkouts.
 
 ### Update a source and install it

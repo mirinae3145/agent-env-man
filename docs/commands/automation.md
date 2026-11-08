@@ -37,9 +37,9 @@ The saved startup report includes the catalog result as `catalog_update`.
 No bound catalog means no skill update work; enabled self-updates still run.
 Self-updates are throttled once per day across events, including failures, and start after the requesting process exits.
 They do not delay startup for release discovery or package installation.
-The saved startup report includes `self_update`; `status` also reports the latest worker result separately.
+The saved startup report includes `self_update`; verbose/JSON `status` also reports the latest worker result separately.
 AEM self-update completion does not produce a skill-change briefing.
-Operational failures are recorded in status when possible; failures before state access go to stderr.
+Operational failures are recorded in verbose/JSON status when possible; failures before state access go to stderr.
 It exits `0` on handled operational failures so startup can continue; CLI usage errors still exit `2`.
 With an agent, completed changes can return an agent-specific briefing; shell callbacks return `{}`.
 Lock contention returns immediately without scheduling work.

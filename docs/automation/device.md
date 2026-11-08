@@ -66,7 +66,7 @@ Policy-only setup edits require no profile changes; omitted fields retain saved 
 
 ### Results and locks
 
-Inspect the eventual sequence and stage results under `automation` in `aem status`.
+Inspect the eventual sequence and stage results under `automation` in `aem --verbose status` or `aem --json status`.
 Queued work is not yet completed; changed mode/runtime settings cancel pending work.
 Registered commands may report lock contention while the worker or continuation holds the installation/configuration locks.
 Real uv replacement and agent hook continuity require integration validation.

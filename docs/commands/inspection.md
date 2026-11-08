@@ -21,7 +21,10 @@ Editable/source development resolves to the repository's canonical documentation
 aem status [--agent AGENT] [--refresh] [--git-timeout TIMEOUT]
 ```
 
-Reports local checkout observations, last observed remote state, ownership, and startup outcomes.
+Reports local checkout observations, last observed remote state, and ownership.
+Historical startup, catalog, and tool attempts and `last_update_error` remain available with `--verbose` or `--json`; concise status shows current inspection errors only.
+A past failed attempt does not establish that the failure still exists.
+
 `--refresh` fetches remote references without moving checkout branches or installing content.
 `--agent` filters installation observations, not source fetching.
 Saved installed targets are still inspected if the catalog or source is unavailable.

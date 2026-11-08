@@ -23,7 +23,7 @@ Configure automation for the behavior you want on this device:
 1. Save the selected mode with `aem setup --automation MODE`.
    To customize a full schedule, use `aem setup --automation full --automation-trigger shell-start --automation-trigger agent-start --automation-interval 3600 --automation-git-timeout 30`.
 1. Preview the applicable event with `aem automation --trigger agent-start --dry-run`.
-1. After an event runs, inspect `aem status` for completed stages, exclusions, or failures.
+1. After an event runs, inspect `aem --verbose status` for completed stages, exclusions, or failures.
    A queued result is not completed work.
 
 Omitted setup fields retain their saved values; supplied trigger lists replace the saved list.
