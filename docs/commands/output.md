@@ -21,7 +21,7 @@ Callbacks have the exceptions defined in the [automation and callback reference]
 
 ## Compatibility
 
-Documented commands, behavior, exit codes, and JSON fields are covered by the package's [compatibility policy](../compatibility.md).
+Compatibility guarantees and descriptions of current behavior are distinguished by the package's [compatibility policy](../compatibility.md).
 JSON consumers must ignore unknown object fields; field additions may appear in compatible feature releases.
 Enum values are closed unless their interface explicitly documents unknown-value handling.
 JSON whitespace, object key order, and human-readable diagnostic wording are not stable interfaces.

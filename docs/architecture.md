@@ -44,6 +44,7 @@ These references preserve shared boundaries while keeping each area independentl
 
 | Contract | Scope |
 | --- | --- |
+| [Workflow design](architecture/workflows.md) | Coordinated defaults, platform support, publication, inspection, and compatibility decisions. |
 | [Source delivery](architecture/delivery.md) | Live consumers, payload inspection, catalog normalization, and maintenance independence. |
 | [Catalog delivery](architecture/catalog.md) | Candidate validation, local copies, Git reception, and catalog automation. |
 | [Publication](architecture/publication.md) | Whole-repository publication, reverse copy collection, and prepared AEM releases. |
