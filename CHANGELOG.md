@@ -23,12 +23,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **Agent lookup**: Infer the sole saved or declared destination when `locate --agent` is omitted; ambiguous destinations require a selector.
 - **Lock contention**: Use shared configuration locks for offline inspection and avoid callback waits behind content work, while retaining guarded instruction snapshots and exclusive mutations.
+- **Upgrade verification**: Check saved ownership and edited-copy refusal under new defaults, then explicitly retain previous payload policies for status comparisons with older releases.
 
 ### Removed
 
 - **Native Windows execution**: Refuse CLI and installer operations before changes; Linux and WSL remain supported, and CI targets Linux.
 - **Unsupported-item skipping**: Remove setup/installer skip options after retiring the Windows-only case.
   Legacy Boolean machine fields remain readable without suppressing operation failures.
+  Effective policy JSON omits the obsolete field.
 
 ## [1.3.0] &mdash; 2026-11-07
 

@@ -60,8 +60,14 @@ Each installation uses its own repository installer in a disposable profile with
 The tested revision is published to a local release repository under the next version, then installed by `aem self update`.
 Permitted transitions must succeed in `compatible` mode.
 Other transitions must leave the installation unchanged before succeeding in `breaking` mode.
-The job checks that installed contents, local edits, and existing status fields survive, allowing additive JSON output fields, and that ordinary updates continue afterwards.
 
+The job checks that installed contents, local edits, and saved catalog ownership survive package replacement.
+It verifies that applying new omitted-field defaults still refuses an edited copy without changing its ownership.
+The fixture then explicitly retains strict permissions and empty exclusions before comparing existing status fields, allowing additive JSON output fields.
+These policy fields are added only after upgrading because the oldest baseline releases do not accept them.
+The status comparison permits removal of the obsolete skip-policy field while retaining checks for every other existing field.
+
+Ordinary content updates must continue afterwards.
 Rerunning setup afterwards must leave the agent profile files unchanged.
 Native Windows execution is unsupported.
 

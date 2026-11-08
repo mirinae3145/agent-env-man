@@ -96,7 +96,7 @@ The `automation` table accepts these fields:
 | `trigger` | String or array of strings | Defaults to `shell-start` and `agent-start`. May contain unique supported events or only `manual`. Used in full mode. |
 | `min_interval` | Integer or float | `3600` seconds, finite and nonnegative; full runs share one clock across events, including failures. |
 | `timeout` | Integer or float | `30` seconds per content/catalog Git phase, finite and positive; used in full mode. |
-| `skip_unsupported` | Boolean | Legacy input accepted but ignored; no platform-specific skip remains on Linux/WSL. |
+| `skip_unsupported` | Boolean | Legacy input accepted but ignored and omitted from effective policy reports; no platform-specific skip remains on Linux/WSL. |
 
 Boolean numeric values are rejected.
 
