@@ -40,8 +40,7 @@ class NamedProfiles(SetupFixture):
             self.assertTrue((root / 'skills/report').is_symlink())
             definition = self.state()['items']['personal:hook@' + name]['hook_group']
             command = definition['hooks'][0]['command']
-            if os.name != 'nt':
-                self.assertIn('--agent ' + name, command)
+            self.assertIn('--agent ' + name, command)
             output, errors = io.StringIO(), io.StringIO()
             with redirect_stdout(output), redirect_stderr(errors):
                 result = main(['--config', str(self.config), 'agent-hook', 'personal', '--agent', name])
@@ -245,13 +244,3 @@ class NamedProfiles(SetupFixture):
         self.assertEqual(path.read_bytes(), before)
         self.run_cli('apply', '--agent', 'claude')
         self.assertEqual(json.loads(path.read_text())['model'], 'sonnet')
-
-    def test_named_windows_hook_serialization_keeps_instance_identity(self):
-        import base64
-        from agent_env_man import hooks
-        with patch.object(hooks.os, 'name', 'nt'):
-            marker, group = profile('claude-lab').definition(self.config, 'rules')
-        command = base64.b64decode(group['hooks'][0]['command'].split()[-1]).decode('utf-16le')
-        self.assertIn(marker, command)
-        self.assertIn('claude-lab', command)
-        self.assertNotEqual(marker, profile('claude').definition(self.config, 'rules')[0])

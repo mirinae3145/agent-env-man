@@ -79,5 +79,5 @@ def resolve(runtime, name, path, take, dry_run):
 @preview_option
 @pass_runtime
 def export_command(runtime, names, dry_run):
-    """Export staged settings to Git or external sources without publishing."""
-    return runtime.run(lambda s: (Settings(s.manager).export(names, dry_run=dry_run), False), preview=dry_run)
+    """Gather copies and settings into sources locally (publish --local)."""
+    return runtime.run(lambda s: s.manager.publish(names, local=True, dry_run=dry_run))

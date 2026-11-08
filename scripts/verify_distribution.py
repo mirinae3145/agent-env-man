@@ -5,7 +5,6 @@ Run from a Python environment with pip and build installed. Package acquisition
 may use the network; the runtime verifier uses only disposable local fixtures.
 """
 
-import os
 from pathlib import Path
 import subprocess
 import sys
@@ -14,12 +13,11 @@ import tempfile
 
 def run(*arguments, cwd):
     print('+', ' '.join(map(str, arguments)), flush=True)
-    options = {'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {}
     command = list(map(str, arguments))
-    # Explicit pipes preserve output from hidden Windows children under Git Bash.
+    # Stream combined child output as it arrives.
     with subprocess.Popen(command, cwd=cwd, stdout=subprocess.PIPE,
                           stderr=subprocess.STDOUT, text=True, encoding='utf-8',
-                          errors='replace', **options) as process:
+                          errors='replace') as process:
         for line in process.stdout:
             print(line, end='', flush=True)
         code = process.wait()
@@ -48,7 +46,7 @@ def main():
         for name, directory in [('direct', direct), ('from-sdist', rebuilt)]:
             runtime = root / ('runtime-' + name)
             run(sys.executable, '-m', 'venv', '--without-pip', runtime, cwd=root)
-            python = runtime / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+            python = runtime / 'bin/python'
             # External pip keeps pip, setuptools, coverage and build out of runtime.
             run(sys.executable, '-m', 'pip', '--python', python, 'install',
                 only_file(directory, '*.whl'), cwd=root)

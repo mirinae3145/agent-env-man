@@ -4,6 +4,34 @@ The catalog is now the only content declaration format.
 This is a breaking cleanup for installation: there is no legacy source parser, command alias, or automatic conversion.
 Saved ownership remains available for maintenance without restoring legacy installation semantics.
 
+## Unreleased workflow changes
+
+These unreleased workflow changes retain catalog format `2`, machine format `1`, and state format `2`.
+Do not edit these markers or discard saved ownership.
+No package release number has been selected for this work; the catalog format number remains independent of package versioning.
+
+Existing omitted fields now select best-effort permissions, nested directory symlink preservation, and default exclusions `**/._DAV` and `**/@eaDir`.
+To retain the previous policies, set `payload.defaults.permissions = "strict"`, `payload.defaults.exclude = []`, and `directories.NAME.preserve_symlinks = false` for each directory.
+Otherwise preview and apply the new policies before collecting installed copies; existing saved policies protect local edits throughout that transition.
+Detach and recovery continue using saved policies even without a catalog.
+
+`publish` now gathers selected installed managed copies and settings stages by default.
+Use `--source-only` for the previous source-only behavior, or `--local` to gather without Git publication.
+`export` is a local-gathering alias and now returns the same grouped reports as publication.
+Actual application fields still require `settings collect`; detached copies are never gathered.
+Omitted locate agents are inferred only when unambiguous; multi-agent callers must supply `--agent`.
+
+Native Windows execution is removed; WSL remains supported.
+Before upgrading on Windows, use the previous release to recover pending work, detach managed items, and remove integrations you intend to retire.
+Keep its machine file, state, source content, and backups; WSL needs its own paths and installation rather than reusing Windows ownership records.
+The legacy Boolean `automation.skip_unsupported` is accepted without effect, and its setup/installer options are removed.
+Ordinary failures are never skipped.
+
+PowerShell shell integration is removed; `bash` and `zsh` remain.
+Setup, installation, and update commands reject a machine file that still selects `setup.shells.powershell`; offline status and other saved-state maintenance remain usable.
+Before upgrading, run `aem setup --remove-shell powershell` with the previous release.
+Otherwise delete the AEM block from the PowerShell profile and the `powershell` entry under `setup.shells` manually.
+
 ## Removed interfaces
 
 | Removed interface | Current approach |

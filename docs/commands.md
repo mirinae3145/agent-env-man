@@ -33,7 +33,7 @@ Choose a group for the command-specific contract.
 | [Setup](commands/setup.md) | Integration selection, saved policies, and removal. |
 | [Catalog](commands/catalog.md) | Bootstrap, catalog binding, reception, and publication. |
 | [Content](commands/content.md) | Update, apply, and sync selection and preservation. |
-| [Publication](commands/publish.md) | Repository-wide publication and explicit collection of managed copies. |
+| [Publication](commands/publish.md) | Local gathering and repository-wide publication of selected copies, settings stages, and source edits. |
 | [Inspection](commands/inspection.md) | Local documentation, status, and source or installed lookup. |
 | [Maintenance](commands/maintenance.md) | Detach, recovery, and personal hook removal. |
 | [Settings](commands/settings.md) | Stage operations and field conflict resolution. |
@@ -51,7 +51,7 @@ Choose a group for the command-specific contract.
 | [`bootstrap`](commands/catalog.md#bootstrap) | Bind a catalog and prepare sources. | Clone missing Git repositories. |
 | [`catalog`](commands/catalog.md#catalog) | Inspect, update, or publish the catalog itself. | Update/publish only; publication dry run is offline. |
 | [`update`](commands/content.md#update) | Fetch and fast-forward prepared sources. | Yes for Git. |
-| [`publish`](commands/publish.md) | Publish selected checkouts, optionally collecting managed copies first. | Git remote inspection/fetch/push only; external collection and dry run are offline. |
+| [`publish`](commands/publish.md) | Gather selected copies/stages and publish their sources; `--local` stops before Git publication. | Git remote inspection/fetch/push only; external collection and dry run are offline. |
 | [`apply`](commands/content.md#apply) | Install from local prepared sources. | None. |
 | [`sync`](commands/content.md#sync) | Update all sources, then apply if every update succeeds. | Yes for Git. |
 | [`auto`](commands/automation.md#auto) | Run due skill/directory policies for an event. | Due Git items only; none in dry run. |

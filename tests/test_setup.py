@@ -1,5 +1,4 @@
 """Machine integration runs entirely in temporary homes with local repositories."""
-from process_support import run_hidden
 import importlib.util
 import io
 import json
@@ -15,7 +14,6 @@ import tomlkit
 from agent_env_man import agents
 from agent_env_man.model import Config
 from agent_env_man.storage import State
-from agent_env_man.setup import shell_block, shell_path
 from test_instructions import InstructionFixture
 
 
@@ -24,7 +22,7 @@ class SetupFixture(InstructionFixture):
         super().setUp()
         self.home = self.root / 'home with spaces'
         self.home.mkdir()
-        self.executable = self.home / 'bin' / ('aem.exe' if os.name == 'nt' else 'aem')
+        self.executable = self.home / 'bin' / 'aem'
         self.executable.parent.mkdir()
         self.executable.write_text('#!/bin/sh\nexit 0\n')
         self.executable.chmod(0o755)
@@ -121,6 +119,19 @@ class MachineSetup(SetupFixture):
         self.assertFalse((self.home / '.bashrc').exists())
         self.assertFalse((self.home / '.codex').exists())
 
+    def test_saved_powershell_selection_is_rejected_without_changes(self):
+        self.setup_cli('--shell', 'bash')
+        document = tomlkit.parse(self.config.read_text(encoding='utf-8'))
+        document['setup']['shells']['powershell'] = str(self.home / 'profile.ps1')
+        self.config.write_text(tomlkit.dumps(document), encoding='utf-8')
+        machine, bash = self.config.read_bytes(), (self.home / '.bashrc').read_bytes()
+        for args in (('setup', '--executable', self.executable, '--shell', 'zsh'), ('apply',)):
+            with self.subTest(args=args):
+                self.assertIn('PowerShell integration was removed', str(self.run_cli(*args, code=1)))
+                self.assertEqual(self.config.read_bytes(), machine)
+                self.assertEqual((self.home / '.bashrc').read_bytes(), bash)
+                self.assertFalse((self.home / '.zshrc').exists())
+
     def test_repeat_add_remove_preserves_user_content_and_no_catalog(self):
         bash = self.home / '.bashrc'
         bash.write_bytes(b'# user settings\r\nexport EXAMPLE=yes\r\n')
@@ -128,8 +139,7 @@ class MachineSetup(SetupFixture):
         self.setup_cli('--shell', 'bash', '--agent', 'codex')
         before = bash.read_bytes()
         self.assertNotIn(b'\n', before.replace(b'\r\n', b''))
-        if os.name != "nt":
-            self.assertEqual(bash.stat().st_mode & 0o777, 0o640)
+        self.assertEqual(bash.stat().st_mode & 0o777, 0o640)
         self.setup_cli('--shell', 'bash', '--agent', 'codex')
         self.assertEqual(before, bash.read_bytes())
         self.setup_cli('--shell', 'zsh')
@@ -232,15 +242,13 @@ class MachineSetup(SetupFixture):
         self.assertIn('error', self.state()['startup'])
 
     def test_bash_execution_quotes_paths_and_skips_noninteractive_shell(self):
-        if os.name == 'nt':
-            self.skipTest('Bash execution test')
         calls = self.home / 'calls'
         self.executable.write_text('#!/bin/sh\nprintf "%s\\n" "$@" >> ' + shlex.quote(str(calls)) + '\nexit 1\n')
         self.setup_cli('--shell', 'bash')
         rc = self.home / '.bashrc'
-        run_hidden(['bash', '-c', 'source "$1"', '_', str(rc)], check=True)
+        subprocess.run(['bash', '-c', 'source "$1"', '_', str(rc)], check=True)
         self.assertFalse(calls.exists())
-        result = run_hidden(['bash', '--noprofile', '--rcfile', str(rc), '-i', '-c', 'printf READY'], capture_output=True)
+        result = subprocess.run(['bash', '--noprofile', '--rcfile', str(rc), '-i', '-c', 'printf READY'], capture_output=True)
         self.assertEqual(result.returncode, 0)
         self.assertIn(b'READY', result.stdout)
         self.assertEqual(calls.read_text().splitlines(), ['--config', str(self.config), 'startup', '--trigger', 'shell-start'])
@@ -305,19 +313,6 @@ class MachineSetup(SetupFixture):
         self.assertEqual(first['previous_revision'], second['previous_revision'])
         self.assertNotEqual(first['previous_revision'], first['revision'])
         self.assertEqual(self.run_cli('startup', '--trigger', 'agent-start', '--agent', 'codex'), {})
-
-    def test_powershell_discovery_and_literal_rendering(self):
-        path = self.home / 'PowerShell/Microsoft.PowerShell_profile.ps1'
-        with patch('agent_env_man.setup.shutil.which', return_value='pwsh'), patch('agent_env_man.setup.subprocess.run') as run:
-            run.return_value.stdout = str(path)
-            self.assertEqual(shell_path('powershell'), path)
-            self.assertIn('$PROFILE.CurrentUserAllHosts', run.call_args.args[0][-1])
-            if os.name == 'nt':
-                self.assertEqual(run.call_args.kwargs['creationflags'], subprocess.CREATE_NO_WINDOW)
-        _, _, text = shell_block('powershell', self.home / "a'$name.toml", self.executable, self.executable.parent)
-        self.assertIn("a''$name.toml'", text)
-        self.assertIn('$aemPreviousExitCode', text)
-
 
     def test_bootstrap_refuses_moving_codex_bindings_with_setup_integrations(self):
         self.require_links()
@@ -446,12 +441,9 @@ class Installer(SetupFixture):
             self.assertFalse(any('install' in call for call in calls))
             calls.clear()
             self.assertEqual(module.main(['--shell', 'bash', '--config', str(self.config),
-                                          '--startup-hook-timeout', '60', '--automation-git-timeout', '15',
-                                          '--automation-skip-unsupported']), 0)
-            self.assertIn('--automation-skip-unsupported', calls[-1])
-            self.assertEqual(module.main(['--config', str(self.config), '--no-automation-skip-unsupported',
                                           '--startup-hook-timeout', '60', '--automation-git-timeout', '15']), 0)
-            self.assertIn('--no-automation-skip-unsupported', calls[-1])
+            self.assertEqual(module.main(['--config', str(self.config),
+                                          '--startup-hook-timeout', '60', '--automation-git-timeout', '15']), 0)
         self.assertIn('--startup-hook-timeout', calls[-1])
         self.assertEqual(calls[-1][calls[-1].index('--startup-hook-timeout') + 1], '60.0')
         self.assertIn('--automation-git-timeout', calls[-1])

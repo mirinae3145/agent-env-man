@@ -13,9 +13,9 @@ import tomllib
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--shell', action='append', default=[], choices=['bash', 'zsh', 'powershell'])
+    parser.add_argument('--shell', action='append', default=[], choices=['bash', 'zsh'])
     parser.add_argument('--agent', action='append', default=[], choices=['codex', 'claude'])
-    parser.add_argument('--remove-shell', action='append', default=[], choices=['bash', 'zsh', 'powershell'])
+    parser.add_argument('--remove-shell', action='append', default=[], choices=['bash', 'zsh'])
     parser.add_argument('--remove-agent', action='append', default=[], choices=['codex', 'claude'])
     parser.add_argument('--config', type=Path)
     parser.add_argument('--self-update', choices=['off', 'compatible', 'breaking'],
@@ -23,8 +23,6 @@ def main(argv=None):
     parser.add_argument('--update-repository', help='release Git repository (default: the AEM upstream)')
     parser.add_argument('--automation', choices=['off', 'policies', 'full'])
     parser.add_argument('--automation-trigger', action='append', choices=['manual', 'shell-start', 'agent-start', 'interval'])
-    parser.add_argument('--automation-skip-unsupported', action=argparse.BooleanOptionalAction, default=None,
-                        help='save platform-unsupported item exclusion for full automation (default: off)')
     parser.add_argument('--automation-interval', type=float)
     parser.add_argument('--automation-git-timeout', '--automation-timeout', dest='automation_timeout', type=float)
     parser.add_argument('--startup-hook-timeout', type=float,
@@ -32,6 +30,8 @@ def main(argv=None):
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args(argv)
     try:
+        if sys.platform == 'win32':
+            raise RuntimeError('Native Windows is no longer supported; run AEM inside WSL or Linux')
         if sys.version_info < (3, 11):
             raise RuntimeError('Python 3.11 or later is required')
         triggers = args.automation_trigger
@@ -57,8 +57,7 @@ def main(argv=None):
         if tool_dir in Path(sys.executable).absolute().parents or tool_dir in Path(sys.executable).resolve().parents:
             raise RuntimeError('Run the installer with a Python outside the uv tools directory')
         mode = args.self_update
-        machine = args.config or (Path(os.environ.get('LOCALAPPDATA', Path.home() / 'AppData/Local')) if os.name == 'nt'
-                                 else Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config'))) / 'agent-env-man/machine.toml'
+        machine = args.config or Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config')) / 'agent-env-man/machine.toml'
         saved = tomllib.loads(machine.expanduser().read_text(encoding='utf-8')) if machine.expanduser().exists() else {}
         selected_automation = args.automation
         if (selected_automation is None and not args.dry_run and not machine.expanduser().exists()
@@ -72,14 +71,14 @@ def main(argv=None):
                 print('Automatic AEM updates: off / compatible (compatible releases) / breaking (all releases)')
                 while mode not in ('off', 'compatible', 'breaking'):
                     mode = input('Update mode [off]: ').strip() or 'off'
-        executable = bin_dir / ('aem.exe' if os.name == 'nt' else 'aem')
+        executable = bin_dir / 'aem'
         command = [str(executable)]
         if args.config:
             command += ['--config', str(args.config.expanduser().absolute())]
         command += ['setup', '--executable', str(executable)]
         removal_only = (args.remove_shell or args.remove_agent) and not (args.shell or args.agent)
         if removal_only and (args.startup_hook_timeout is not None or args.self_update is not None or args.update_repository is not None or selected_automation is not None
-                            or any(getattr(args, 'automation_' + field) is not None for field in ('trigger', 'interval', 'timeout', 'skip_unsupported'))):
+                            or any(getattr(args, 'automation_' + field) is not None for field in ('trigger', 'interval', 'timeout'))):
             raise RuntimeError('Change self-update settings separately from removal-only setup')
         if not removal_only:
             command += ['--update-python', sys.executable, '--update-uv', uv,
@@ -92,8 +91,6 @@ def main(argv=None):
                 command += ['--startup-hook-timeout', str(args.startup_hook_timeout)]
             if selected_automation is not None:
                 command += ['--automation', selected_automation]
-            if args.automation_skip_unsupported is not None:
-                command += ['--automation-skip-unsupported' if args.automation_skip_unsupported else '--no-automation-skip-unsupported']
             for trigger in args.automation_trigger or []:
                 command += ['--automation-trigger', trigger]
             for field in ('interval', 'timeout'):

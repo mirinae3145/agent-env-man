@@ -37,7 +37,7 @@ class CatalogPreservation(unittest.TestCase):
                     contents = case.entry.read_bytes()
                     with patch.object(Git, 'fetch', side_effect=AssertionError('locate fetched')):
                         error = case.cli('catalog', 'locate', code=1)
-                    self.assertIn('redirects through a symlink or junction', error)
+                    self.assertIn('redirects through a symlink', error)
                     self.assertTrue(path.is_symlink())
                     self.assertEqual(case.entry.read_bytes(), contents)
                     self.assertEqual(case.state(), before)

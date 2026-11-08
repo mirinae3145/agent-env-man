@@ -1,5 +1,4 @@
 """Release updates use local Git fixtures and never change real uv installations."""
-from process_support import run_hidden
 import importlib.util
 import io
 import json
@@ -24,18 +23,6 @@ from test_setup import SetupFixture
 
 
 class Releases(unittest.TestCase):
-    def test_worker_capture_preserves_options_and_hides_windows_children(self):
-        for platform in ('nt', 'posix'):
-            with self.subTest(platform=platform), patch.object(self_update, 'os', SimpleNamespace(name=platform)), patch.object(
-                    self_update.subprocess, 'CREATE_NO_WINDOW', 0x08000000, create=True), patch.object(
-                    self_update.subprocess, 'run') as run:
-                self_update.run_captured(['git', '--version'], capture_output=True, text=True, timeout=30)
-                self.assertEqual(run.call_args.kwargs['timeout'], 30)
-                self.assertTrue(run.call_args.kwargs['capture_output'])
-                if platform == 'nt':
-                    self.assertEqual(run.call_args.kwargs['creationflags'], 0x08000000)
-                else:
-                    self.assertNotIn('creationflags', run.call_args.kwargs)
 
     def test_installation_lock_is_outside_tools_and_shared_by_aliases(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -64,11 +51,11 @@ class Releases(unittest.TestCase):
             environment = dict(os.environ, UV_TOOL_DIR=str(tools),
                                UV_CACHE_DIR=str(Path(directory) / 'cache'))
             with lock(shared):
-                result = run_hidden([shutil.which('uv'), 'tool', 'list'],
+                result = subprocess.run([shutil.which('uv'), 'tool', 'list'],
                                         env=environment, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((shared / 'lock').is_file())
-            result = run_hidden([shutil.which('uv'), 'tool', 'list'],
+            result = subprocess.run([shutil.which('uv'), 'tool', 'list'],
                                     env=environment, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -451,40 +438,6 @@ class ParentExit(unittest.TestCase):
             self.assertFalse(self_update.wait_for_parent(123))
         self.assertTrue(self_update.wait_for_parent(0))
 
-    def test_mocked_windows_parent_exit_closes_handle_on_all_wait_outcomes(self):
-        import ctypes
-        for wait_result in (0, 258, 0xFFFFFFFF, OSError('wait failed')):
-            with self.subTest(wait_result=wait_result):
-                kernel = SimpleNamespace(OpenProcess=Mock(return_value=42),
-                                         WaitForSingleObject=Mock(), CloseHandle=Mock())
-                if isinstance(wait_result, Exception):
-                    kernel.WaitForSingleObject.side_effect = wait_result
-                else:
-                    kernel.WaitForSingleObject.return_value = wait_result
-                with patch.object(self_update, 'os', SimpleNamespace(name='nt')), \
-                        patch.object(ctypes, 'WinDLL', return_value=kernel, create=True):
-                    if isinstance(wait_result, Exception):
-                        with self.assertRaises(OSError):
-                            self_update.wait_for_parent(123)
-                    else:
-                        self.assertEqual(self_update.wait_for_parent(123), wait_result == 0)
-                kernel.OpenProcess.assert_called_once_with(0x00100000, False, 123)
-                kernel.WaitForSingleObject.assert_called_once_with(42, self_update.TIMEOUT * 1000)
-                kernel.CloseHandle.assert_called_once_with(42)
-
-    def test_mocked_windows_missing_parent_distinguishes_invalid_pid_from_denial(self):
-        import ctypes
-        for error in (87, 5):
-            with self.subTest(error=error):
-                kernel = SimpleNamespace(OpenProcess=Mock(return_value=0),
-                                         WaitForSingleObject=Mock(), CloseHandle=Mock())
-                with patch.object(self_update, 'os', SimpleNamespace(name='nt')), \
-                        patch.object(ctypes, 'WinDLL', return_value=kernel, create=True), \
-                        patch.object(ctypes, 'get_last_error', return_value=error, create=True):
-                    self.assertEqual(self_update.wait_for_parent(123), error == 87)
-                kernel.WaitForSingleObject.assert_not_called()
-                kernel.CloseHandle.assert_not_called()
-
 
 class SelfUpdate(SetupFixture):
     def test_worker_remote_preparation_releases_both_locks(self):
@@ -539,17 +492,8 @@ class SelfUpdate(SetupFixture):
         return Config(self.config)
 
     def executable_fake_uv(self):
-        """Run the fake installer through Python on Windows, without a shebang."""
-        if os.name == 'nt':
-            script = self.uv.with_suffix('.py')
-            self.uv.rename(script)
-            self.uv = self.uv.with_suffix('.cmd')
-            self.uv.write_text('@echo off\n"' + sys.executable + '" "' + str(script) + '" %*\n')
-            self.settings['uv'] = str(self.uv)
-            self.setup_cli('--update-uv', str(self.uv))
-        else:
-            self.uv.chmod(0o755)
-        self.uv_script = script if os.name == 'nt' else self.uv
+        self.uv.chmod(0o755)
+        self.uv_script = self.uv
         return Config(self.config)
 
     def finish_worker(self, config):
@@ -667,7 +611,7 @@ class SelfUpdate(SetupFixture):
 
     def test_missing_registered_tool_prevents_remote_access(self):
         self.register()
-        with patch.object(self_update, 'run_captured', return_value=subprocess.CompletedProcess([], 0, stdout='')), \
+        with patch.object(self_update.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, stdout='')), \
                 patch.object(self_update, 'git') as git:
             with self.assertRaisesRegex(ValueError, 'installation is missing'):
                 self_update.perform({'settings': self.settings})
@@ -754,7 +698,7 @@ class SelfUpdate(SetupFixture):
         prepared = {'current': '0.2.0', 'selected': {'version': '0.2.1', 'revision': 'a' * 40}}
         for current in ('0.2.1', '0.3.0', '0.1.0'):
             with self.subTest(current=current), patch.object(self_update, 'git') as git, patch.object(
-                    self_update, 'run_captured', return_value=subprocess.CompletedProcess(
+                    self_update.subprocess, 'run', return_value=subprocess.CompletedProcess(
                         [], 0, stdout=f'agent-env-man v{current}\n')) as run:
                 result = self_update.perform({'settings': self.settings}, prepared=prepared)
                 self.assertEqual(result['status'], 'cancelled')
@@ -816,7 +760,7 @@ class SelfUpdate(SetupFixture):
         self.uv_script.write_text(self.uv_script.read_text().replace('sys.exit(1)', 'sys.exit(0)'))
         # Exercise the real entrypoint: stdout must finish without waiting on
         # worker-owned handles, and the external child outlives the callback.
-        response = run_hidden([sys.executable, '-m', 'agent_env_man', '--json', '--config', str(self.config),
+        response = subprocess.run([sys.executable, '-m', 'agent_env_man', '--json', '--config', str(self.config),
                                    'self', 'update'], capture_output=True, text=True, timeout=5)
         self.assertEqual(response.returncode, 0, response.stderr)
         self.assertEqual(json.loads(response.stdout)['status'], 'queued')

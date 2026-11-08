@@ -3,7 +3,6 @@
 
 import argparse
 import json
-import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -80,7 +79,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, required=True, help='Existing writable directory on the filesystem to test')
     args = parser.parse_args()
-    require(os.name != 'nt', 'This verifier exercises POSIX descriptor scans')
     with tempfile.TemporaryDirectory(prefix='.aem-payload-check-', dir=args.root) as temporary:
         print(f'Test directory: {temporary}', flush=True)
         verify(Path(temporary))

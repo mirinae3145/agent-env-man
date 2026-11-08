@@ -1,5 +1,4 @@
 """Local inventories deliver independent Git skill repositories end to end."""
-from process_support import run_hidden
 
 from contextlib import redirect_stderr, redirect_stdout
 import io
@@ -7,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -38,7 +38,7 @@ class SkillCatalog(unittest.TestCase):
         self.save_catalog()
 
     def git(self, path, *args):
-        result = run_hidden(["git", "-C", str(path), *map(str, args)], capture_output=True, text=True)
+        result = subprocess.run(["git", "-C", str(path), *map(str, args)], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout.strip()
 

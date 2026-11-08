@@ -1,10 +1,9 @@
 """Offline editing lookup distinguishes sources from installed copies."""
-from process_support import run_hidden
 
 import json
-import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import shlex
 import tomlkit
@@ -16,6 +15,8 @@ import unittest
 from unittest.mock import patch
 
 from agent_env_man.git_source import Git
+from agent_env_man.model import Config
+from agent_env_man.storage import lock
 import test_publish as publication_tests
 
 
@@ -25,6 +26,14 @@ class Locate(unittest.TestCase):
     commit = publication_tests.Publication.commit
     cli = publication_tests.Publication.cli
     edit = publication_tests.Publication.edit
+
+    def test_readers_share_lock_and_mutations_still_refuse(self):
+        config = Config(self.config)
+        with lock(config.state_dir, shared=True):
+            self.cli('locate', 'one')
+            self.cli('status')
+            self.assertIn('lock', self.cli('apply', '--item', 'one', code=1))
+
 
     def test_cd_path_output_and_json_usage_validation(self):
         runner = CliRunner()
@@ -110,43 +119,43 @@ class Locate(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn('--repo', result.output)
 
-    @unittest.skipUnless(os.name != 'nt' and shutil.which('bash'), 'Requires POSIX paths and Bash')
+    @unittest.skipUnless(shutil.which('bash'), 'Requires Bash')
     def test_shell_cd_success_failure_help_and_literal_paths(self):
         executable = self.root / "aem tool"
         executable.write_text('#!/bin/sh\nexec ' + shlex.join([sys.executable, '-m', 'agent_env_man']) + ' "$@"\n')
         executable.chmod(0o755)
-        block = shell_block('bash', self.config, executable, executable.parent)[2]
+        block = shell_block(self.config, executable, executable.parent)[2]
         script = block + '\n' + shlex.join(['aem', '--config', str(self.config), 'locate', 'one', '--source', '--cd'])
         script += '\npwd\n' + shlex.join(['aem', '--config', str(self.config), 'locate', 'missing', '--cd'])
         script += '\nstatus=$?; pwd; test "$status" = 1 || exit 9\n'
         script += 'aem locate --cd --help\npwd\n'
-        result = run_hidden(['bash', '-c', script], capture_output=True, text=True)
+        result = subprocess.run(['bash', '-c', script], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.splitlines().count(str(self.checkout / 'skill')), 3)
         self.assertIn('Usage:', result.stdout)
 
-    @unittest.skipUnless(os.name != 'nt' and shutil.which('bash'), 'Requires POSIX paths and Bash')
+    @unittest.skipUnless(shutil.which('bash'), 'Requires Bash')
     def test_shell_repo_cd_and_failure_preserve_directory(self):
         executable = self.root / 'aem tool'
         executable.write_text('#!/bin/sh\nexec ' + shlex.join([sys.executable, '-m', 'agent_env_man']) + ' "$@"\n')
         executable.chmod(0o755)
-        block = shell_block('bash', self.config, executable, executable.parent)[2]
+        block = shell_block(self.config, executable, executable.parent)[2]
         script = block + '\n' + shlex.join(['aem', '--config', str(self.config), 'locate', 'source:shared', '--source', '--repo', '--cd'])
         script += '\npwd\n' + shlex.join(['aem', '--config', str(self.config), 'locate', 'missing', '--repo', '--cd'])
         script += '\nstatus=$?; pwd; test "$status" = 1 || exit 9\n'
-        result = run_hidden(['bash', '-c', script], capture_output=True, text=True)
+        result = subprocess.run(['bash', '-c', script], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.splitlines(), [str(self.checkout), str(self.checkout)])
 
-    @unittest.skipUnless(os.name != 'nt' and shutil.which('bash'), 'Requires POSIX paths and Bash')
+    @unittest.skipUnless(shutil.which('bash'), 'Requires Bash')
     def test_shell_cd_treats_special_characters_as_literal(self):
         destination = self.root / "directory with '$() chars"
         destination.mkdir()
         executable = self.root / 'fake-aem'
         executable.write_text('#!/bin/sh\nprintf \'%s\\n\' ' + shlex.quote(str(destination)) + '\n')
         executable.chmod(0o755)
-        block = shell_block('bash', self.config, executable, executable.parent)[2]
-        result = run_hidden(['bash', '-c', block + '\naem locate one --cd\npwd\n'],
+        block = shell_block(self.config, executable, executable.parent)[2]
+        result = subprocess.run(['bash', '-c', block + '\naem locate one --cd\npwd\n'],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, str(destination) + '\n')
@@ -247,3 +256,35 @@ class Locate(unittest.TestCase):
         before = state.read_bytes()
         self.assertEqual(self.cli('locate', 'one')['root'], str(self.root / 'installed/one'))
         self.assertEqual(state.read_bytes(), before)
+
+
+class InferredLocate(unittest.TestCase):
+    def setUp(self):
+        self.case = c = publication_tests.Publication()
+        self.addCleanup(c.doCleanups)
+        c.setUp()
+        document = tomlkit.parse(c.config.read_text())
+        document['agents'] = {'claude': {'root': str(c.root / 'claude'), 'skills': str(c.root / 'claude-skills')}}
+        c.config.write_text(tomlkit.dumps(document))
+
+
+    def test_claude_only_prepared_and_saved_lookup_without_catalog(self):
+        c = self.case
+        self.assertEqual(c.cli('locate', 'personal')['entry'], str(c.checkout / 'AGENTS.md'))
+        c.cli('apply', '--item', 'one', '--item', 'personal:entry')
+        skill = c.cli('locate', 'one')
+        instruction = c.cli('locate', 'personal')
+        c.catalog.unlink()
+        self.assertEqual(c.cli('locate', 'one')['root'], skill['root'])
+        self.assertEqual(c.cli('locate', 'personal')['root'], instruction['root'])
+
+
+    def test_multiple_destinations_require_explicit_agent(self):
+        c = self.case
+        document = tomlkit.parse(c.config.read_text())
+        document['agents']['codex'] = {'root': str(c.root / 'codex'), 'skills': str(c.root / 'codex-skills')}
+        c.config.write_text(tomlkit.dumps(document))
+        self.assertIn('--agent', c.cli('locate', 'one', code=1))
+        c.cli('locate', 'one', '--agent', 'claude')
+        c.cli('apply', '--item', 'one')
+        self.assertIn('--agent', c.cli('locate', 'one', code=1))

@@ -7,6 +7,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **Payload defaults**: Use best-effort permission preservation and preserve nested directory symlinks by default.
+  Explicit strict permissions and link rejection remain available; saved ownership retains its previous policy until apply safely transitions it.
+- **Payload exclusions**: Default to `**/._DAV` and `**/@eaDir`; an explicit global array replaces this list, including `[]` to include those names.
+  Excluded destination and source entries retain their preservation guarantees.
+- **Publication workflow**: Gather selected managed copies and settings stages during `publish`; `--local` stops at local handoff and `--source-only` bypasses gathering.
+  External sources support the same workflow, `export` becomes the local-gathering alias with grouped reports, and actual application fields still require explicit collection.
+- **Status history**: Keep historical failures and attempt details in verbose/JSON status without presenting them as current faults in concise status.
+- **Compatibility policy**: Distinguish explicit guarantees from descriptions of current behavior using workflow reliance, migration cost, and preservation criteria.
+  See the [workflow migration guidance](docs/removed-interfaces.md#unreleased-workflow-changes) for the combined migration.
+
+### Fixed
+
+- **Agent lookup**: Infer the sole saved or declared destination when `locate --agent` is omitted; ambiguous destinations require a selector.
+- **Lock contention**: Use shared configuration locks for offline inspection and avoid callback waits behind content work, while retaining guarded instruction snapshots and exclusive mutations.
+- **Upgrade verification**: Check saved ownership and edited-copy refusal under new defaults, then explicitly retain previous payload policies for status comparisons with older releases.
+
+### Removed
+
+- **Native Windows execution**: Refuse CLI and installer operations before changes; Linux and WSL remain supported, and CI targets Linux.
+- **Unsupported-item skipping**: Remove setup/installer skip options after retiring the Windows-only case.
+  Legacy Boolean machine fields remain readable without suppressing operation failures.
+  Effective policy JSON omits the obsolete field.
+- **PowerShell shell integration**: Remove the `powershell` choice from `aem setup` and the installer; setup, installation, and update commands reject machine files selecting `setup.shells.powershell`.
+  Remove the integration with the previous release before upgrading; see the [workflow migration guidance](docs/removed-interfaces.md#unreleased-workflow-changes).
+- **Native Windows code paths**: Remove Windows-only locking, process, permission, link-spelling, and encoded hook handling, including recognition of encoded PowerShell hook commands written on Windows.
+
 ## [1.3.0] &mdash; 2026-11-07
 
 Git tag `v1.3.0` corresponds to Python package version `1.3.0`; based on `v1.3.0-rc.2`.

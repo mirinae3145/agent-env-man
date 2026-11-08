@@ -137,11 +137,6 @@ def run_updates(manager, trigger, names=(), *, dry_run=False):
         if entry["status"] != "planned":
             continue
         if dry_run:
-            try:
-                manager.require_sources_supported([name])
-            except (Error, OSError, ValueError) as exc:
-                failed = True
-                entry.update(status="failed", error=str(exc))
             continue
         # A failed earlier transaction can leave a recovery journal. Do not
         # start another skill until that journal has been resolved.
@@ -151,7 +146,6 @@ def run_updates(manager, trigger, names=(), *, dry_run=False):
         source_state["automation"] = attempt
         manager.state.save()
         try:
-            manager.require_sources_supported([name])
             source = manager.delivery_source(sources[name])
             if not source.git:
                 if not source.path.is_dir():

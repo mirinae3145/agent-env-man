@@ -23,7 +23,7 @@ Configure automation for the behavior you want on this device:
 1. Save the selected mode with `aem setup --automation MODE`.
    To customize a full schedule, use `aem setup --automation full --automation-trigger shell-start --automation-trigger agent-start --automation-interval 3600 --automation-git-timeout 30`.
 1. Preview the applicable event with `aem automation --trigger agent-start --dry-run`.
-1. After an event runs, inspect `aem status` for completed stages, exclusions, or failures.
+1. After an event runs, inspect `aem --verbose status` for completed stages, exclusions, or failures.
    A queued result is not completed work.
 
 Omitted setup fields retain their saved values; supplied trigger lists replace the saved list.
@@ -45,10 +45,9 @@ See [Personal hooks](personal-hooks.md).
 
 ## Startup contention and shared fetches
 
-Startup callbacks wait up to five seconds for short lock contention.
+Startup callbacks fail open immediately on lock contention, keeping agent startup responsive.
 On Linux/WSL, instruction callbacks can return validated saved location metadata while a content update holds the configuration lock.
 They still refuse package-replacement contention, pending recovery, replaced links, or a saved configuration/state change during lookup.
-Native Windows retains exclusive installation locking.
 
 In one automatic skill-policy run, skills sharing a prepared checkout, remote, branch, and Git timeout reuse the same fetch observation, including a network failure.
 Different timeout budgets fetch separately.

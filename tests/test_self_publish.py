@@ -1,9 +1,9 @@
 """Prepared release publication uses temporary local Git repositories."""
-from process_support import run_hidden
 
 import json
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
@@ -33,7 +33,7 @@ class SelfPublication(unittest.TestCase):
         self.release("1.0.0")
 
     def git(self, path, *args):
-        result = run_hidden(["git", "-C", str(path), *args], capture_output=True, text=True)
+        result = subprocess.run(["git", "-C", str(path), *args], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout.strip()
 

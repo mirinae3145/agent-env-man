@@ -33,11 +33,11 @@ def signature(path):
 
     def visit(current):
         info = current.lstat()
-        if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT:
+        if stat.S_ISLNK(info.st_mode):
             raise ValueError(f'Official skill payload redirects: {current}')
         relative = current.relative_to(path).as_posix()
         digest.update(relative.encode('utf-8') + b'\0')
-        digest.update(str(info.st_mode & 0o111 if os.name != 'nt' else 0).encode() + b'\0')
+        digest.update(str(info.st_mode & 0o111).encode() + b'\0')
         if stat.S_ISDIR(info.st_mode):
             digest.update(b'd\0')
             for child in sorted(current.iterdir()):

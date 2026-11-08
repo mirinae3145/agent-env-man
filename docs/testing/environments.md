@@ -1,11 +1,11 @@
 # Test environment contracts
 
-These rules guide portable fixtures and the evidence needed for claims about Linux/WSL and native Windows.
+These rules guide portable fixtures and the evidence needed for claims about Linux and WSL.
 
 ## Writing for multiple execution environments
 
 Consider supported environments while designing the change, even when only one is available for execution.
-For affected behavior, identify relevant differences between native Windows and Linux/WSL, shell invocation, interactive terminals and redirected input, and editable versus installed or copied-worker execution.
+For affected behavior, identify relevant differences between Linux and WSL mounted filesystems, shell invocation, interactive terminals and redirected input, and editable versus installed or copied-worker execution.
 Do not require every environment for every change; select the relevant dimensions and checks according to the affected contract.
 
 - **Serialized paths**: Treat filesystem paths and serialized representations as different values.
@@ -19,8 +19,6 @@ Do not require every environment for every change; select the relevant dimension
 - **Process creation**: Use platform-appropriate fake executables and subprocess invocation.
   A POSIX shebang is not a portable executable fixture, and successful command serialization does not establish execution or exit-code propagation in the target shell.
   Keep portable policy and output checks runnable everywhere; isolate native process, shell, and filesystem checks behind explicit capability requirements.
-  Launch test fixture processes through `process_support.run_hidden` or `process_support.popen_hidden` so native Windows runs suppress incidental console windows.
-  These helpers preserve explicitly requested detached/new-console behavior and do not patch product subprocess calls, keeping native console regression checks meaningful.
 - **Preservation**: Exercise both success and failure behavior, especially preservation of user files, unrelated configuration, and saved ownership when an operation cannot proceed.
   A platform limitation should skip only checks requiring that capability, not portable validation of the corresponding error or refusal path.
 

@@ -353,7 +353,6 @@ class OfficialUpdate(SetupFixture):
     release = test_self_update.SelfUpdate.release
     finish_worker = test_self_update.SelfUpdate.finish_worker
 
-    @unittest.skipIf(os.name == 'nt', 'Fake installers use POSIX shebangs')
     def test_uninstalled_skill_does_not_become_an_update_prerequisite(self):
         self.require_links()
         self.register()
@@ -379,7 +378,6 @@ class OfficialUpdate(SetupFixture):
         self.assertEqual((target / 'user.txt').read_text(), 'keep')
         self.assertNotIn('stages', result)
 
-    @unittest.skipIf(os.name == 'nt', 'Fake CLI uses POSIX shebangs')
     def test_full_without_tool_update_stops_on_edited_official_source(self):
         self.require_links()
         self.register(mode='off')
@@ -409,7 +407,6 @@ class OfficialUpdate(SetupFixture):
         self.assertNotIn('catalog', result['stages'])
         self.assertEqual((payload / 'extra.txt').read_text(), 'preserve')
 
-    @unittest.skipIf(os.name == 'nt', 'Fake installers use POSIX shebangs')
     def test_worker_validates_edits_and_refreshes_relocated_link(self):
         self.require_links()
         config = self.register()

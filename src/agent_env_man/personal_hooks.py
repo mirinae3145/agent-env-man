@@ -1,6 +1,5 @@
 """Declared scripts registered as native groups, never executed by AEM."""
 
-import base64
 from copy import deepcopy
 import os
 from pathlib import Path
@@ -8,7 +7,7 @@ import shlex
 
 from . import hooks
 from .model import Error, identifier, relative
-from .storage import exists, is_reparse, observation, saved_path
+from .storage import exists, observation, saved_path
 
 
 FIELDS = {'event', 'runtime', 'script', 'args', 'timeout', 'matcher'}
@@ -66,7 +65,7 @@ def runtime(config, name):
 
 
 def script(path):
-    if not path.is_file() or path.is_symlink() or is_reparse(path):
+    if not path.is_file() or path.is_symlink():
         raise Error(f'Hook script must be a regular file: {path}')
     try:
         path.read_text(encoding='utf-8')
@@ -78,7 +77,7 @@ def source_script(root, path):
     target = root / relative(path)
     cursor = target
     while cursor != root:
-        if cursor.is_symlink() or is_reparse(cursor):
+        if cursor.is_symlink():
             raise Error(f'Hook source path redirects: {cursor}')
         cursor = cursor.parent
     script(target)
@@ -108,31 +107,18 @@ def definition(config, item):
 
 def direct_command(marker, args):
     """Only literal argv is quoted; identity is outside the script's argument list."""
-    if os.name == 'nt':
-        quote = lambda value: "'" + value.replace("'", "''") + "'"
-        command = '$null=' + quote(marker) + '; & ' + ' '.join(map(quote, args)) + '; exit $LASTEXITCODE'
-        return 'powershell.exe -NoProfile -NonInteractive -EncodedCommand ' + base64.b64encode(command.encode('utf-16le')).decode('ascii')
     return ': ' + shlex.quote(marker) + '; exec ' + shlex.join(args)
 
 
 def positions(doc, marker):
-    """Recognize the exact generated prefix, including saved commands on another OS."""
-    prefixes = (': ' + shlex.quote(marker) + '; exec ',
-                "$null='" + marker.replace("'", "''") + "'; & ")
+    """Recognize the exact generated prefix."""
+    prefix = ': ' + shlex.quote(marker) + '; exec '
     found = []
     for event, groups in doc.get('hooks', {}).items():
         for index, group in enumerate(groups):
             for handler in group['hooks']:
                 command = handler.get('command')
-                if not isinstance(command, str):
-                    continue
-                encoded = 'powershell.exe -NoProfile -NonInteractive -EncodedCommand '
-                if command.startswith(encoded):
-                    try:
-                        command = base64.b64decode(command[len(encoded):], validate=True).decode('utf-16le')
-                    except (ValueError, UnicodeError):
-                        continue
-                if command.startswith(prefixes):
+                if isinstance(command, str) and command.startswith(prefix):
                     found.append((event, index))
                     break
     if len(found) > 1:

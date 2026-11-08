@@ -60,11 +60,11 @@ Shared installations follow these rules:
 - User-facing `locate` also supports saved skills and current catalog source lookup for uninstalled content or explicit `--source` requests.
 - Keep callbacks on saved instruction lookup only; never fall back from a broken saved installation to a different source.
 - Source lookup validates paths and Git identity without requiring a clean checkout, fetching, or installing content.
-- Keep copy/detached locations distinct from source editing paths; ordinary publication never implies collecting installed-copy edits, and reverse collection requires explicit `--from-copy`.
+- Keep copy/detached locations distinct from source editing paths; explicit publication gathers managed copies by default; `--source-only` bypasses collection.
 
 ## Callback transport and locking
 
-Use an absolute interpreter for hook execution, quote POSIX arguments, and explicitly encode a PowerShell command on Windows without evaluating user paths.
+Use an absolute interpreter for hook execution, quote POSIX arguments without evaluating user paths.
 Instruction callbacks emit only path metadata, never document contents.
 
 Callback output follows these rules:
@@ -76,12 +76,11 @@ Callback output follows these rules:
 
 Callback lock handling follows these rules:
 
-- Instruction callbacks wait at most 5 seconds total for the installation and configuration locks within their 10-second hook limit.
+- Instruction callbacks attempt both locks immediately, preserving the hook budget for lookup.
 - On POSIX, CLI processes hold a shared installation lock; package-replacement workers retain the exclusive lock.
-- Windows retains exclusive installation locking.
 - If only the configuration lock remains busy, instruction callbacks may resolve read-only location metadata from saved state.
 - Reject pending recovery, invalid or replaced links, and any change to the machine file or ownership state during lookup before emitting context.
-- Startup callbacks also wait up to 5 seconds for contention instead of skipping immediately; other commands retain immediate configuration contention failure.
+- Startup callbacks fail open immediately on contention; ordinary commands also fail promptly when an incompatible lock is held.
 
 ## Reading-location metadata
 

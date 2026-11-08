@@ -22,7 +22,8 @@ Prepared sources remain usable offline.
 ## Install and connect this machine
 
 Requirements: Python 3.11 or later, Git, and [uv](https://docs.astral.sh/uv/).
-Linux/WSL and native Windows are supported; link installation requires symbolic link privileges.
+Linux and WSL are supported; native Windows execution is unsupported.
+For existing installations, read the [upcoming workflow changes](docs/removed-interfaces.md#unreleased-workflow-changes) before upgrading.
 Configure Git credentials separately; AEM uses noninteractive authentication.
 
 From this checkout on Linux/WSL:
@@ -31,18 +32,13 @@ From this checkout on Linux/WSL:
 python scripts/setup.py --shell bash --agent codex
 ```
 
-On Windows:
-
-```powershell
-py -3 scripts/setup.py --shell powershell --agent codex
-```
-
 The installer installs AEM and connects the selected shell and agent, including the official `idk-aem` operations skill.
 It does not bind a catalog or install user catalog content.
 Open a new selected shell to use the updated PATH.
 
-Supported integrations are Bash, Zsh, PowerShell, Codex, and Claude Code; use `--agent claude` for Claude or repeat `--agent` to select both.
-Windows and WSL should use separate machine configurations, checkouts, and targets.
+Supported integrations are Bash, Zsh, Codex, and Claude Code; use `--agent claude` for Claude or repeat `--agent` to select both.
+Run AEM inside WSL with its own machine configuration, checkouts, and targets.
+
 For additional accounts of the same product, use named instances such as `aem setup --agent claude-lab --agent codex-lab`.
 Each named instance has independent destination paths and ownership; see [named instances](docs/agent-instances.md).
 Setup never logs in, copies credentials, or installs product plugins.
@@ -140,7 +136,9 @@ aem publish report -m "Clarify guidance"
 Publication commits and pushes the whole selected Git repository, including changes outside the named skill or bundle.
 Review unrelated edits and outgoing commits before publishing.
 Editing through an installed link changes the source immediately.
-To return managed-copy edits, use explicit `publish --from-copy`; ordinary publication does not collect them.
+
+Publication gathers selected managed copies and settings stages by default.
+Use `publish --local` to gather without Git publication, or `publish --source-only` to share only source edits.
 See [publish](docs/commands/publish.md) for collection, conflicts, external sources, and retry behavior.
 
 ## Preservation and recovery

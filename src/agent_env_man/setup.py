@@ -4,8 +4,6 @@ import json
 import os
 from pathlib import Path
 import shlex
-import shutil
-import subprocess
 import sys
 
 import tomlkit
@@ -14,7 +12,7 @@ from .agents import profile
 from .manager import Manager, Plan
 from .model import Config, Error, Item, absolute, overlaps
 from .progress import operation
-from .storage import exists, is_reparse, observation, link_matches
+from .storage import exists, observation, link_matches
 from .settings import Settings, shares_hook_file
 
 
@@ -41,7 +39,7 @@ def official_plans(manager, agents, *, removing=(), refresh=False):
                   absolute(agents[name]['skills']) / official_skills.NAME)
         # The final component is deliberately allowed to be our managed link.
         for parent in target.parents:
-            if exists(parent) and (parent.is_symlink() or is_reparse(parent)):
+            if parent.is_symlink():
                 raise Error(f'Official skill target ancestry redirects: {parent}')
         before = observation(target)
         if removal:
@@ -163,7 +161,7 @@ def install_optional_skills(manager, plans, report):
 def regular(path):
     """Do not follow even an intermediate profile redirect when writing hooks."""
     for part in (path, *path.parents):
-        if exists(part) and (part.is_symlink() or is_reparse(part)):
+        if part.is_symlink():
             raise Error(f'Setup target must not redirect: {part}')
     if exists(path) and not path.is_file():
         raise Error(f'Setup target must be a regular file: {path}')
@@ -172,67 +170,29 @@ def regular(path):
 def shell_path(name):
     if name == 'bash':
         return Path.home() / '.bashrc'
-    if name == 'zsh':
-        return Path(os.environ.get('ZDOTDIR') or Path.home()).expanduser() / '.zshrc'
-    executable = shutil.which('pwsh') or shutil.which('powershell.exe')
-    if not executable:
-        raise Error('PowerShell is not available; install it before selecting powershell')
-    value = subprocess.run([executable, '-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
-                            '[Console]::Write($PROFILE.CurrentUserAllHosts)'],
-                           capture_output=True, text=True, check=True, timeout=10,
-                           **({'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {})).stdout.strip()
-    if not value or not Path(value).is_absolute():
-        raise Error('PowerShell returned an invalid profile path')
-    return Path(value)
+    return Path(os.environ.get('ZDOTDIR') or Path.home()).expanduser() / '.zshrc'
 
 
-def shell_block(name, config, executable, bin_dir):
+def shell_block(config, executable, bin_dir):
     identity = hashlib.sha256(str(config).encode()).hexdigest()[:20]
     start, end = f'# >>> AEM {identity} >>>', f'# <<< AEM {identity} <<<'
-    if name == 'powershell':
-        quote = lambda value: "'" + str(value).replace("'", "''") + "'"
-        # A child process cannot change its caller's directory. Capture only
-        # successful --cd output and treat it as a literal path, never as code.
-        body = ['function global:aem {',
-                '    $aemCommand = $null; $aemSkip = $false',
-                '    foreach ($aemArg in $args) {',
-                '        if ($aemSkip) { $aemSkip = $false; continue }',
-                '        if ($aemArg -eq "--config") { $aemSkip = $true; continue }',
-                '        if ($aemArg -like "-*") { continue }',
-                '        if ($aemCommand -eq "catalog") { $aemCommand = "catalog:$aemArg"; break }',
-                '        $aemCommand = $aemArg',
-                '        if ($aemCommand -ne "catalog") { break }', '    }',
-                '    if (($aemCommand -eq "locate" -or $aemCommand -eq "catalog:locate") -and $args -contains "--cd" -and $args -notcontains "--help" -and $args -notcontains "-h") {',
-                f"        $aemDirectory = & {quote(executable)} @args",
-                '        if ($LASTEXITCODE -ne 0) { return }',
-                '        Set-Location -LiteralPath $aemDirectory -ErrorAction Stop',
-                '    } else {', f"        & {quote(executable)} @args", '    }', '}',
-                f"if (($env:PATH -split [IO.Path]::PathSeparator) -notcontains {quote(bin_dir)}) {{",
-                f"    $env:PATH = {quote(bin_dir)} + [IO.Path]::PathSeparator + $env:PATH", '}',
-                "$aemBatch = [Environment]::GetCommandLineArgs() | Where-Object { $_ -match '^-(NonI.*|Command.*|EncodedCommand|File|c|f|ec)$' }",
-                'if ([Environment]::UserInteractive -and -not $aemBatch) {',
-                '    $aemPreviousExitCode = $global:LASTEXITCODE',
-                '    try {',
-                f"        & {quote(executable)} --config {quote(config)} startup --trigger shell-start | Out-Null",
-                '    } catch { Write-Verbose $_ } finally { $global:LASTEXITCODE = $aemPreviousExitCode }', '}']
-    else:
-        command = shlex.join([str(executable), '--config', str(config), 'startup', '--trigger', 'shell-start'])
-        directory = shlex.quote(str(bin_dir))
-        executable_command = shlex.quote(str(executable))
-        body = ['aem() {', '    local aem_arg aem_cd=0 aem_help=0 aem_directory aem_status aem_command= aem_skip=0',
-                '    for aem_arg in "$@"; do',
-                '        case "$aem_arg" in --cd) aem_cd=1 ;; --help|-h) aem_help=1 ;; esac',
-                '    done',
-                '    for aem_arg in "$@"; do',
-                '        if [ "$aem_skip" = 1 ]; then aem_skip=0; continue; fi',
-                '        case "$aem_arg" in --config) aem_skip=1 ;; -*) ;; *) if [ "$aem_command" = catalog ]; then aem_command="catalog:$aem_arg"; break; fi; aem_command=$aem_arg; [ "$aem_command" = catalog ] || break ;; esac',
-                '    done',
-                '    if { [ "$aem_command" = locate ] || [ "$aem_command" = catalog:locate ]; } && [ "$aem_cd" = 1 ] && [ "$aem_help" = 0 ]; then',
-                f'        aem_directory=$({executable_command} "$@")',
-                '        aem_status=$?', '        [ "$aem_status" = 0 ] || return "$aem_status"',
-                '        builtin cd -- "$aem_directory"', '    else',
-                f'        {executable_command} "$@"', '    fi', '}', 'case $- in', '  *i*)', f'    case ":$PATH:" in *:{directory}:*) ;; *) export PATH={directory}:"$PATH" ;; esac',
-                f'    {command} >/dev/null 2>&1 || true', '    ;;', 'esac']
+    command = shlex.join([str(executable), '--config', str(config), 'startup', '--trigger', 'shell-start'])
+    directory = shlex.quote(str(bin_dir))
+    executable_command = shlex.quote(str(executable))
+    body = ['aem() {', '    local aem_arg aem_cd=0 aem_help=0 aem_directory aem_status aem_command= aem_skip=0',
+            '    for aem_arg in "$@"; do',
+            '        case "$aem_arg" in --cd) aem_cd=1 ;; --help|-h) aem_help=1 ;; esac',
+            '    done',
+            '    for aem_arg in "$@"; do',
+            '        if [ "$aem_skip" = 1 ]; then aem_skip=0; continue; fi',
+            '        case "$aem_arg" in --config) aem_skip=1 ;; -*) ;; *) if [ "$aem_command" = catalog ]; then aem_command="catalog:$aem_arg"; break; fi; aem_command=$aem_arg; [ "$aem_command" = catalog ] || break ;; esac',
+            '    done',
+            '    if { [ "$aem_command" = locate ] || [ "$aem_command" = catalog:locate ]; } && [ "$aem_cd" = 1 ] && [ "$aem_help" = 0 ]; then',
+            f'        aem_directory=$({executable_command} "$@")',
+            '        aem_status=$?', '        [ "$aem_status" = 0 ] || return "$aem_status"',
+            '        builtin cd -- "$aem_directory"', '    else',
+            f'        {executable_command} "$@"', '    fi', '}', 'case $- in', '  *i*)', f'    case ":$PATH:" in *:{directory}:*) ;; *) export PATH={directory}:"$PATH" ;; esac',
+            f'    {command} >/dev/null 2>&1 || true', '    ;;', 'esac']
     return start, end, '\n'.join([start, *body, end]) + '\n'
 
 
@@ -325,7 +285,7 @@ def setup(manager, args):
         raise Error('Cannot add and remove the same integration')
     if not (args.shell or args.agent or shells or agents or args.remove_shell or args.remove_agent):
         raise Error('Select at least one --shell or --agent for initial setup')
-    location = args.executable or selected.get('executable') or str(Path(sys.executable).parent / ('aem.exe' if os.name == 'nt' else 'aem'))
+    location = args.executable or selected.get('executable') or str(Path(sys.executable).parent / 'aem')
     if not isinstance(location, str) or not Path(location).expanduser().is_absolute():
         raise Error('Setup executable must be an absolute path')
     executable = Path(location).expanduser().absolute()
@@ -398,7 +358,7 @@ def setup(manager, args):
                   'agent': name if kind == 'agent' else '', 'agents': [name] if kind == 'agent' else [],
                   'detached': removing}
         if kind == 'shell':
-            start, end, desired = shell_block(name, config.path, executable, executable.parent)
+            start, end, desired = shell_block(config.path, executable, executable.parent)
             content, block = render_shell(path, start, end, None if removing else desired, baseline)
             record['block'] = block
         else:

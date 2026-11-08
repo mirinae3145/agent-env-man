@@ -1,9 +1,9 @@
 """Personal resources exercise real offline CLI, ownership and delivery boundaries."""
-from process_support import run_hidden
 from copy import deepcopy
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -239,21 +239,17 @@ class PersonalHooks(unittest.TestCase):
         self.assertEqual(len(self.document()['hooks']['SessionEnd']), 1)
 
     def test_registration_preserves_native_streams_exit_and_literal_argv(self):
-        if os.name == 'nt':
-            self.skipTest('Native POSIX command execution')
         self.script.write_text('import sys,json\nprint(json.dumps(sys.argv[1:],ensure_ascii=False))\n'
                                'print(sys.stdin.read(),file=sys.stderr)\nsys.exit(7)\n', encoding='utf-8')
         self.bootstrap()
         self.apply()
         command = self.document()['hooks']['SessionEnd'][0]['hooks'][0]['command']
-        result = run_hidden(command, shell=True, input='event stdin', text=True, capture_output=True)
+        result = subprocess.run(command, shell=True, input='event stdin', text=True, capture_output=True)
         self.assertEqual(result.returncode, 7)
         self.assertEqual(json.loads(result.stdout), self.doc['hooks']['observer']['agents']['codex']['args'])
         self.assertEqual(result.stderr, 'event stdin\n')
 
     def virtualenv_runtime(self):
-        if os.name == 'nt':
-            self.skipTest('Native POSIX virtualenv symlink execution')
         environment = self.root / 'hook venv'
         venv.EnvBuilder(with_pip=False, symlinks=True).create(environment)
         executable = environment / 'bin/python'
@@ -267,9 +263,9 @@ class PersonalHooks(unittest.TestCase):
     def assert_virtualenv_execution(self, executable):
         self.apply('--agent', 'codex')
         command = self.document()['hooks']['SessionEnd'][0]['hooks'][0]['command']
-        expected = run_hidden([str(executable), str(self.script)], capture_output=True,
+        expected = subprocess.run([str(executable), str(self.script)], capture_output=True,
                                   text=True, check=True)
-        actual = run_hidden(command, shell=True, capture_output=True, text=True, check=True)
+        actual = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
         self.assertEqual(json.loads(actual.stdout), json.loads(expected.stdout))
 
     def test_bootstrap_preserves_virtualenv_runtime_path(self):
@@ -353,11 +349,10 @@ class PersonalHooks(unittest.TestCase):
                 self.apply(code=1)
                 self.assertEqual(before, [self.target(a).read_bytes() for a in ('codex', 'claude')])
 
-    def test_foreign_noncommand_and_invalid_encoded_handlers_are_preserved(self):
+    def test_foreign_noncommand_and_command_handlers_are_preserved(self):
         self.bootstrap()
         foreign = {'hooks': [{'type': 'prompt', 'prompt': 'User-owned prompt'},
-                            {'type': 'command', 'command': 'powershell.exe -NoProfile -NonInteractive -EncodedCommand invalid!'},
-                            {'type': 'command', 'command': 'powershell.exe -NoProfile -NonInteractive -EncodedCommand /w=='}]}
+                            {'type': 'command', 'command': 'echo unrelated'}]}
         for agent in ('codex', 'claude'):
             self.write({'hooks': {'SessionEnd': [foreign]}}, agent)
         self.apply()
@@ -594,19 +589,6 @@ class PersonalHooks(unittest.TestCase):
         self.assertFalse(doc['awaySummaryEnabled'])
         self.call('hooks', 'remove', 'observer', '--agent', 'claude')
         self.assertEqual(self.document('claude')['hooks']['SessionStart'], doc['hooks']['SessionStart'])
-
-    def test_windows_command_encoding_preserves_literal_arguments(self):
-        import base64
-        from agent_env_man.personal_hooks import direct_command
-        argv = [r'C:\Program Files\python.exe', r'C:\한글\script.py', "quote'", '$env:HOME', 'a b']
-        with patch('agent_env_man.personal_hooks.os.name', 'nt'):
-            command = direct_command('AEM test marker', argv)
-        encoded = command.split()[-1]
-        decoded = base64.b64decode(encoded).decode('utf-16le')
-        self.assertIn("'quote'''", decoded)
-        self.assertIn("'$env:HOME'", decoded)
-        self.assertIn("'C:\\한글\\script.py'", decoded)
-        self.assertTrue(decoded.endswith('; exit $LASTEXITCODE'))
 
     def test_publication_reports_shared_consumers_and_never_registers(self):
         (self.source / 'SKILL.md').write_text('---\nname: other\ndescription: fixture\n---\nOther\n')

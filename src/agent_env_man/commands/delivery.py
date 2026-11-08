@@ -127,7 +127,6 @@ def bootstrap_skills(config, state, args):
             if value.partition("=")[0] not in candidate._settings:
                 raise Error("--setting-target must name a catalog setting")
         manager = Manager(candidate, state)
-        manager.require_sources_supported(args.item)
     if candidate.catalog_copy_source is None:
         atomic_write(config.path, tomlkit.dumps(candidate.doc).encode("utf-8"))
     report, failed = manager.prepare_skills(args.item, timeout=args.timeout)
@@ -190,11 +189,13 @@ def update(runtime, source, timeout):
 @click.argument("source", nargs=-1, required=True, metavar="NAME...")
 @click.option("-m", "--message", help="Commit all nonignored checkout changes with this message.")
 @click.option("--from-copy", is_flag=True, help="Collect selected managed skill/directory/instruction copies before publication; conflicts stop the source group.")
+@click.option("--source-only", is_flag=True, help="Publish source edits without gathering installed copies or settings stages.")
+@click.option("--local", is_flag=True, help="Gather into local sources without Git commits, fetches, or pushes.")
 @preview_option
 @timeout_option
 @pass_runtime
-def publish(runtime, source, message, from_copy, dry_run, timeout):
-    """Export selected settings and publish whole checkouts by catalog item name.
+def publish(runtime, source, message, from_copy, source_only, local, dry_run, timeout):
+    """Gather selected edits and publish whole checkouts by catalog item name.
 
     NAME selects a catalog skill, directory, instruction, setting or personal
     hook, not a repository or installation component ID. Settings export
@@ -204,11 +205,18 @@ def publish(runtime, source, message, from_copy, dry_run, timeout):
     copies publish into their local source folder; transport stays outside AEM.
     Collection preserves affected active links' required paths and file kinds;
     reconcile the copy or detach affected items before removing those paths.
-    Without --from-copy, installed copy edits are not collected.
+    By default, gather installed managed copies and settings stages; links and
+    uninstalled items use their source directly. Detached copies are excluded.
+    --local stops after gathering; --source-only bypasses gathering.
 
     With --message, commit all nonignored changes in each selected repository.
     Without it, require a clean worktree and push existing commits. --dry-run
     is offline and does not verify remote state. First publication requires a
     successfully verified empty remote; remote errors stop publication.
     """
-    return runtime.run(lambda session: session.manager.publish(source, message=message, from_copy=from_copy, dry_run=dry_run, timeout=timeout))
+    if source_only and (from_copy or local):
+        raise click.UsageError('--source-only cannot be combined with --from-copy or --local')
+    if local and message is not None:
+        raise click.UsageError('--local does not create commits; omit --message')
+    return runtime.run(lambda session: session.manager.publish(source, message=message, from_copy=from_copy,
+                       source_only=source_only, local=local, dry_run=dry_run, timeout=timeout))

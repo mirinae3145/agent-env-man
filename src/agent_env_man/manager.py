@@ -13,9 +13,9 @@ from .agents import profile, suffix, product_name, instruction_definition
 from .git_source import Git, now
 from .model import Config, MachineFile, Error, Item, identifier, overlaps, relative
 from .progress import operation, step
-from .payload_links import CopyCleanupError, require_supported, unsupported_reason, options as payload_options, replace as replace_link_entry, remove as remove_link_entry
+from .payload_links import CopyCleanupError, options as payload_options, replace as replace_link_entry, remove as remove_link_entry
 from .payload_policy import saved as saved_policy, preservation_paths, retention, park, restore_retained
-from .storage import State, copy_payload, exists, fingerprint, is_reparse, observation, remove, saved_path, link_matches
+from .storage import State, copy_payload, exists, fingerprint, observation, remove, saved_path, link_matches
 
 
 @dataclass
@@ -43,27 +43,6 @@ class Manager:
             return replace(source, branch=branch)
         return source
 
-    def require_items_supported(self, items):
-        """Check desired and saved policies before any selected payload changes."""
-        for item in items:
-            require_supported(item, item.key)
-            old = self.state.data['items'].get(item.key, {})
-            if not old.get('detached'):
-                require_supported(old, item.key)
-
-    def require_sources_supported(self, names=(), *, sources=None):
-        """Shared delivery must satisfy even unselected consumers and orphaned links."""
-        sources = self.config.sources if sources is None else sources
-        paths = {source.path for name, source in sources.items() if not names or name in names}
-        for source in self.config.sources.values():
-            if source.path in paths:
-                self.require_items_supported(self.config.declarations(source))
-        for key, old in self.state.data['items'].items():
-            if old.get('detached') or old.get('mode') != 'link':
-                continue
-            if any(old.get('source') == str(path / old.get('relative', '.')) for path in paths):
-                require_supported(old, key)
-
     @operation('Preparing sources')
     def prepare_skills(self, names=(), *, timeout=30, defer_payloads=False):
         """Clone listed repositories, validating consumers before publishing a checkout.
@@ -79,7 +58,6 @@ class Manager:
         if set(names) - sources.keys():
             raise Error("Unknown catalog source selection")
         self.check_destinations([i for s in sources.values() for i in self.config.declarations(s)])
-        self.require_sources_supported(names)
         report, failed = [], False
         groups = {}
         for name, source in sources.items():
@@ -162,8 +140,8 @@ class Manager:
                         raise Error(f"{skill_name}: skill path must contain SKILL.md")
                     cursor = payload
                     while cursor != local_path:
-                        if cursor.is_symlink() or is_reparse(cursor):
-                            raise Error(f"Skill source contains a symlink/junction: {cursor}")
+                        if cursor.is_symlink():
+                            raise Error(f"Skill source contains a symlink: {cursor}")
                         cursor = cursor.parent
                     inspect_payload(payload, exclude_git=item.relative == ".", **payload_options(item))
                 revision = git.run(local_path, "rev-parse", "HEAD").stdout
@@ -194,13 +172,7 @@ class Manager:
                                    "status": "failed", "error": str(exc)})
             finally:
                 if temporary:
-                    # Git can mark object files read-only on Windows; a failed
-                    # staged clone must still be removable before returning.
-                    def writable_retry(operation, path, error):
-                        os.chmod(path, stat.S_IWRITE)
-                        operation(path)
-
-                    shutil.rmtree(temporary, onerror=writable_retry)
+                    shutil.rmtree(temporary)
             for skill_name, _ in selected:
                 self.state.data["sources"].setdefault(skill_name, {})["last_attempt"] = now()
             self.state.save()
@@ -348,8 +320,8 @@ class Manager:
         # Intermediate source symlinks would bypass directory-tree validation.
         cursor = item.source
         while cursor != root:
-            if cursor.is_symlink() or is_reparse(cursor):
-                raise Error(f"Source path contains a symlink/junction: {cursor}")
+            if cursor.is_symlink():
+                raise Error(f"Source path contains a symlink: {cursor}")
             cursor = cursor.parent
         if item.kind == "skill" and (not item.source.is_dir() or not (item.source / "SKILL.md").is_file()):
             raise Error(f"{item.key}: skill path must be a directory containing SKILL.md")
@@ -369,7 +341,33 @@ class Manager:
             raise Error(f"Payload changed during inspection: {item.source}")
         return result
 
-    def locate(self, name, agent="codex", *, source=False, target=False, repo=False):
+    def locate_agent(self, name, *, source=False):
+        """Select one real destination without requiring a catalog for saved work."""
+        records = [r for r in self.state.data['items'].values() if r.get('source_name') == name]
+        if not source and any(r.get('kind') == 'directory' for r in records):
+            return None
+        candidates = set()
+        if not source:
+            for record in records:
+                if record.get('kind') in ('skill', 'instruction', 'personal-hook'):
+                    candidates.update(record.get('agents') or [record.get('agent', 'codex')])
+        if not candidates:
+            config = Config(self.config.path)
+            sources = config.sources
+            if name not in sources:
+                raise Error(f'{name}: unknown catalog item')
+            for item in config.declarations(sources[name]):
+                if item.kind == 'directory':
+                    return None
+                if item.kind in ('skill', 'instruction', 'personal-hook'):
+                    candidates.update(item.agents or (item.agent,))
+        candidates.discard(None)
+        if len(candidates) != 1:
+            choices = ', '.join(sorted(candidates)) or 'no matching destinations'
+            raise Error(f'{name}: specify --agent ({choices})')
+        return candidates.pop()
+
+    def locate(self, name, agent=None, *, source=False, target=False, repo=False):
         """Locate saved content by default, or current catalog source content explicitly.
 
         Saved locations take precedence even when broken: never silently redirect
@@ -397,19 +395,22 @@ class Manager:
             if name in current._settings:
                 self.config = current
                 return Settings(self).locate(name, source=source, target=target)
-        hook_record = self.state.data['items'].get(f'{name}:hook{suffix(agent)}')
+        if agent is None:
+            agent = self.locate_agent(name, source=source)
+        hook_record = self.state.data['items'].get(f'{name}:hook{suffix(agent)}') if agent else None
         if hook_record and hook_record.get('kind') == 'personal-hook' and not source:
             if target:
                 raise Error('--target is supported only for settings')
             path = saved_path(hook_record.get('source'))
-            if not path.is_file() or path.is_symlink() or is_reparse(path):
+            if not path.is_file() or path.is_symlink():
                 raise Error('Saved hook source is missing or redirected; inspect status')
             return {'root': str(path.parent), 'entry': str(path), 'hook_file': hook_record['target'],
                     'hook_event': hook_record['hook_event'], 'detached': bool(hook_record.get('detached')),
                     'location': 'source'}
         if target:
             raise Error("--target is supported only for settings")
-        self.validate_agent(agent, saved=True)
+        if agent is not None:
+            self.validate_agent(agent, saved=True)
         if not source:
             record = self.state.data["items"].get(f"{name}:directory")
             if record is not None:
@@ -420,14 +421,14 @@ class Manager:
                         raise Error(f"{name}: installed directory link was replaced; inspect status")
                 elif record.get("mode") not in ("link", "copy"):
                     raise Error(f"{name}: unsupported saved directory mode")
-                elif target.is_symlink() or is_reparse(target):
+                elif target.is_symlink():
                     raise Error(f"{name}: saved directory copy was replaced by a link")
                 root = target.resolve(strict=True)
                 if not root.is_dir():
                     raise Error(f"{name}: saved directory is missing or is not a directory")
                 return {"root": str(root), "entry": str(root), "installed_root": str(target),
                         "detached": bool(record.get("detached")), "location": "source" if linked else "copy"}
-            record = self.instruction_record(name, agent)
+            record = self.instruction_record(name, agent) if agent else None
             if record is not None:
                 return self.locate_instruction(name, agent)
             records = [r for r in self.state.data["items"].values()
@@ -444,7 +445,7 @@ class Manager:
                         raise Error(f"{name}: installed skill link was replaced; inspect status")
                 elif record.get("mode") not in ("link", "copy"):
                     raise Error(f"{name}: unsupported saved skill mode")
-                elif target.is_symlink() or is_reparse(target):
+                elif target.is_symlink():
                     raise Error(f"{name}: saved skill copy was replaced by a link")
                 root = target.resolve(strict=True)
                 self.locate_entry(root, root / "SKILL.md")
@@ -469,7 +470,7 @@ class Manager:
         if item.kind == "directory":
             cursor = entry
             while cursor != selected.path:
-                if cursor.is_symlink() or is_reparse(cursor):
+                if cursor.is_symlink():
                     raise Error(f"Directory source redirects through a link: {cursor}")
                 cursor = cursor.parent
             if not entry.is_dir():
@@ -544,8 +545,8 @@ class Manager:
             raise Error(f"Source directory is missing: {root}")
         cursor = entry
         while True:
-            if cursor.is_symlink() or (cursor.exists() and is_reparse(cursor)):
-                raise Error(f"Source entry contains a symlink/junction: {cursor}")
+            if cursor.is_symlink():
+                raise Error(f"Source entry contains a symlink: {cursor}")
             if cursor == root:
                 break
             cursor = cursor.parent
@@ -585,7 +586,7 @@ class Manager:
         target = Path(record["target"])
         if record.get("detached") or record.get("mode") == "copy":
             saved_path(str(target))
-            if target.is_symlink() or is_reparse(target):
+            if target.is_symlink():
                 raise Error(f"{name}: copied/detached bundle directory was replaced by a link")
         elif not target.is_symlink() or not link_matches(observation(target), record.get("link_target", record["source"])):
             raise Error(f"{name}: installed bundle link was replaced; inspect status")
@@ -593,11 +594,11 @@ class Manager:
         if not root.is_dir():
             raise Error(f"{name}: installed bundle root is not a directory")
         entry = root / relative(record["entry"])
-        # Refuse redirected entry paths, including intermediate links/junctions.
+        # Refuse redirected entry paths, including intermediate links.
         cursor = entry
         while cursor != root:
-            if cursor.is_symlink() or is_reparse(cursor):
-                raise Error(f"{name}: entry path contains a symlink/junction")
+            if cursor.is_symlink():
+                raise Error(f"{name}: entry path contains a symlink")
             cursor = cursor.parent
         if not entry.is_file():
             raise Error(f"{name}: original entry document is missing: {entry}")
@@ -613,7 +614,7 @@ class Manager:
         target = Path(record["target"])
         if not target.is_file():
             raise Error(f"{name}: installed global entry is unavailable")
-        if record.get("detached") and (target.is_symlink() or is_reparse(target)):
+        if record.get("detached") and target.is_symlink():
             raise Error(f"{name}: detached global entry was replaced by a link")
         if not record.get("detached") and not link_matches(observation(target), record.get("link_target", record["source"])):
             raise Error(f"{name}: global entry link was replaced; inspect status")
@@ -627,7 +628,7 @@ class Manager:
                 source_root = source_root.parent
             cursor = source_entry
             while True:
-                if cursor.is_symlink() or is_reparse(cursor):
+                if cursor.is_symlink():
                     raise Error(f"{name}: live entry source was redirected")
                 if cursor == source_root:
                     break
@@ -850,10 +851,10 @@ class Manager:
                     stage.symlink_to(item.link_destination, target_is_directory=item.source.is_dir())
                 except OSError as exc:
                     if item.kind == "instruction-entry":
-                        raise Error("Cannot create the instruction entry symbolic link; enable Windows "
-                                    "Developer Mode/link privileges. Instruction entries require links.") from exc
-                    raise Error("Cannot create a symbolic link; enable Windows Developer Mode/link privileges "
-                                "or explicitly configure this item as copy") from exc
+                        raise Error("Cannot create the instruction entry symbolic link on this filesystem; "
+                                    "instruction entries require links.") from exc
+                    raise Error("Cannot create a symbolic link on this filesystem; "
+                                "explicitly configure this item as copy") from exc
             elif item.mode == "copy":
                 copy_payload(item.source, stage, exclude_git=plan.record.get("exclude_git", False), permission_failures=permission_failures, **copy_policy)
                 if best_effort:
@@ -1061,7 +1062,6 @@ class Manager:
         if (adopt or replace) and not requested:
             raise Error("--adopt and --replace require explicit --item selections")
         items = self.selected(requested, reattach=reattach, agent=agent)
-        self.require_items_supported(items)
         from .settings import Settings, transaction
         settings = Settings(self)
         setting_items = [i for i in items if i.kind == "setting"]
@@ -1205,9 +1205,6 @@ class Manager:
             hook_key = f"{old.get('source_name')}:hook{suffix(old.get('agent', 'codex'))}"
             if old.get("kind") == "instruction-entry" and hook_key in self.state.data["items"] and hook_key not in keys:
                 keys.append(hook_key)
-        for key in keys:
-            if not records[key].get("detached"):
-                require_supported(records[key], key)
         plans, untouched = [], []
         for number, key in enumerate(keys, 1):
             step(f"Planning detach {number}/{len(keys)}", key)
@@ -1265,22 +1262,28 @@ class Manager:
         return report
 
     @operation('Collecting and publishing content', detail=lambda self, names=(), **options: names[0] if isinstance(names, (tuple, list)) and len(names) == 1 else None)
-    def publish(self, names, *, message=None, from_copy=False, dry_run=False, timeout=30):
-        """Publish each selected checkout once, reporting every catalog consumer.
+    def publish(self, names, *, message=None, from_copy=False, source_only=False, local=False, dry_run=False, timeout=30):
+        """Gather selected edits, then hand off each source independently.
 
-        Names select sources, not Git file scopes. Explicit copy collection
-        advances only matching copy baselines; automatic clocks are untouched.
+        Copy and settings plans are checked together before any source writes.
+        Local handoff and remote publication share preservation and selection;
+        Git commit scope remains the entire checkout.
         """
+        from .copy_publication import plan, selected_writes, guard_links, collect
+        from .settings import Settings, changed, Bundle, metadata_path
         self.state.ready()
         sources = self.config.sources
         if not names or set(names) - sources.keys():
             raise Error("publish requires known catalog skill, directory, instruction bundle, setting or personal hook names")
         if message is not None and not message.strip():
             raise Error("--message must not be empty")
+        if source_only and (from_copy or local):
+            raise Error('--source-only cannot be combined with --from-copy or --local')
+        if local and message is not None:
+            raise Error('--local does not create commits; omit --message')
         groups = {}
         for name, source in sources.items():
             groups.setdefault(source.path, []).append((name, source))
-        self.require_sources_supported(names)
         results, failed = [], False
         for path, members in groups.items():
             selected = sorted(name for name, _ in members if name in names)
@@ -1293,67 +1296,82 @@ class Manager:
             results.append(report)
             try:
                 self.state.ready()
-                collection = None
-                if from_copy:
-                    from .copy_publication import plan, selected_writes, guard_links, collect
+                if not source.path.is_dir():
+                    raise Error(f'{source.name}: source is missing; run bootstrap or restore the external folder')
+                settings = Settings(self)
+                setting_names = [] if source_only else [n for n in selected if n in self.config._settings]
+                collection = []
+                if not source_only:
                     self.check_destinations(self.items())
-                    collection = plan(self, selected)
+                    collection = plan(self, selected, installed_only=not from_copy)
                     report['collection'] = [p.report for p in collection]
+                    # Detached links are materialized copies but keep their saved mode.
+                    report['excluded_copies'] = sorted({r.get('source_name') for r in self.state.data['items'].values()
+                        if r.get('source_name') in selected and r.get('kind') in ('skill', 'directory', 'instruction')
+                        and r.get('detached')})
                     if any(p.report['conflict'] for p in collection):
                         raise Error('Copy and source changed since the common baseline; reconcile the reported paths and retry')
-                    guard_links(selected_writes(collection), self.state.data['items'])
-                if not source.git:
-                    if collection is not None:
-                        report['transport_complete'] = False
-                        if not dry_run:
-                            report['collection_backup'] = collect(self, source, collection)
-                            report.update(status='published', collection_complete=True)
-                        continue
-                    raise Error(f"{source.name}: external source publication is managed outside AEM")
-                source = self.delivery_source(source)
-                git = Git(timeout)
-                report.update(git.publication(source))
-                if collection is not None:
-                    if not dry_run:
+                    writes = selected_writes(collection)
+                    guard_links(writes, self.state.data['items'])
+                    # Validate all settings (including shared-file disagreement)
+                    # before collecting copies; never let one overwrite the other.
+                    if setting_names:
+                        report['export'] = settings.export(setting_names, dry_run=True)
+                        for name in setting_names:
+                            path = settings.item(name).source
+                            if any(overlaps(destination, p.item.source)
+                                   for destination in (path, metadata_path(path)) for p in writes):
+                                raise Error('Copy collection overlaps settings export; publish them separately')
+                if not source_only:
+                    report["unpublished_settings"] = [n for n, _ in members if n not in setting_names and n in self.config._settings
+                        and (r := settings.record(n, required=False))
+                        and changed(Bundle.from_snapshot(r["shared"], format=r["format"]), settings.working(r, conflicts=True))]
+                git = None
+                if source.git:
+                    source = self.delivery_source(source)
+                    git = Git(timeout)
+                    if local:
+                        # Local gathering needs no push destination or change report.
+                        git.validate(source)
+                        git.idle(source)
+                    else:
+                        report.update(git.publication(source))
+                report['transport_complete'] = False
+                if not dry_run:
+                    if git and not local:
+                        needs_commit = (report['changes'] or any(p.report['changed'] for p in collection)
+                                        or any(e['changed'] for e in report.get('export', [])))
+                        if message is None and needs_commit:
+                            raise Error('Source, copy or settings changes require --message for publication')
                         observed = git.publication_preflight(source)
-                        if observed is not None and git.relation(source) not in ('ahead', 'equal-at-last-fetch'):
-                            raise Error('Reconcile Git history before copy collection/publication')
-                        if message is None and (any(p.report['changed'] for p in collection) or report['changes']):
-                            raise Error('Copy changes require --message for publication')
+                        relation = git.relation(source) if observed is not None else None
+                        if relation is not None and relation not in ('ahead', 'equal-at-last-fetch'):
+                            raise Error(f'Checkout is {relation}; reconcile Git history before collection/publication')
+                    if collection:
                         report['collection_backup'] = collect(self, source, collection)
                         report['collection_complete'] = True
-                        report.update(git.publication(source))
-                from .settings import Settings, changed, Bundle
-                settings = Settings(self)
-                setting_names = [n for n in selected if n in self.config._settings]
-                report["unpublished_settings"] = [n for n, _ in members if n not in selected and n in self.config._settings
-                    and (r := settings.record(n, required=False))
-                    and changed(Bundle.from_snapshot(r["shared"], format=r["format"]), settings.working(r, conflicts=True))]
-                if setting_names:
-                    if not dry_run:
-                        observed = git.publication_preflight(source)
-                        if observed is not None and git.relation(source) not in ("ahead", "equal-at-last-fetch"):
-                            raise Error("Reconcile Git history before settings export/publication")
-                    report["export"] = settings.export(setting_names, dry_run=True)
-                    if message is None and (any(e["changed"] for e in report["export"]) or report["changes"]):
-                        raise Error("Settings changes require --message for publication")
-                    if not dry_run:
-                        report["export"] = settings.export(setting_names)
-                if not dry_run:
-                    git.publish(source, report, message=message)
-                    for setting_name in setting_names:
-                        key = f"{setting_name}:settings"
-                        self.state.data["items"][key]["published"] = self.state.data["items"][key]["shared"]
                     if setting_names:
-                        self.state.save()
+                        report['export'] = settings.export(setting_names)
+                    if git and not local:
+                        git.publish(source, report, message=message)
+                        report['transport_complete'] = True
+                        for setting_name in setting_names:
+                            record = self.state.data['items'][f'{setting_name}:settings']
+                            record['published'] = record['shared']
+                        if setting_names:
+                            self.state.save()
+                    else:
+                        report['status'] = 'exported' if local else 'published'
             except (Error, OSError) as exc:
                 failed = True
                 report.update(status="failed", error=str(exc))
             if not dry_run and "last_fetch" in report:
                 for name, _ in members:
-                    self.state.data["sources"].setdefault(name, {}).update(
-                        {key: report[key] for key in ("last_fetch", "observed_revision", "last_publish", "revision")
-                         if key in report})
+                    record = self.state.data["sources"].setdefault(name, {})
+                    record.update({key: report[key] for key in ("last_fetch", "observed_revision", "last_publish", "revision")
+                                   if key in report})
+                    if report['status'] == 'published':
+                        record['error'] = None
                 self.state.save()
         return results, failed
 
@@ -1374,7 +1392,6 @@ class Manager:
                 if not members:
                     sources[source.name] = source
                     selected_names.add(source.name)
-        self.require_sources_supported(selected_names, sources=sources)
         results, failed = [], False
         groups = {}
         for name, source in sources.items():
@@ -1602,12 +1619,6 @@ class Manager:
                         item_entry["installation"] = self.installed_status(old, target_observation=observe_target)
                         if old.get("permissions") == "best-effort":
                             item_entry.update(permissions="best-effort", permission_differences=old.get("permission_differences", []), collection_permission_differences=old.get("collection_permission_differences", []))
-                    reason = unsupported_reason(item) or unsupported_reason(old or {})
-                    if reason:
-                        item_entry.update(status="detached" if old and old.get("detached") else "unavailable",
-                                          error=reason)
-                        report["items"].append(item_entry)
-                        continue
                     try:
                         status, note = self.item_status(item, old, target_observation=observe_target)
                         item_entry.update(status=status)

@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2025]
+        os: [ubuntu-24.04]
         python: ['3.11', '3.15']
         check: [source, distribution]
         exclude:
@@ -55,13 +55,8 @@ jobs:
 
           print(platform.platform(), sys.version, sys.executable, sep='\n')
           options = {'check': True}
-          if os.name == 'nt':
-              options['creationflags'] = subprocess.CREATE_NO_WINDOW
           subprocess.run(['git', '--version'], **options)
           subprocess.run(['git', 'rev-parse', 'HEAD'], **options)
-          if os.name == 'nt':
-              subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive',
-                              '-Command', '$PSVersionTable.PSVersion.ToString()'], **options)
           with tempfile.TemporaryDirectory() as temporary:
               root = Path(temporary)
               (root / 'file').write_text('probe', encoding='utf-8')

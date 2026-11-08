@@ -66,6 +66,7 @@ DETAIL_FIELDS = {"revision", "observed_revision", "head", "last_fetch", "last_up
 PATH_FIELDS = {"path", "target", "checkout", "stage", "root", "entry", "installed_root"}
 IDENTITY_FIELDS = ("name", "item", "skill", "directory", "setting", "source", "agent")
 ROW_STATES = ("status", "action", "installation", "availability", "checkout", "remote_relation", "hook")
+HISTORY_FIELDS = {"last_update_error", "last_attempt", "startup", "catalog_automation"}
 
 
 def _word(value, key):
@@ -97,7 +98,9 @@ def _attention(value):
     if not isinstance(value, dict):
         return False
     for key, child in value.items():
-        if child and (key in {"error", "last_update_error", "configuration_error", "catalog_error",
+        if key in HISTORY_FIELDS:
+            continue
+        if child and (key in {"error", "configuration_error", "catalog_error",
                              "failed", "conflict", "conflicts", "pending", "remaining"}
                       or key in ("status", "installation", "availability", "checkout") and child in (
                           "failed", "conflict", "unavailable", "missing", "broken-link",
@@ -188,6 +191,8 @@ def human_report(report, *, command="", verbose=False, planned=False, failed=Fal
         needs_attention = _attention(value)
         location = "locate" in command.split()
         for key, child in value.items():
+            if key in HISTORY_FIELDS and command == "status":
+                continue
             if key == "compatibility_note" or key == "skills" and "items" in value:
                 continue
             if child is None or child == [] or child == {}:

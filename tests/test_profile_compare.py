@@ -1,5 +1,4 @@
 """Profile comparison reads two roots offline and never writes."""
-import base64
 import io
 import json
 import os
@@ -11,13 +10,6 @@ from pathlib import Path
 from unittest import mock
 
 from agent_env_man.cli import main
-
-
-def encoded_aem_command(config, digest):
-    """An AEM startup command as AEM writes it on native Windows."""
-    script = (f"& 'python' '-m' 'agent_env_man' '--config' '{config}' 'startup' "
-              f"'--aem-hook-id' 'AEM startup [{digest}]'; exit $LASTEXITCODE")
-    return 'powershell.exe -NoProfile -NonInteractive -EncodedCommand ' + base64.b64encode(script.encode('utf-16le')).decode('ascii')
 
 
 AEM_COMMAND = 'python -m agent_env_man --config {config} startup --aem-hook-id marker-{name}'
@@ -353,14 +345,6 @@ class Compare(Roots):
         data = json.loads((root / 'settings.json').read_text())
         change(data)
         (root / 'settings.json').write_text(json.dumps(data))
-
-    def test_aem_hooks_encoded_for_windows_are_aem_owned(self):
-        for root, digest in ((self.left, '0' * 20), (self.right, '1' * 20)):
-            self.edit(root, lambda data: data['hooks']['SessionStart'][0]['hooks'][0].update(
-                command=encoded_aem_command(f'C:\\aem\\{root.name}.toml', digest)))
-        report = self.report()
-        self.assertEqual(report['totals']['different'], 0, report)
-        self.assertEqual(self.items(report, 'hooks')['SessionStart[^startup$] aem']['status'], 'same')
 
     def test_home_relative_spellings_of_the_root_are_normalized(self):
         self.edit(self.left, lambda data: data['statusLine'].update(command=f'bash ~/{self.left.name}/status.sh'))

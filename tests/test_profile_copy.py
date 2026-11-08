@@ -13,7 +13,7 @@ from unittest import mock
 
 from agent_env_man.cli import main
 from agent_env_man.profile_compare import compare as compare_profiles
-from test_profile_compare import Roots, encoded_aem_command
+from test_profile_compare import Roots
 
 
 class Copy(Roots):
@@ -281,12 +281,6 @@ class Write(Copy):
         self.assertIn({'matcher': '^startup$', 'hooks': [{'type': 'command', 'command': 'bash mine.sh'}]}, groups)
         self.assertNotIn('--aem-hook-id', (self.target / 'settings.json').read_text())
         self.assertEqual(check['unexpected'], [])
-
-    def test_aem_hooks_encoded_for_windows_are_left_out(self):
-        self.edit_source(lambda data: data['hooks']['SessionStart'][0]['hooks'][0].update(
-            command=encoded_aem_command('C:\\aem\\machine.toml', '0' * 20)))
-        self.report('--write')
-        self.assertNotIn('EncodedCommand', (self.target / 'settings.json').read_text())
 
     def test_setting_an_object_value_is_expected(self):
         check = self.report('--set', 'permissions={"allow":["Bash"],"deny":["Read"]}', '--write')['verification']

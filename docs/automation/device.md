@@ -1,6 +1,6 @@
 # Device automation behavior
 
-This reference defines full-run sequencing, eligibility, platform exclusions, and completion reporting.
+This reference defines full-run sequencing, eligibility, failure boundaries, and completion reporting.
 Use the [automation guide](../automation.md) to select and configure a mode.
 
 ## Execution sequence
@@ -46,23 +46,12 @@ Participation in the run follows these rules:
 
 ## Unsupported items
 
-By default, a platform-unsupported item stops the content stage before preparation, source updates, or installation.
-On native Windows this includes directories declaring `preserve_symlinks = true`, even when their current contents contain no links.
+Unsupported payloads and ordinary operation failures stop the content stage; native Windows is no longer a supported execution environment.
+The former Boolean `automation.skip_unsupported` field remains readable but has no effect, and its setup options are removed.
+Manual-policy and detached-item exclusions remain visible in `excluded`; these do not suppress errors in selected work or shared-source guards.
 
-### Exclude unsupported items
-
-To explicitly exclude these items from subsequent full runs on this machine, use `aem setup --automation full --automation-skip-unsupported` (full mode still requires registered runtime paths).
-Use `aem setup --no-automation-skip-unsupported` to restore refusal; omitting the option preserves its saved value.
-The installer accepts the same options.
-Exclusions appear with item names and reasons in the content result's `excluded` list; an entirely excluded content selection is `skipped`.
-
-### Limits of exclusion
-
-The skip option does not suppress invalid bindings, conflicts, or filesystem errors, and does not authorize link conversion.
-An excluded item sharing a source with a remaining item still participates in source validation and can stop the content stage.
 The check uses the updated catalog; earlier tool and catalog stages are not rolled back.
-Dry run reports support and exclusions against the local catalog without fetching or recording attempts; actual execution checks again after catalog delivery.
-In policies mode, unsupported due items fail independently while other independent items continue, retaining normal failure throttling.
+Dry run checks the local catalog without fetching or recording attempts, and actual execution checks again after catalog delivery.
 
 ## Runtime requirements and results
 
@@ -77,7 +66,7 @@ Policy-only setup edits require no profile changes; omitted fields retain saved 
 
 ### Results and locks
 
-Inspect the eventual sequence and stage results under `automation` in `aem status`.
+Inspect the eventual sequence and stage results under `automation` in `aem --verbose status` or `aem --json status`.
 Queued work is not yet completed; changed mode/runtime settings cancel pending work.
 Registered commands may report lock contention while the worker or continuation holds the installation/configuration locks.
-Native Windows replacement and real uv reinstallation retain their existing validation limits.
+Real uv replacement and agent hook continuity require integration validation.

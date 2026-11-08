@@ -14,7 +14,6 @@ source .venv/bin/activate
 python -m pip install -e ".[dev]"
 ```
 
-On native Windows, activate with `.\.venv\Scripts\Activate.ps1` in PowerShell, or invoke `.\.venv\Scripts\python.exe` directly.
 Runtime dependencies are Click and TOML Kit.
 The development extra adds coverage.py for optional coverage measurement and setuptools for build-hook regression tests.
 Installing the package does not register integrations; use `aem setup` explicitly, with temporary profiles for development checks.
@@ -27,9 +26,9 @@ Delivery prepares local sources, and installation consumes them without fetching
 Links expose source updates immediately; copies change on apply and must preserve local edits.
 Keep ownership, conflict checks, per-target transactions, and recovery intact, and never silently fall back from links to copies.
 
-Preserve Linux/WSL and native Windows path handling.
+Support Linux and WSL; native Windows entry points must refuse before changing configuration or targets.
 Use Python filesystem and subprocess APIs, explicit UTF-8 encoding, argument lists, and `/` in shared relative paths.
-Core operations must not depend on a POSIX shell; Windows-only code must not import POSIX locking or signal primitives at runtime.
+Core operations must not depend on a shell.
 Runtime commands must not import development or build tools, and the standalone installer and copied update worker remain standard-library-only.
 
 Read the affected sections of [Architecture and preservation contracts](docs/architecture.md) before changing delivery, installation, automation, settings, or agent integration.
@@ -71,14 +70,6 @@ Tests must use temporary sources, targets, configuration, state, and local Git r
 For Markdown changes, complete the [document review and local check](docs/documentation-authoring.md#review-and-check).
 Report the checker commit, scope, and findings retained after judgment alongside the relevant validation results.
 
-### Windows test processes
-
-On Windows, noninteractive development and test runs must not open visible terminal windows, including fixture, helper, and descendant processes.
-Apply hiding controls at process creation and verify representative descendant launches before long or parallel runs.
-Redirected output or a hidden parent alone is insufficient.
-Preserve the semantics of native console and process-lifetime tests when adding these controls.
-If unexpected windows appear, stop the responsible process tree and correct its launch behavior before resuming.
-
 ### Test design
 
 Tests requiring successful symlink creation may skip when the host lacks that capability; tests of the unavailable-symlink refusal path must still run.
@@ -87,7 +78,7 @@ For workflows spanning commands, check that each command's output and selection 
 
 ### Continuous integration
 
-GitHub Actions runs the full source suite with coverage and installed-distribution checks on Linux and native Windows.
+GitHub Actions runs the full source suite with coverage and installed-distribution checks on Linux.
 A Linux job also checks self-updates from previous releases, and a separate workflow checks the latest agent CLIs on pull requests, daily, and on manual dispatch.
 See [CI coverage and local reproduction](docs/testing/ci.md#continuous-integration) for the matrix, logs, and capability boundaries.
 
@@ -95,4 +86,4 @@ See [CI coverage and local reproduction](docs/testing/ci.md#continuous-integrati
 
 See [Testing and distribution verification](docs/testing.md) for environment-specific fixtures, installed-wheel checks, coverage measurement, and validation expectations.
 Record the environments exercised, skipped capabilities, and remaining uncertainty with the change's validation results rather than in durable project guidance.
-Static review and mocks do not establish native Windows readiness.
+Static review and mocks do not establish mounted-filesystem or WSL interoperability behavior.

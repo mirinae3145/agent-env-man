@@ -82,7 +82,6 @@ The policy does not register startup hooks or an OS scheduler; use setup's exist
 
 Manage the machine-owned `automation` table through installer/setup options.
 Use `--automation MODE`, repeated `--automation-trigger EVENT`, `--automation-interval SECONDS`, and `--automation-git-timeout SECONDS`.
-Use `--automation-skip-unsupported` or `--no-automation-skip-unsupported` to save the full-mode platform exclusion policy.
 Omitted fields retain saved values; a supplied trigger list replaces the saved list.
 Policy-only setup uses the machine journal and does not rewrite profiles or require integration selections.
 Unknown fields are rejected.
@@ -97,7 +96,7 @@ The `automation` table accepts these fields:
 | `trigger` | String or array of strings | Defaults to `shell-start` and `agent-start`. May contain unique supported events or only `manual`. Used in full mode. |
 | `min_interval` | Integer or float | `3600` seconds, finite and nonnegative; full runs share one clock across events, including failures. |
 | `timeout` | Integer or float | `30` seconds per content/catalog Git phase, finite and positive; used in full mode. |
-| `skip_unsupported` | Boolean | `false`; explicitly exclude platform-unsupported items from full content selection and report their reasons. Stored but inactive in other modes. |
+| `skip_unsupported` | Boolean | Legacy input accepted but ignored and omitted from effective policy reports; no platform-specific skip remains on Linux/WSL. |
 
 Boolean numeric values are rejected.
 
@@ -114,5 +113,5 @@ A resulting explicit or inherited `[]` excludes a skill or directory; other trig
 Instruction groups with detached components are excluded together; remaining bundles participate without introducing instruction-specific policy tables.
 A shared repository can still advance live links of excluded consumers.
 Local or unbound catalogs skip Git delivery and use the existing local declarations.
-Mode, schedule, exclusion-policy, or runtime changes cancel queued work; the fresh continuation also verifies the saved request binding before advancing content.
+Mode, schedule, legacy-field, or runtime changes cancel queued work; the fresh continuation also verifies the saved request binding before advancing content.
 

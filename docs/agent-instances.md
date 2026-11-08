@@ -85,7 +85,7 @@ CLAUDE_CONFIG_DIR="$HOME/.claude-lab" claude
 CODEX_HOME="$HOME/.codex-lab" codex
 ```
 
-On Windows, set those environment variables for the intended process using native PowerShell or the launching application.
+In WSL, set those environment variables inside the Linux environment running the agent.
 AEM does not persist these launch variables or replace shell aliases, IDE launch settings, or Herdr launch configuration.
 Authentication, expected-account checking, sessions, memory, plugin registries/caches/store/data, MCP authorization and product trust are outside this feature.
 No plugin installation or account switch occurs during setup/bootstrap/apply.
@@ -93,7 +93,7 @@ No plugin installation or account switch occurs during setup/bootstrap/apply.
 This is installation separation, not a security sandbox or a guarantee of complete product discovery isolation.
 Codex can also discover the global `~/.agents/skills` and repository skills; its named destination's `skills` directory does not hide those sources.
 Projects, environment overrides, OS credential stores, shared servers, and external services need their own product-native isolation checks.
-Native login concurrency and Windows instance execution are not established by the temporary filesystem tests.
+Native login concurrency is not established by the temporary filesystem tests.
 
 ## Removal and recovery
 

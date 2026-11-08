@@ -27,7 +27,7 @@ python -m pip --python /path/to/runtime-venv install /path/to/agent_env_man-VERS
 python scripts/verify_runtime.py --python /path/to/runtime-venv/bin/python
 ```
 
-Use a separate temporary environment; on Windows pass its `Scripts/python.exe` to the verifier.
+Use a separate temporary Linux/WSL environment.
 The pip installation command uses the development environment's pip to install only the wheel and its runtime dependencies into the target environment.
 Package acquisition may require network access; verification itself uses only temporary local Git repositories and never registers integrations.
 

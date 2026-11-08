@@ -15,7 +15,7 @@ from ..updates import TRIGGERS, startup_briefing, startup_skills_changed
 
 
 @click.command()
-@click.option("--shell", multiple=True, type=click.Choice(("bash", "zsh", "powershell")), help="Connect a shell; repeat to select more.")
+@click.option("--shell", multiple=True, type=click.Choice(("bash", "zsh")), help="Connect a shell; repeat to select more.")
 @click.option("--agent", multiple=True, type=AGENT, help="Connect an agent or named instance (claude-lab, codex-lab); repeat to select more.")
 @click.option("--remove-shell", multiple=True, callback=identifier_value, metavar="NAME", help="Remove a saved shell integration, including retired names.")
 @click.option("--remove-agent", multiple=True, callback=identifier_value, metavar="NAME", help="Remove a saved agent integration, including retired names.")
@@ -28,7 +28,6 @@ from ..updates import TRIGGERS, startup_briefing, startup_skills_changed
 @click.option("--update-bin-dir", help="uv executable directory.")
 @click.option("--automation", type=click.Choice(device_automation.MODES))
 @click.option("--automation-trigger", multiple=True, type=click.Choice(("manual", *TRIGGERS)), help="Replace device triggers; repeat for multiple events.")
-@click.option("--automation-skip-unsupported/--no-automation-skip-unsupported", default=None, help="Save whether full automation excludes platform-unsupported items (default: no); omission preserves the saved value. Shared-source guards still apply.")
 @click.option("--automation-interval", type=INTERVAL, help="Minimum seconds between device attempts.")
 @click.option("--automation-git-timeout", "--automation-timeout", "automation_timeout", type=SECONDS, help="Seconds per Git phase in device automation.")
 @click.option("--startup-hook-timeout", type=SECONDS, help="Seconds the agent waits for the startup callback (default: 10); updates saved agent hooks. Git phase limits are separate.")

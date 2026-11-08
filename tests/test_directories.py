@@ -1,6 +1,7 @@
 """General directory delivery, installation and sharing preserve existing contracts."""
 
 from copy import deepcopy
+import os
 from pathlib import Path
 import shutil
 from unittest.mock import patch
@@ -12,6 +13,7 @@ from agent_env_man import automation
 from agent_env_man.git_source import Git
 from agent_env_man.manager import Manager
 from agent_env_man.model import Config, Error
+from agent_env_man.payload_links import options
 from agent_env_man.storage import State
 from agent_env_man.updates import startup_skills_changed
 import test_skill_catalog as skill_tests
@@ -31,7 +33,8 @@ class Directories(unittest.TestCase):
         (self.repo / 'cases/first.md').write_text('First case\n', encoding='utf-8')
         self.commit(self.repo)
         self.document = {'version': 2, 'sources': {'store': {'type': 'git', 'repository': str(self.repo)}},
-                         'directories': {'cases': {'source': 'store', 'subdir': 'cases',
+                         'payload': {'defaults': {'permissions': 'strict', 'exclude': []}},
+                         'directories': {'cases': {'source': 'store', 'subdir': 'cases', 'preserve_symlinks': False,
                                                    'install': {'root': 'personal', 'destination': 'agent-loop'}}}}
         self.write()
         self.target = self.destination / 'agent-loop'
@@ -641,6 +644,74 @@ class Directories(unittest.TestCase):
         self.run_cli('detach', 'report')
         manager = self.manager()
         self.assertFalse(startup_skills_changed(outcome, manager.state.data['items'], 'codex', manager.config.sources))
+
+
+class DefaultPayloads(unittest.TestCase):
+    def setUp(self):
+        self.case = case = Directories()
+        self.addCleanup(case.doCleanups)
+        case.setUp()
+        case.document.pop('payload', None)
+        case.document['directories']['cases'].pop('preserve_symlinks', None)
+        case.external()
+
+    def test_default_copy_collection_apply_and_detach_preserve_opaque_links_and_metadata(self):
+        c = self.case
+        c.require_links()
+        private = c.root / 'private'
+        private.write_text('not managed')
+        (c.external_root / 'link').symlink_to(str(private))
+        (c.external_root / '._DAV').mkdir()
+        (c.external_root / '._DAV/source').write_text('source metadata')
+        c.run_cli('apply')
+        self.assertEqual(os.readlink(c.target / 'link'), str(private))
+        self.assertFalse((c.target / '._DAV').exists())
+        (c.target / '._DAV').mkdir()
+        (c.target / '._DAV/local').write_text('local metadata')
+        (c.target / 'first.md').write_text('copy edit')
+        report = c.run_cli('publish', 'cases')[0]
+        self.assertFalse(report['transport_complete'])
+        self.assertEqual((c.external_root / 'first.md').read_text(), 'copy edit')
+        self.assertEqual((c.external_root / '._DAV/source').read_text(), 'source metadata')
+        self.assertFalse((c.external_root / '._DAV/local').exists())
+        (c.external_root / 'first.md').write_text('source edit')
+        c.run_cli('apply')
+        self.assertEqual((c.target / '._DAV/local').read_text(), 'local metadata')
+        c.run_cli('detach', 'cases')
+        self.assertEqual(os.readlink(c.target / 'link'), str(private))
+        self.assertEqual(private.read_text(), 'not managed')
+
+    def test_explicit_empty_exclusions_include_default_names(self):
+        c = self.case
+        c.document['payload'] = {'defaults': {'exclude': []}}
+        c.write()
+        (c.external_root / '._DAV').write_text('intentional data')
+        c.run_cli('apply')
+        self.assertEqual((c.target / '._DAV').read_text(), 'intentional data')
+
+    def test_legacy_ownership_transitions_without_adopting_local_edits(self):
+        c = self.case
+        c.document['payload'] = {'defaults': {'permissions': 'strict', 'exclude': []}}
+        c.document['directories']['cases']['preserve_symlinks'] = False
+        c.write()
+        c.run_cli('apply')
+        old = c.manager().state.data['items']['cases:directory']
+        self.assertEqual(options(old).get('permissions', 'strict'), 'strict')
+        c.document.pop('payload')
+        c.document['directories']['cases'].pop('preserve_symlinks')
+        c.write()
+        self.assertEqual(c.run_cli('status')['items'][0]['status'], 'configuration-changed')
+        self.assertIn('apply', str(c.run_cli('publish', 'cases', '--dry-run', code=1)))
+        (c.target / 'first.md').write_text('local edit')
+        c.run_cli('apply', code=1)
+        self.assertEqual((c.target / 'first.md').read_text(), 'local edit')
+        (c.target / 'first.md').write_text('External case\n')
+        c.run_cli('apply')
+        record = c.manager().state.data['items']['cases:directory']
+        self.assertEqual(record['permissions'], 'best-effort')
+        self.assertTrue(record['preserve_symlinks'])
+        self.assertTrue(record['exclusions'])
+        self.assertEqual(c.run_cli('status')['items'][0]['status'], 'current')
 
 
 if __name__ == '__main__':

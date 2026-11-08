@@ -2,14 +2,12 @@
 import time
 
 from .model import Error
-from .payload_links import unsupported_reason
 from .updates import TRIGGERS, policy_fields, run_updates, run_settings_updates
 from . import catalog, self_update
 
 MODES = ('off', 'policies', 'full')
 FIELDS = (('mode', 'automation'), ('trigger', 'automation_trigger'),
-          ('min_interval', 'automation_interval'), ('timeout', 'automation_timeout'),
-          ('skip_unsupported', 'automation_skip_unsupported'))
+          ('min_interval', 'automation_interval'), ('timeout', 'automation_timeout'))
 
 
 def policy(value):
@@ -19,8 +17,9 @@ def policy(value):
         raise Error('automation.mode must be off, policies, or full')
     if not isinstance(value.get('skip_unsupported', False), bool):
         raise Error('automation.skip_unsupported must be Boolean')
+    # Accept the legacy field without suppressing failures on supported hosts.
     fields = {k: v for k, v in value.items() if k not in ('mode', 'skip_unsupported')}
-    return {'mode': value.get('mode', 'policies'), 'skip_unsupported': value.get('skip_unsupported', False),
+    return {'mode': value.get('mode', 'policies'),
             **policy_fields({'trigger': ['shell-start', 'agent-start'], 'min_interval': 3600, 'timeout': 30}, 'automation defaults'),
             **policy_fields(fields, 'automation')}
 
@@ -136,19 +135,13 @@ def full_content(manager, timeout, *, dry_run=False):
         if not selected:
             excluded.append({'source': name, 'reason': 'detached'})
             continue
-        unsupported = [(item.key, unsupported_reason(item)) for item in declarations if item.key in selected]
-        unsupported = [(key, reason) for key, reason in unsupported if reason]
-        if unsupported and manager.config.automation['skip_unsupported']:
-            excluded.extend({'source': name, 'item': key, 'reason': reason} for key, reason in unsupported)
-            continue
         sources.append(name)
         items.extend(selected)
     report = {'sources': sources, 'excluded': excluded}
     if not sources:
         return {**report, 'status': 'skipped'}, False
     try:
-        manager.require_items_supported(manager.selected(items))
-        manager.require_sources_supported(sources)
+        manager.selected(items)
     except (Error, OSError, ValueError) as exc:
         return {**report, 'status': 'failed', 'error': str(exc)}, True
     if dry_run:

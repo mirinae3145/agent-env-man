@@ -87,7 +87,7 @@ class CopyPublication(unittest.TestCase):
         (self.shared / 'nested').mkdir()
         (self.shared / 'nested/value.txt').write_text('Keep', encoding='utf-8')
         self.document['directories']['nested'] = {
-            'source': 'files', 'subdir': 'nested', 'install': {'root': 'skills'}}
+            'source': 'files', 'preserve_symlinks': False, 'subdir': 'nested', 'install': {'root': 'skills'}}
         self.catalog.write_text(tomlkit.dumps(self.document), encoding='utf-8')
         self.cli('apply', '--item', 'files', '--item', 'nested')
         source = fingerprint(self.shared)
@@ -147,20 +147,20 @@ class CopyPublication(unittest.TestCase):
         self.shared = self.root / 'synced folder'
         self.shared.mkdir()
         (self.shared / 'first.txt').write_text('First\n', encoding='utf-8')
-        self.document = {'version': 2, 'sources': {'files': {'type': 'external'}},
-                         'directories': {'files': {'source': 'files', 'install': {'root': 'skills', 'mode': mode}}}}
+        self.document = {'version': 2, 'payload': {'defaults': {'permissions': 'strict', 'exclude': []}}, 'sources': {'files': {'type': 'external'}},
+                         'directories': {'files': {'source': 'files', 'preserve_symlinks': False, 'install': {'root': 'skills', 'mode': mode}}}}
         self.catalog.write_text(tomlkit.dumps(self.document), encoding='utf-8')
         self.cli('bootstrap', '--external', f'files={self.shared}')
         self.cli('apply', '--item', 'files')
         return self.root / 'installed/files'
 
-    def test_git_collection_is_explicit_and_whole_checkout_publication_remains(self):
+    def test_git_collection_is_default_and_source_only_bypasses_it(self):
         copy = self.install()
         (copy / 'SKILL.md').write_text('# Copy edit\n', encoding='utf-8')
-        self.cli('publish', 'one')
+        self.cli('publish', 'one', '--source-only')
         self.assertEqual((self.checkout / 'skill/SKILL.md').read_text(), '# Skill\n')
         (self.checkout / 'unrelated.txt').write_text('Include as before', encoding='utf-8')
-        report = self.cli('publish', 'one', '--from-copy', '-m', 'Copy edits')[0]
+        report = self.cli('publish', 'one', '-m', 'Copy edits')[0]
         self.assertEqual(report['status'], 'published')
         self.assertTrue(report['collection'][0]['changed'])
         self.assertEqual(self.git(self.remote, 'show', 'main:skill/SKILL.md'), '# Copy edit')
@@ -301,7 +301,6 @@ class CopyPublication(unittest.TestCase):
         (copy / 'first.txt').unlink()
         (copy / 'empty').mkdir()
         (copy / 'new name.txt').write_text('New', encoding='utf-8')
-        self.assertEqual(self.cli('publish', 'files', code=1)[0]['status'], 'failed')
         with patch.object(Git, 'run', side_effect=AssertionError('External used Git')):
             report = self.cli('publish', 'files', '--from-copy')[0]
         self.assertEqual(report['status'], 'published')
@@ -699,7 +698,6 @@ class CopyPublication(unittest.TestCase):
         self.assertEqual(self.manager().state.data['items'], items)
         self.assertIsNone(self.manager().state.data['pending'])
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX directory permissions')
     def test_recovery_preserves_later_directory_permission_edits(self):
         self.interrupted_collection()
         state = self.manager().state
@@ -719,7 +717,7 @@ class CopyPublication(unittest.TestCase):
         copy = self.external()
         (self.shared / 'nested').mkdir()
         (self.shared / 'nested/value.txt').write_text('Original', encoding='utf-8')
-        self.document['directories']['nested'] = {'source': 'files', 'subdir': 'nested',
+        self.document['directories']['nested'] = {'source': 'files', 'preserve_symlinks': False, 'subdir': 'nested',
                                                 'install': {'root': 'skills', 'mode': 'copy'}}
         self.catalog.write_text(tomlkit.dumps(self.document), encoding='utf-8')
         self.cli('apply', '--item', 'files', '--item', 'nested')
@@ -752,7 +750,6 @@ class CopyPublication(unittest.TestCase):
         self.assertEqual(self.manager().state.data['items'], items)
         self.assertIsNone(self.manager().state.data['pending'])
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX executable bits')
     def test_root_and_file_executable_changes_are_collected_and_recoverable(self):
         copy = self.external()
         os.chmod(copy, 0o700)

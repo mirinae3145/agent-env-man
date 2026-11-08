@@ -114,6 +114,13 @@ def digest_tree(root):
     return result
 
 
+def catalog_ownership(profile):
+    """Read catalog ownership independently of refreshed package-owned skills."""
+    state_path = Path(str(profile.machine) + '.state') / 'state.json'
+    items = json.loads(state_path.read_text(encoding='utf-8'))['items']
+    return {key: record for key, record in items.items() if not record.get('official_skill')}
+
+
 def publish_candidate(profile, checkout, candidate):
     """Publish `candidate` under the next version in a local release repository."""
     release = profile.root / 'release.git'
@@ -203,6 +210,7 @@ def verify(checkout, baseline, candidate, timeout):
         agents_before = {name: digest_tree(path) for name, path in agents.items()}
         settings_before = settings.read_bytes()
         status_before = json.loads(profile.aem('status'))
+        ownership_before = catalog_ownership(profile)
 
         queued = json.loads(profile.aem('self', 'update', '--mode', 'compatible'))
         require(queued.get('status') == 'queued', f'Self-update was not queued: {queued}')
@@ -229,6 +237,21 @@ def verify(checkout, baseline, candidate, timeout):
         require(settings.read_bytes() == settings_before, 'Self-update changed managed settings')
         require(bashrc.read_text(encoding='utf-8').startswith('# preserved shell line\n'),
                 'Self-update lost the existing shell profile content')
+        changed_ownership = differences(ownership_before, catalog_ownership(profile))
+        require(not changed_ownership,
+                'Self-update changed saved catalog ownership:\n' + '\n'.join(changed_ownership))
+        # Omitted catalog policies may change, but migration cannot adopt local edits.
+        profile.aem('apply', '--item', 'smoke', '--agent', 'codex', code=1)
+        require(digest_tree(skills) == skills_before
+                and catalog_ownership(profile) == ownership_before,
+                'Refused policy migration changed the edited copy or saved ownership')
+        # Older releases predate these fields. Retain their policy explicitly only
+        # after upgrading, then keep the exact existing-status comparison below.
+        with (profile.root / 'catalog.toml').open('a', encoding='utf-8') as catalog_file:
+            catalog_file.write('\n[payload.defaults]\npermissions = "strict"\nexclude = []\n')
+        # The retired skip policy is intentionally absent from effective reports.
+        # Keep every other baseline field in the existing-status comparison.
+        status_before.get('automation', {}).get('policy', {}).pop('skip_unsupported', None)
         # Existing status fields must survive; additive output fields are compatible.
         # The self-update block records this attempt and is expected to change.
         changed = differences({**status_before, 'self_update': None},

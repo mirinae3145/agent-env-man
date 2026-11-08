@@ -74,8 +74,6 @@ class PayloadExclusions(unittest.TestCase):
     def test_excluded_metadata_not_copied_or_read(self):
         for links in (False, True):
             with self.subTest(links=links):
-                if links and os.name == 'nt':
-                    self.skipTest('Opaque symlink payloads require POSIX')
                 if links:
                     self.document['directories']['cases']['preserve_symlinks'] = True; self.write()
                 else:
@@ -89,7 +87,7 @@ class PayloadExclusions(unittest.TestCase):
                     (self.source / '._DAV/fifo').unlink()
 
     def test_apply_preserves_local_excluded_entries(self):
-        self.prepare(links=os.name != 'nt')
+        self.prepare(links=True)
         cache = self.target / 'nested/._DAV'; cache.mkdir()
         (cache / 'local').write_text('keep local')
         inode = cache.stat().st_ino
@@ -128,7 +126,7 @@ class PayloadExclusions(unittest.TestCase):
         self.assertIsNone(self.manager().state.data['pending'])
 
     def test_collection_preserves_source_metadata_not_copy_metadata(self):
-        self.prepare(links=os.name != 'nt')
+        self.prepare(links=True)
         cache = self.target / 'nested/._DAV'; cache.mkdir(); (cache / 'metadata').write_text('local metadata')
         source_inode = (self.source / 'nested/._DAV').stat().st_ino
         (self.target / 'nested/doc.md').write_text('local content')
@@ -179,7 +177,6 @@ class PayloadExclusions(unittest.TestCase):
         self.assertEqual((self.target / 'nested/doc.md').read_text(), 'local content')
         self.assertIsNone(self.manager().state.data['pending'])
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX descriptor scan')
     def test_excluded_directory_created_during_scan_is_ignored(self):
         self.prepare(links=True)
         shutil.rmtree(self.source / '._DAV')
@@ -197,7 +194,6 @@ class PayloadExclusions(unittest.TestCase):
         self.assertTrue(created)
         self.assertEqual(expected, actual)
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX descriptor scan')
     def test_included_directory_changes_during_scan_still_fail(self):
         self.prepare(links=True)
         real_read = payload_links.os.read
@@ -349,7 +345,6 @@ class PayloadExclusions(unittest.TestCase):
         records = self.manager().state.data['items']
         self.assertEqual(records['cases:directory']['hash'], records['mirror:directory']['hash'])
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX descriptor scan')
     def test_previously_scanned_included_file_is_rechecked(self):
         self.prepare(links=True)
         real_read = payload_links.os.read
@@ -418,7 +413,6 @@ class PayloadExclusions(unittest.TestCase):
         self.assertEqual((self.source / 'nested/._DAV/metadata').read_text(), 'source metadata')
         self.assertIsNone(self.manager().state.data['pending'])
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX descriptor metadata')
     def test_copy_closes_write_handle_before_metadata_updates(self):
         import fcntl
         self.prepare(links=True)

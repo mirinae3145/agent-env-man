@@ -23,8 +23,13 @@ External synchronization and fork/PR workflows remain outside this command's sco
 
 ## Managed copy collection
 
-Ordinary publication never collects installed-copy edits.
-Explicit `--from-copy` requires owned, non-detached skill, directory, or instruction bundle copies for every selected name and collects only their payloads; Git publication still selects whole checkouts.
+Explicit publication gathers selected installed managed copies and settings stages by default.
+Links and uninstalled declarations use their source directly; detached copies are reported and excluded.
+`--source-only` bypasses gathering, and `--local` gathers without Git transport or commits.
+The `export` alias uses the same local workflow; `--from-copy` retains strict copy-only eligibility for existing callers.
+
+Preflight settings exports and copies together, rejecting overlapping source writes before collecting anything.
+Actual application fields still require explicit `settings collect`.
 
 Build collection hashes, observations, and changed-path reports from the same inspections.
 Collection staging may project child observations and mode/type maps from a freshly verified parent traversal.

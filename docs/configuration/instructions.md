@@ -61,7 +61,7 @@ An explicit `install.entry.root` still selects only one agent, even with sharing
 Each agent retains its own global entry link, hook group, and entry/hook ownership IDs.
 Both link and copy modes point these entries through the shared bundle, so their reading trees stay consistent after bundle detach.
 Named instances participate like the default agent destinations.
-`publish --from-copy` collects the shared copy once.
+`publish` collects the shared copy once.
 The [shared-copy example](../instruction-bundles/variants.md#share-one-copy-between-agents) shows setup and transition steps.
 
 Applying through one agent can refresh content used by every consumer of the shared bundle.

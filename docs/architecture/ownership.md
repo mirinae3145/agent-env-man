@@ -42,7 +42,9 @@ Active directory link guards include orphaned consumers of shared checkouts.
 
 ### Payload exclusion preservation
 
-Combine catalog-wide and item-root patterns with source-root patterns, retaining their logical anchors through subtree staging and recovery.
+Use the built-in metadata patterns only when the catalog-wide array is omitted.
+Combine the selected catalog-wide and item-root patterns with source-root patterns, retaining their logical anchors through subtree staging and recovery.
+
 Do not follow, open, or recurse into excluded entries during inspection.
 With exclusions enabled, POSIX directory scans guard inode, mode, and the included child name set rather than timestamps changed by excluded children.
 Included file race checks remain intact.
@@ -61,7 +63,7 @@ Exclusion policies do not filter repository-wide Git commits.
 
 ### Permission preservation policy
 
-Resolve the scalar permission level from item, source, catalog defaults, then strict; keep the existing strict hashing and copy path compatible.
+Resolve the scalar permission level from item, source, catalog defaults, then best-effort; keep the existing strict hashing and copy path compatible.
 Best-effort content equality excludes native permission modes, but transaction observations independently include their digest.
 Record source observations and actual installed observations so inability to reproduce source modes never becomes an endless content conflict.
 Later local mode edits remain protected.

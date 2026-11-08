@@ -12,7 +12,6 @@ from agent_env_man.storage import fingerprint, copy_payload
 import test_directories
 
 
-@unittest.skipIf(os.name == 'nt', 'POSIX link preservation only')
 class DirectorySymlinks(unittest.TestCase):
     setUp = test_directories.Directories.setUp
     git = test_directories.Directories.git
@@ -192,7 +191,7 @@ class DirectorySymlinks(unittest.TestCase):
 
     def test_strict_orphaned_consumer_stops_shared_git_update(self):
         self.enable('link')
-        self.document['directories']['strict'] = {
+        self.document['directories']['strict'] = {'preserve_symlinks': False,
             'source': 'store', 'subdir': 'cases', 'install': {'root': 'personal', 'destination': 'strict'}}
         self.write()
         self.bootstrap()
@@ -208,7 +207,7 @@ class DirectorySymlinks(unittest.TestCase):
     def test_collection_protects_strict_orphaned_ancestor_consumer(self):
         self.enable()
         self.external()
-        self.document['directories']['strict'] = {'source': 'store',
+        self.document['directories']['strict'] = {'preserve_symlinks': False, 'source': 'store',
             'install': {'root': 'personal', 'destination': 'strict'}}
         self.write()
         self.run_cli('apply')
@@ -508,29 +507,14 @@ class DirectorySymlinks(unittest.TestCase):
         self.run_cli('auto', '--trigger', 'agent-start', '--item', 'cases')
         self.assertEqual(os.readlink(self.target / 'link'), 'first.md')
 
-    def test_catalog_boolean_scope_and_windows_refusal(self):
+    def test_catalog_boolean_scope(self):
         self.enable()
-        from types import SimpleNamespace
-        with patch.object(payload_links, 'os', SimpleNamespace(name='nt')):
-            self.assertIn('Windows', str(self.run_cli('bootstrap', self.catalog, '--root',
-                          f'personal={self.destination}', code=1)))
         self.document['directories']['cases']['preserve_symlinks'] = 'true'
         self.write()
         self.assertIn('Boolean', str(self.run_cli('bootstrap', self.catalog, code=1)))
 
 
 class LinkPolicyValidation(unittest.TestCase):
-    def test_windows_accepts_declarations_but_refuses_payload_execution(self):
-        from types import SimpleNamespace
-        from agent_env_man.catalog_schema import validate
-        document = {'version': 2, 'sources': {'files': {'type': 'external'}},
-                    'directories': {'files': {'source': 'files', 'preserve_symlinks': True}}}
-        with patch.object(payload_links, 'os', SimpleNamespace(name='nt')):
-            validate(document)
-            with self.assertRaisesRegex(Error, 'unsupported on Windows'):
-                payload_links.options({'preserve_symlinks': True})
-            document['directories']['files']['preserve_symlinks'] = False
-            validate(document)
 
     def test_opt_in_is_not_accepted_for_skills_or_install_tables(self):
         from agent_env_man.catalog_schema import validate

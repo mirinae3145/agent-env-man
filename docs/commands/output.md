@@ -12,24 +12,27 @@ Successful operations exit `0`; status also exits `0` when its report contains c
 
 ## Platform support and preflight
 
-Platform-unsupported directory policies appear as item `status = "unavailable"` with `error`; detached items retain `status = "detached"` and include the limitation as `error`.
-Their presence does not invalidate the catalog or prevent independent supported item operations.
-Explicit content commands preflight the complete selected operation and its shared-source consumers before content changes; unsupported policies fail rather than being silently skipped.
-Bootstrap performs this preflight after reading the catalog and before saving the machine binding or preparing content.
-`sync --item` still updates all sources; use `update NAME` and `apply --item NAME` for independent work.
-Callbacks have the exceptions defined in the [automation and callback reference](automation.md).
+Linux and WSL are supported; native Windows commands and the standalone installer refuse execution before configuration or target changes.
+Use the last Windows-supporting release to recover, detach, and remove its integrations before moving to a separate WSL installation.
+
+Unsupported payload types and ordinary operation failures remain errors; there is no automatic skip option.
+Explicit content commands still preflight the complete selection and shared-source consumers.
 
 ## Compatibility
 
-Documented commands, behavior, exit codes, and JSON fields are covered by the package's [compatibility policy](../compatibility.md).
+Compatibility guarantees and descriptions of current behavior are distinguished by the package's [compatibility policy](../compatibility.md).
 JSON consumers must ignore unknown object fields; field additions may appear in compatible feature releases.
 Enum values are closed unless their interface explicitly documents unknown-value handling.
 JSON whitespace, object key order, and human-readable diagnostic wording are not stable interfaces.
 
 ## Locks and shared sources
 
-Commands using machine state lock one configuration; installations registered for self-updates also share a lock for their uv tools directory.
+Commands using machine state lock one configuration; offline status and locate use shared locks, while mutations use exclusive locks.
+Callbacks attempt locks immediately: startup fails open on contention, and instruction lookup may use an unchanged, recovery-free saved snapshot.
+Ordinary commands fail promptly if an incompatible lock is held; no command deletes an active lock file.
+Installations registered for self-updates share a lock for their uv tools directory.
 `docs` and `self publish` operate independently of machine state and acquire neither lock.
+
 Content and catalog updates allow Git-ignored regular caches in their checkouts and refuse any fast-forward that would overwrite them.
 In content status, `sources[].checkout` is `dirty` for tracked edits or nonignored untracked files; ignored files alone leave it `clean`.
 External editors and other package-manager processes do not participate in these locks.
@@ -37,10 +40,10 @@ Read-only commands and dry runs may create the lock directory/file; `setup --dry
 
 ## Permission preservation reports
 
-Catalog [permission levels](../configuration/payload.md#permission-preservation) apply to payload copying in `apply`, link materialization in `detach`, and explicit `publish --from-copy` collection.
+Catalog [permission levels](../configuration/payload.md#permission-preservation) apply to payload copying in `apply`, link materialization in `detach`, and explicit publication collection.
 For best-effort payloads, apply and detach results include `permissions = "best-effort"` and `permission_differences`.
 Each difference identifies the payload-relative `path` (`.` for the root), integer native mode `requested`, observed `actual`, and an optional permission-setter `error`.
-Modes are POSIX permission bits or the Windows writable flag; these fields do not describe ACLs or effective access rights.
+Modes are POSIX permission bits; these fields do not describe ACLs or effective access rights.
 An empty array means no observed native mode difference or setter failure, not complete metadata preservation.
 
 `apply --dry-run` and link `detach --dry-run` report `permission_check = "pending-copy"` when copying would be needed; it does not probe or promise permission support.

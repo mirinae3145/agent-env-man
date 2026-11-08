@@ -40,10 +40,7 @@ def overlaps(a: Path, b: Path) -> bool:
 
 
 def default_config() -> Path:
-    if os.name == "nt":
-        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local"))
-    else:
-        base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
     return base / "agent-env-man/machine.toml"
 
 
@@ -128,8 +125,11 @@ class Config(MachineFile):
         self.startup_hook_timeout = setup.get("startup_hook_timeout", 10)
         policy_fields({"timeout": self.startup_hook_timeout}, "setup.startup_hook_timeout")
         shells = setup.get("shells", {})
+        if isinstance(shells, dict) and "powershell" in shells:
+            raise Error("PowerShell integration was removed; remove its profile block with the previous release, "
+                        "or delete the block and setup.shells.powershell manually")
         if not isinstance(shells, dict) or any(
-                name not in ("bash", "zsh", "powershell") or not isinstance(path, str)
+                name not in ("bash", "zsh") or not isinstance(path, str)
                 or not Path(path).is_absolute() for name, path in shells.items()):
             raise Error("Setup shells must map supported shell names to absolute profile paths")
         if "executable" in setup:
@@ -197,7 +197,7 @@ class Config(MachineFile):
                 entry = relative(value.get("path"))
                 checkout = self.path.parent / (self.path.name + ".catalog")
                 if checkout.resolve() != checkout:
-                    raise Error("Catalog checkout must not redirect through a symlink or junction")
+                    raise Error("Catalog checkout must not redirect through a symlink")
                 protected = [self.path, self.state_dir, self.checkout_root]
                 protected.extend(absolute(p) for p in self.doc.get("external_paths", {}).values())
                 if any(overlaps(checkout, p) for p in protected):

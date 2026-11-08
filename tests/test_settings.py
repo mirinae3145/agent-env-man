@@ -1,10 +1,10 @@
 """Staged settings tests use isolated homes and local sources/remotes only."""
-from process_support import run_hidden
 
 from copy import deepcopy
 import json
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -308,8 +308,7 @@ class StagedSettings(unittest.TestCase):
         text = self.target.read_bytes()
         self.assertIn(b'other = 8 # keep\r\n', text)
         self.assertIn(b'count = 1\r\n', text)
-        if os.name != 'nt':
-            self.assertEqual(self.target.stat().st_mode & 0o777, 0o640)
+        self.assertEqual(self.target.stat().st_mode & 0o777, 0o640)
         before = self.target.read_bytes()
         self.apply()
         self.assertEqual(self.target.read_bytes(), before)
@@ -474,8 +473,10 @@ class StagedSettings(unittest.TestCase):
         self.catalog.write_text(tomlkit.dumps(document))
         self.call('bootstrap', code=1)
 
-    def test_external_publish_remains_unsupported(self):
-        self.call('publish', 'editor', '-m', 'test', code=1)
+    def test_external_publish_hands_off_locally(self):
+        result = self.call('publish', 'editor')[0]
+        self.assertEqual(result['status'], 'published')
+        self.assertFalse(result['transport_complete'])
 
     def test_group_write_failure_restores_every_file(self):
         manager = self.manager()
@@ -612,7 +613,7 @@ class GitSettings(unittest.TestCase):
         self.git(self.checkout, 'config', 'user.email', 'test@example.invalid')
 
     def git(self, cwd, *args):
-        result = run_hidden(['git', '-C', str(cwd), *args], text=True, capture_output=True)
+        result = subprocess.run(['git', '-C', str(cwd), *args], text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout.strip()
 
@@ -840,8 +841,8 @@ class SettingsSafety(unittest.TestCase):
         self.call('export', 'editor')
         before = self.payload.read_bytes()
         report = self.call('export', 'editor', '--dry-run')
-        self.assertFalse(report[0]['changed'])
-        self.assertEqual(report[0]['paths'], [])
+        self.assertFalse(report[0]['export'][0]['changed'])
+        self.assertEqual(report[0]['export'][0]['paths'], [])
         self.assertEqual(self.payload.read_bytes(), before)
 
     def test_invalid_cli_paths_fail_before_loading_configuration(self):
@@ -927,3 +928,72 @@ class FormatIndependentMerge(unittest.TestCase):
         result, conflicts = merge(base, local, incoming)
         self.assertEqual(conflicts, [])
         self.assertEqual(result.document['key'].casefold(), 'b')
+
+
+class MixedPublication(unittest.TestCase):
+    def setUp(self):
+        self.case = c = StagedSettings()
+        self.addCleanup(c.doCleanups)
+        c.setUp()
+        (c.source / 'workspace').mkdir()
+        (c.source / 'workspace/value').write_text('original')
+        document = tomlkit.parse(c.catalog.read_text())
+        document['directories'] = {'workspace': {'source': 'shared', 'subdir': 'workspace',
+                                               'install': {'root': 'work', 'mode': 'copy'}}}
+        c.catalog.write_text(tomlkit.dumps(document))
+        c.call('bootstrap', '--root', f'work={c.root / "installed"}')
+        c.call('apply')
+        self.copy = c.root / 'installed/workspace'
+
+    def test_mixed_local_gather_keeps_actual_application_fields_private(self):
+        c = self.case
+        c.edit(c.stage, color='green')
+        c.edit(c.target, color='private', secret='private')
+        (self.copy / 'value').write_text('copy edit')
+        before = c.manager().state.path.read_bytes()
+        c.call('publish', 'workspace', 'editor', '--local', '--dry-run')
+        self.assertEqual(c.manager().state.path.read_bytes(), before)
+        self.assertEqual((c.source / 'workspace/value').read_text(), 'original')
+        report = c.call('publish', 'workspace', 'editor', '--local')[0]
+        self.assertEqual(report['status'], 'exported')
+        self.assertEqual((c.source / 'workspace/value').read_text(), 'copy edit')
+        values = tomlkit.parse(c.payload.read_text())
+        self.assertEqual(values['color'], 'green')
+        self.assertNotIn('secret', values)
+        self.assertEqual(tomlkit.parse(c.target.read_text())['color'], 'private')
+
+    def test_settings_conflict_stops_copy_collection_before_writes(self):
+        c = self.case
+        c.edit(c.stage, color='green')
+        c.edit(c.payload, color='red')
+        (self.copy / 'value').write_text('copy edit')
+        before = c.manager().state.path.read_bytes()
+        c.call('publish', 'workspace', 'editor', '--local', code=1)
+        self.assertEqual(c.manager().state.path.read_bytes(), before)
+        self.assertEqual((c.source / 'workspace/value').read_text(), 'original')
+
+    def test_source_only_does_not_gather_and_export_alias_does(self):
+        c = self.case
+        (self.copy / 'value').write_text('copy edit')
+        c.call('publish', 'workspace', '--source-only')
+        self.assertEqual((c.source / 'workspace/value').read_text(), 'original')
+        c.call('export', 'workspace')
+        self.assertEqual((c.source / 'workspace/value').read_text(), 'copy edit')
+
+    def test_source_only_does_not_require_readable_settings_stage(self):
+        c = self.case
+        c.stage.unlink()
+        c.call('publish', 'editor', '--source-only')
+        self.assertFalse(c.stage.exists())
+
+    def test_missing_external_source_is_not_reported_as_handed_off(self):
+        c = self.case
+        c.source.rename(c.root / 'offline')
+        error = c.call('publish', 'editor', '--source-only', code=1)
+        self.assertIn('source is missing', error)
+
+    def test_incompatible_options_fail_before_configuration_access(self):
+        for flags in (['--source-only', '--local'], ['--source-only', '--from-copy'], ['--local', '-m', 'message']):
+            with patch('agent_env_man.cli_runtime.MachineFile', side_effect=AssertionError('config access')):
+                result = CliRunner().invoke(cli, ['publish', 'workspace', *flags])
+            self.assertEqual(result.exit_code, 2, result.output)

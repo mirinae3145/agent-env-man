@@ -18,13 +18,6 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
-def run_captured(*arguments, **options):
-    """Run verification children without opening Windows console windows."""
-    if os.name == "nt":
-        options["creationflags"] = subprocess.CREATE_NO_WINDOW
-    return subprocess.run(*arguments, **options)
-
-
 def verify_settings(cli, root, source, git):
     """Exercise both installed format adapters and preserve actual-file edits."""
     for format in ("toml", "json"):
@@ -123,7 +116,7 @@ def verify():
     require(not origin.get("dir_info", {}).get("editable"), "Use an installed wheel, not an editable checkout")
 
     with tempfile.TemporaryDirectory(prefix="aem-runtime-") as directory:
-        # Temporary roots may use Windows short names or a redirected TMPDIR.
+        # Temporary roots may be reached through a symlink or a redirected TMPDIR.
         # Declare canonical fixture paths so ancestry guards test the payload.
         root = Path(directory).resolve()
         home = root / "home"
@@ -132,9 +125,8 @@ def verify():
         for path, content in markers.items():
             path.write_bytes(content)
         environment = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
-        environment.update(HOME=str(home), USERPROFILE=str(home),
+        environment.update(HOME=str(home),
                            XDG_CONFIG_HOME=str(home / ".config"), CODEX_HOME=str(home / ".codex"),
-                           APPDATA=str(home / "AppData/Roaming"), LOCALAPPDATA=str(home / "AppData/Local"),
                            GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull,
                            GIT_ALLOW_PROTOCOL="file", GIT_TEMPLATE_DIR="",
                            GIT_AUTHOR_NAME="AEM runtime check", GIT_AUTHOR_EMAIL="runtime@example.invalid",
@@ -147,7 +139,7 @@ def verify():
         def cli(*arguments, code=0, selected_config=config):
             # -I ignores ambient PYTHONPATH and user-site packages; cwd is
             # outside the checkout so imports must come from the wheel.
-            result = run_captured([sys.executable, "-I", "-m", "agent_env_man", "--json",
+            result = subprocess.run([sys.executable, "-I", "-m", "agent_env_man", "--json",
                                      "--config", str(selected_config), *map(str, arguments)],
                                     cwd=root, env=environment, capture_output=True, text=True, timeout=30)
             require(result.returncode == code,
@@ -156,9 +148,9 @@ def verify():
 
         invalid = root / "invalid.toml"
         invalid.write_text("invalid TOML [", encoding="utf-8")
-        executable = Path(sysconfig.get_path("scripts")) / ("aem.exe" if os.name == "nt" else "aem")
+        executable = Path(sysconfig.get_path("scripts")) / "aem"
         require(executable.is_file(), "Installed aem console entrypoint is missing")
-        help_result = run_captured([str(executable), "--config", str(invalid), "--help"],
+        help_result = subprocess.run([str(executable), "--config", str(invalid), "--help"],
                                      cwd=root, env=environment, capture_output=True, text=True, timeout=30)
         require(help_result.returncode == 0 and "Usage:" in help_result.stdout,
                 f"Installed console help failed: {help_result.stderr}")
@@ -185,8 +177,8 @@ def verify():
                 'count = 1\n' if format == "toml" else '{"count": 1}\n', encoding="utf-8")
 
         def git(*arguments):
-            return run_captured(["git", "-C", str(source), "-c", f"core.hooksPath={os.devnull}", *arguments],
-                                cwd=root, env=environment, check=True, capture_output=True, text=True, timeout=30)
+            return subprocess.run(["git", "-C", str(source), "-c", f"core.hooksPath={os.devnull}", *arguments],
+                                  cwd=root, env=environment, check=True, capture_output=True, text=True, timeout=30)
 
         for arguments in (("init", "-b", "main"), ("add", "SKILL.md", "cases", "settings_toml.toml", "settings_json.json"),
                           ("-c", "user.name=AEM runtime check", "-c", "user.email=runtime@example.invalid",
@@ -247,17 +239,16 @@ def verify():
         machine = tomllib.loads(hook_machine.read_text(encoding='utf-8'))
         require(machine['runtimes']['python'] == sys.executable,
                 'Bootstrap resolved the bound runtime out of its environment')
-        if os.name != 'nt':
-            # Execute only this explicit probe, after registration; a venv's
-            # symlinked interpreter must retain its own environment.
-            (hook_source / 'observe.py').write_text(
-                'import json,sys\nprint(json.dumps({"prefix":sys.prefix,"executable":sys.executable}))\n',
-                encoding='utf-8')
-            command = json.loads(hook_target.read_text())['hooks']['SessionEnd'][0]['hooks'][0]['command']
-            result = run_captured(command, shell=True, cwd=root, env=environment,
-                                  capture_output=True, text=True, check=True, timeout=30)
-            require(json.loads(result.stdout) == {'prefix': sys.prefix, 'executable': sys.executable},
-                    'Registered hook escaped its bound virtualenv')
+        # Execute only this explicit probe, after registration; a venv's
+        # symlinked interpreter must retain its own environment.
+        (hook_source / 'observe.py').write_text(
+            'import json,sys\nprint(json.dumps({"prefix":sys.prefix,"executable":sys.executable}))\n',
+            encoding='utf-8')
+        command = json.loads(hook_target.read_text())['hooks']['SessionEnd'][0]['hooks'][0]['command']
+        result = subprocess.run(command, shell=True, cwd=root, env=environment,
+                                capture_output=True, text=True, check=True, timeout=30)
+        require(json.loads(result.stdout) == {'prefix': sys.prefix, 'executable': sys.executable},
+                'Registered hook escaped its bound virtualenv')
         before = hook_target.read_bytes()
         cli('apply', '--item', 'observer', selected_config=hook_machine)
         require(hook_target.read_bytes() == before, 'Personal hook reapply was not idempotent')
@@ -284,7 +275,7 @@ def main(argv=None):
         # the installed runtime and the standard library, not test helpers.
         command = [str(interpreter), "-I", "-c",
                    "import runpy; runpy.run_path(__import__('sys').argv[1])['verify']()", str(Path(__file__).resolve())]
-        result = run_captured(command, capture_output=True, text=True, timeout=180)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=180)
         if result.stdout:
             print(result.stdout, end="")
         if result.returncode:

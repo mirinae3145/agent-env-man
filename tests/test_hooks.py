@@ -1,6 +1,5 @@
 """Offline Codex hook installation preserves other hooks and never grants trust."""
 
-import base64
 from copy import deepcopy
 from contextlib import ExitStack
 import json
@@ -12,7 +11,6 @@ import unittest
 from unittest.mock import patch
 
 from agent_env_man import hooks
-from agent_env_man.agents import profile
 from agent_env_man.manager import Manager
 from agent_env_man.model import Config, Error
 from agent_env_man.storage import State, lock
@@ -139,70 +137,27 @@ class HookInstallation(InstructionFixture):
         self.assertIs(result["continue"], False)
         self.assertIn("recover", result["stopReason"])
 
-    def test_instruction_callbacks_retry_contention_and_read_state_after_acquiring(self):
+    def test_instruction_callback_refuses_installation_contention_without_waiting(self):
         self.configure()
-        self.run_cli("apply")
+        self.run_cli('apply')
+        directory = self.config.parent / 'installation-lock'
+        with lock(directory), patch('agent_env_man.cli_runtime.self_update.installation_lock', return_value=directory), \
+                patch('agent_env_man.process_lock.time.sleep') as retry:
+            result = self.run_cli('agent-hook', 'personal', '--agent', 'codex')
+        retry.assert_not_called()
+        self.assertFalse(result['continue'])
+        self.assertIn('lock', result['stopReason'])
+
+    def test_instruction_callback_reads_stable_snapshot_without_waiting(self):
+        self.configure()
+        self.run_cli('apply')
         directory = Config(self.config).state_dir
-        for command in (("agent-hook", "--agent", "codex"),):
-            for pending in (False, True):
-                with self.subTest(command=command, pending=pending), ExitStack() as holder:
-                    state = State(directory)
-                    state.data["pending"] = None
-                    state.save()
-                    holder.enter_context(lock(directory))
-
-                    def finish_writer(_delay):
-                        if pending:
-                            state.data["pending"] = {"example": "interrupted transaction"}
-                            state.save()
-                        holder.close()
-
-                    with patch("agent_env_man.process_lock.time.sleep", side_effect=finish_writer) as retry:
-                        result = self.run_cli(*command, "personal")
-                    retry.assert_called_once()
-                    if pending:
-                        self.assertIs(result["continue"], False)
-                        self.assertIn("recover", result["stopReason"])
-                    else:
-                        self.assertEqual(json.loads(result["hookSpecificOutput"]["additionalContext"].split("\n")[1])["root"], str(self.bundle))
-
-    def test_instruction_callback_waits_for_installation_lock(self):
-        self.configure()
-        self.run_cli("apply")
-        directory = self.config.parent / "installation-lock"
-        with ExitStack() as holder:
-            holder.enter_context(lock(directory))
-            with patch("agent_env_man.cli_runtime.self_update.installation_lock", return_value=directory), \
-                    patch("agent_env_man.process_lock.time.sleep", side_effect=lambda _: holder.close()) as retry:
-                result = self.run_cli("agent-hook", "personal", "--agent", "codex")
-            retry.assert_called_once()
-        self.assertEqual(json.loads(result["hookSpecificOutput"]["additionalContext"].split("\n")[1])["root"], str(self.bundle))
-
-    def test_instruction_callback_shares_wait_budget_across_locks(self):
-        self.configure()
-        self.run_cli("apply")
-        directory = self.config.parent / "installation-lock"
-        # Model four seconds spent acquiring the installation lock.
-        with patch("agent_env_man.cli_runtime.self_update.installation_lock", return_value=directory), \
-                patch("agent_env_man.cli_runtime.time.monotonic", side_effect=[0, 0, 4]), \
-                patch("agent_env_man.cli_runtime.lock", return_value=ExitStack()) as acquire:
-            result = self.run_cli("agent-hook", "personal", "--agent", "codex")
-        self.assertEqual([call.kwargs["timeout"] for call in acquire.call_args_list], [5, 1])
-        self.assertEqual(json.loads(result["hookSpecificOutput"]["additionalContext"].split("\n")[1])["root"], str(self.bundle))
-
-    def test_instruction_callbacks_read_stable_metadata_when_contention_outlasts_wait_budget(self):
-        self.configure()
-        self.run_cli("apply")
-        directory = Config(self.config).state_dir
-        before = (directory / "state.json").read_bytes()
-        for command in (("agent-hook", "--agent", "codex"),):
-            with self.subTest(command=command), lock(directory):
-                with patch("agent_env_man.process_lock.time.monotonic", side_effect=[0, 0, 0, 0, 5]), \
-                        patch("agent_env_man.process_lock.time.sleep") as retry:
-                    result = self.run_cli(*command, "personal")
-                retry.assert_called_once()
-                self.assertIn("hookSpecificOutput", result)
-        self.assertEqual((directory / "state.json").read_bytes(), before)
+        before = (directory / 'state.json').read_bytes()
+        with lock(directory), patch('agent_env_man.process_lock.time.sleep') as retry:
+            result = self.run_cli('agent-hook', 'personal', '--agent', 'codex')
+        retry.assert_not_called()
+        self.assertIn('hookSpecificOutput', result)
+        self.assertEqual((directory / 'state.json').read_bytes(), before)
 
     def test_contended_snapshot_refuses_pending_recovery_and_changed_state(self):
         self.configure()
@@ -249,15 +204,15 @@ class HookInstallation(InstructionFixture):
         self.assertIs(result['continue'], False)
         self.assertIn('replaced', result['stopReason'])
 
-    def test_startup_waits_for_short_instruction_lock_contention(self):
+    def test_startup_fails_open_without_waiting_for_instruction_lock(self):
         self.configure()
         self.run_cli('apply')
         with ExitStack() as holder:
             holder.enter_context(lock(Config(self.config).state_dir))
             with patch('agent_env_man.process_lock.time.sleep', side_effect=lambda _: holder.close()) as retry:
                 self.run_cli('startup', '--trigger', 'agent-start', '--agent', 'codex')
-            retry.assert_called_once()
-        self.assertIn('startup', State(Config(self.config).state_dir).data)
+            retry.assert_not_called()
+        self.assertNotIn('startup', State(Config(self.config).state_dir).data)
 
     def test_hook_transaction_failure_restores_existing_hooks_and_can_retry(self):
         self.configure()
@@ -324,17 +279,6 @@ class HookInstallation(InstructionFixture):
         self.assertEqual(len(json.loads(before)["hooks"]["SubagentStart"]), 2)
         self.run_cli("apply")
         self.assertEqual(self.hook_file().read_bytes(), before)
-
-    def test_windows_command_encodes_literal_arguments(self):
-        # Verify platform-independent encoding without claiming a Windows run.
-        path = Path("C:/Users/space ' and $name/machine.toml")
-        with patch.object(hooks.os, "name", "nt"):
-            _, group = profile("codex").definition(path, "personal")
-        command = group["hooks"][0]["command"]
-        self.assertTrue(command.startswith("powershell.exe -NoProfile -NonInteractive -EncodedCommand "))
-        decoded = base64.b64decode(command.split()[-1]).decode("utf-16le")
-        self.assertIn("'" + str(path).replace("'", "''") + "'", decoded)
-        self.assertIn("'agent-hook' 'personal' '--agent' 'codex'", decoded)
 
     def test_removed_hook_is_not_silently_reinstalled(self):
         self.configure()
@@ -446,7 +390,6 @@ class HookInstallation(InstructionFixture):
         self.assertEqual(json.loads(context.split("\n")[1]), {'root': str(self.rules / 'personal'), 'entry': str(self.rules / 'personal/start.md'), 'global_entry': str(self.agent / 'AGENTS.md')})
 
 
-@unittest.skipIf(os.name == 'nt', 'Windows hook commands use the launcher interpreter path')
 class HookInterpreter(unittest.TestCase):
     def setUp(self):
         import tempfile

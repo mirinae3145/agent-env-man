@@ -1,11 +1,11 @@
 """Publication uses local Git remotes and never touches user repositories."""
-from process_support import run_hidden
 
 from contextlib import redirect_stderr, redirect_stdout
 import io
 import json
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -38,6 +38,7 @@ class Publication(unittest.TestCase):
         self.git(self.seed, "push", "origin", "main")
         self.catalog = self.root / "catalog.toml"
         self.document = {'version': 2, 'sources': {'shared': {'type': 'git', 'repository': str(self.remote)}}, 'skills': {'one': {'subdir': 'skill', 'source': 'shared', 'install': {'mode': 'copy'}}, 'two': {'subdir': 'skill', 'source': 'shared', 'install': {'mode': 'copy'}}}, 'instructions': {'personal': {'entry': 'AGENTS.md', 'source': 'shared', 'install': {'entry': {'root': 'agent', 'destination': 'AGENTS.md'}}}}}
+        self.document['payload'] = {'defaults': {'permissions': 'strict', 'exclude': []}}
         self.catalog.write_text(tomlkit.dumps(self.document), encoding="utf-8")
         self.config = self.root / "machine.toml"
         self.cli("bootstrap", self.catalog, "--checkout-root", self.root / "checkouts",
@@ -45,7 +46,7 @@ class Publication(unittest.TestCase):
         self.checkout = self.root / "checkouts/.aem-repositories/shared"
 
     def git(self, path, *args):
-        result = run_hidden(["git", "-C", str(path), *map(str, args)], capture_output=True, text=True)
+        result = subprocess.run(["git", "-C", str(path), *map(str, args)], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout.strip()
 
@@ -221,9 +222,9 @@ class Publication(unittest.TestCase):
         self.document['instructions']['external'] = {'entry': 'AGENTS.md', 'source': 'documents', 'install': {'entry': {'root': 'agent', 'destination': 'EXTERNAL.md'}}}
         self.catalog.write_text(tomlkit.dumps(self.document), encoding="utf-8")
         self.cli("bootstrap", "--external", f"documents={external}")
-        result = self.cli("publish", "one", "external", code=1)
-        self.assertEqual([r["status"] for r in result], ["published", "failed"])
-        self.assertIn("outside AEM", result[1]["error"])
+        result = self.cli("publish", "one", "external")
+        self.assertEqual([r["status"] for r in result], ["published", "published"])
+        self.assertFalse(result[1]['transport_complete'])
         self.assertIn("known", self.cli("publish", "missing", code=1))
 
     def test_ignored_files_are_not_added_and_empty_message_is_rejected(self):

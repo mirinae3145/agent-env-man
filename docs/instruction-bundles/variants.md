@@ -1,43 +1,14 @@
 # Instruction installation variants
 
-These variants adapt the [external bundle walkthrough](install.md#original-files-before-installation) for Windows, Git, shared skills, or separate and shared offline copies.
+These variants adapt the [external bundle walkthrough](install.md#original-files-before-installation) for WSL, Git, shared skills, or separate and shared offline copies.
 Each example uses the same `guidance/start.md` bundle unless stated otherwise.
 
-## The same catalog on a Windows device
+## The same catalog on a WSL device
 
-Keep `instructions.toml` unchanged and bind this device's folder:
-
-```powershell
-aem bootstrap C:/Users/me/ai-config/instructions.toml --external personal-documents=D:/Synced/agent-documents
-aem apply
-```
-
-With the default environment, the generated `%LOCALAPPDATA%/agent-env-man/machine.toml` contains the following bindings (plus a default `skills` root):
-
-```toml
-version = 1
-catalog = "C:/Users/me/ai-config/instructions.toml"
-
-[external_paths]
-personal-documents = "D:/Synced/agent-documents"
-
-[roots]
-agent = "C:/Users/me/.codex"
-```
-
-With symbolic link creation enabled, the same commands using this machine file produce:
-
-```text
-C:/Users/me/AppData/Local/agent-env-man/machine.toml.bundles/personal
-  -> D:/Synced/agent-documents/guidance
-C:/Users/me/.codex/AGENTS.md
-  -> D:/Synced/agent-documents/guidance/start.md
-C:/Users/me/.codex/hooks.json
-  merged SessionStart and SubagentStart groups invoking the AEM callback
-```
-
-The generated command explicitly invokes an encoded PowerShell command on Windows and uses POSIX quoting on Linux/WSL; paths containing spaces are supported.
-AEM does not transfer the catalog or source documents between these devices.
+Run AEM inside WSL with Linux paths and a separate machine configuration.
+Bind the source folder as visible from that environment, and verify symbolic link behavior on mounted storage.
+Native Windows execution is unsupported; use the [workflow migration guidance](../removed-interfaces.md#unreleased-workflow-changes) to preserve an older Windows installation before moving.
+AEM does not transfer the catalog or source documents between devices.
 
 ## Use Git for the instruction source instead
 
@@ -119,7 +90,7 @@ Set `mode = "copy"` under `[instructions.personal.install.bundle]`, or set `pers
 The bundle is copied on apply and the global entry links to its entry inside that copy.
 All referenced documents remain together when the external source disappears; `locate personal` and the instruction hook resolve the installed tree without reading the catalog.
 `locate personal --source` still selects the original for source editing.
-Windows still needs symbolic link capability for the global entry; there is no automatic fallback to an entry copy.
+The global entry still requires symbolic link capability; there is no automatic fallback to an entry copy.
 
 Existing linked installations require an explicit transition:
 
@@ -135,7 +106,7 @@ The entry replacement preserves the detached entry in a backup and re-registers 
 For multiple agents these selectors cover each agent destination; use `--agent` for a single agent.
 
 Source updates reach the copy only on apply, which refuses to overwrite local edits without explicit replacement.
-To return installed edits, preview `aem publish personal --from-copy --dry-run`, then use `aem publish personal --from-copy` for an external source or add `-m "Update instructions"` for Git.
+To return installed edits, preview `aem publish personal --dry-run`, then use `aem publish personal` for an external source or add `-m "Update instructions"` for Git.
 Competing source/copy changes and differing exports from multiple agent copies stop collection.
 External publication confirms writing the local original, not synchronization by its external service.
 
@@ -158,7 +129,7 @@ shared = true
 Run `aem apply --dry-run`, then `aem apply`.
 Codex and Claude retain their respective entry filenames and hook formats, but both entries point into `<machine-file>.bundles/personal`.
 An explicit bundle `root` or `destination` overrides that location without adding agent suffixes.
-`locate personal --agent codex` and `locate personal --agent claude` return the same copy; `publish personal --from-copy` collects it once.
+`locate personal --agent codex` and `locate personal --agent claude` return the same copy; `publish personal` collects it once.
 
 ### Existing installation
 

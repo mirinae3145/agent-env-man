@@ -21,18 +21,6 @@ _spec.loader.exec_module(verifier)
 
 
 class RuntimeVerifier(unittest.TestCase):
-    def test_captured_children_hide_windows_consoles_and_keep_posix_defaults(self):
-        for platform in ("nt", "posix"):
-            with self.subTest(platform=platform), patch.object(verifier, "os", SimpleNamespace(name=platform)), patch.object(
-                    verifier.subprocess, "CREATE_NO_WINDOW", 0x08000000, create=True), patch.object(
-                    verifier.subprocess, "run") as run:
-                verifier.run_captured(["python", "-V"], capture_output=True, timeout=30)
-                self.assertTrue(run.call_args.kwargs["capture_output"])
-                self.assertEqual(run.call_args.kwargs["timeout"], 30)
-                if platform == "nt":
-                    self.assertEqual(run.call_args.kwargs["creationflags"], 0x08000000)
-                else:
-                    self.assertNotIn("creationflags", run.call_args.kwargs)
 
     def test_missing_interpreter_reports_failure_without_launch(self):
         with tempfile.TemporaryDirectory(prefix="aem-runtime-verifier-") as directory:

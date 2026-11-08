@@ -263,7 +263,7 @@ class SharedInstructions(InstructionFixture):
         self.run_cli('apply', '--item', 'personal:entry@claude')
         self.assertEqual((self.root / 'codex/AGENTS.md').read_text(), 'remote change')
         (installed / 'start.md').write_text('collected once', encoding='utf-8')
-        checkout = Path(self.run_cli('locate', 'personal', '--source')['root'])
+        checkout = Path(self.run_cli('locate', 'personal', '--source', '--agent', 'codex')['root'])
         self.git(checkout, 'config', 'user.name', 'Test')
         self.git(checkout, 'config', 'user.email', 'test@example.invalid')
         report = self.run_cli('publish', 'personal', '--from-copy', '-m', 'Shared instruction edit')[0]

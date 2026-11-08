@@ -22,7 +22,7 @@ Only `subdir` accepts `.` to select the source root.
 Paths are literal: AEM does not expand environment variables, interpolate other fields, or evaluate shell expressions.
 Machine paths must be absolute or begin with `~/`, except a local `catalog` string, which may be relative to the machine file's directory.
 Git `catalog.path` is a literal relative file path within that repository, using the relative content path rules in this section.
-On Windows, use forward slashes such as `C:/Users/me/.codex` in TOML strings.
+In WSL, use Linux paths as visible inside that environment; native Windows paths are not installation bindings.
 CLI path arguments have their own resolution rules described in [Commands](commands/catalog.md#bootstrap).
 
 ## Configuration topics

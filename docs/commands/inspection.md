@@ -21,7 +21,10 @@ Editable/source development resolves to the repository's canonical documentation
 aem status [--agent AGENT] [--refresh] [--git-timeout TIMEOUT]
 ```
 
-Reports local checkout observations, last observed remote state, ownership, and startup outcomes.
+Reports local checkout observations, last observed remote state, and ownership.
+Historical startup, catalog, and tool attempts and `last_update_error` remain available with `--verbose` or `--json`; concise status shows current inspection errors only.
+A past failed attempt does not establish that the failure still exists.
+
 `--refresh` fetches remote references without moving checkout branches or installing content.
 `--agent` filters installation observations, not source fetching.
 Saved installed targets are still inspected if the catalog or source is unavailable.
@@ -40,7 +43,9 @@ aem locate NAME [--agent AGENT] [--source | --target] [--repo] [--cd]
 
 ### Selection
 
-The agent defaults to `codex`; NAME is a catalog skill, directory, instruction bundle, setting, or personal hook name; directory and setting locations do not depend on an agent.
+NAME is a catalog skill, directory, instruction bundle, setting, or personal hook name; directory and setting locations do not depend on an agent.
+When `--agent` is omitted, choose the sole saved destination, or the sole matching current declaration when no saved destination exists.
+Several matches require an explicit `--agent`, including for shared bundles; no product is preferred.
 
 With `--source` or `--repo`, NAME may also be a catalog source name; `source:NAME` explicitly selects a source when names collide.
 Bare names prefer existing catalog item names, preserving their content-subdirectory lookup.
@@ -105,7 +110,7 @@ aem publish report -m "Clarify guidance"
 
 ### Shell directory selection
 
-Use `--cd` to change the current shell directory after registering the shell integration with `aem setup --shell bash`, `--shell zsh`, or `--shell powershell` and reloading the profile.
+Use `--cd` to change the current shell directory after registering the shell integration with `aem setup --shell bash` or `--shell zsh` and reloading the profile.
 It moves to the selected content root; `--source --cd` moves to the prepared source, while `catalog locate --cd` moves to the directory containing the catalog entry.
 Use `--repo --cd` to move to the source Git checkout root rather than the item's content subdirectory.
 Without the shell integration, `--cd` prints only the absolute directory path, so Bash/Zsh can also use `cd -- "$(aem locate NAME --cd)"`.

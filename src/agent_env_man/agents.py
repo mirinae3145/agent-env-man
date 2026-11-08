@@ -128,7 +128,7 @@ class Claude:
                 ['agent-hook', name, '--agent', self.name])
         if event != 'SessionStart':
             args += ['--hook-event', event]
-        command = hooks.command(config, [*args, '--aem-hook-id', marker], preserve_exit=True)
+        command = hooks.command(config, [*args, '--aem-hook-id', marker])
         group = {'hooks': [
             {'type': 'command', 'command': command, 'timeout': startup_timeout if startup else 10}]}
         if event == 'SessionStart':

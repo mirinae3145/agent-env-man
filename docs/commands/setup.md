@@ -4,9 +4,8 @@ Use `setup` to connect or remove shell and agent integrations and save device po
 
 ## setup
 
-`--automation-skip-unsupported` and `--no-automation-skip-unsupported` save a Boolean machine policy for full automation, defaulting to false and preserving the saved value when omitted.
-They can be used in policy-only setup without changing integrations; the installer accepts both flags.
-See [full automation](../automation/device.md) for exclusion reporting, shared-source constraints, and preview limits.
+Connect selected shells and agents, or change machine policies without registering integrations.
+Omitted selections and policy fields retain their saved values.
 
 ```text
 aem setup [--shell SHELL ...] [--agent AGENT ...]
@@ -18,14 +17,13 @@ aem setup [--shell SHELL ...] [--agent AGENT ...]
           [--catalog-git-timeout SECONDS] [--startup-hook-timeout SECONDS]
           [--automation off|policies|full] [--automation-trigger EVENT ...]
           [--automation-interval SECONDS] [--automation-git-timeout SECONDS]
-          [--automation-skip-unsupported | --no-automation-skip-unsupported]
 ```
 
 ### Integration selection
 
 The selection rules for shells, agents, and policy-only calls are:
 
-- Shell choices are `bash`, `zsh`, and `powershell`.
+- Shell choices are `bash` and `zsh`.
 - Selections accumulate; omitted selections remain saved, and repeated setup avoids duplicate blocks/groups.
 - Initial integration setup requires at least one shell or agent selection.
 - **Callback duration**: `--startup-hook-timeout` may also be saved before agents are registered; with saved agents, setup updates their managed startup groups.

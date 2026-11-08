@@ -14,7 +14,7 @@ General directories use Git or external sources and require no entry document, s
 | `source` | String | Required name in `sources`; Git or external. |
 | `exclude` | Array of strings | Additional [payload exclusions](payload.md#payload-exclusions); defaults to `[]`. |
 | `subdir` | String | Source directory; defaults to `"."`. |
-| `preserve_symlinks` | Boolean | `false`; require opaque symbolic link preservation for this directory only. Execution is supported on POSIX. |
+| `preserve_symlinks` | Boolean | `true`; preserve opaque nested symbolic links for this directory only. Set `false` to reject them. |
 | `agent` | String | Optional destination name such as `claude-lab`; binds the directory to that destination. |
 | `install` | Table | Optional [installation fields](#installation-fields). |
 | `update` | Table | Optional policy selection and overrides, using the same rules as skills. |
@@ -44,20 +44,17 @@ Path and mode changes require detach before reconfiguration.
 ### Payload and platform support
 
 The selected source must be a directory; its root and selected ancestry cannot redirect through links.
-By default its payload accepts only regular files and directories.
-Set `preserve_symlinks = true` directly under `directories.NAME` to preserve nested symbolic links in either installation mode on POSIX.
-Other reparse points, special files, and Git submodules remain unsupported.
+By default its payload accepts regular files, directories, and opaque nested symbolic links in either installation mode.
+Set `preserve_symlinks = false` directly under `directories.NAME` to reject nested links.
+Other special files and Git submodules remain unsupported.
 This option does not enable links in skills, instructions, settings, or hooks.
 
-The declaration is valid on every platform; native Windows execution is unsupported and is not planned.
-AEM never substitutes junctions, ordinary text files, or copies of referents.
-Windows can read and update a catalog containing the declaration and operate on independent supported items.
-Selecting the opted-in directory fails before content changes, even if it currently contains no links and regardless of installation mode.
+Linux and WSL are supported; native Windows execution is no longer supported.
+AEM never substitutes ordinary text files or copies of referents for links.
 
 Shared-source preparation, updates, and publication still check every affected consumer, including unselected declarations and orphaned active links.
 Ordinary machine bindings, destination checks, and saved ownership requirements remain in force.
 Use explicit item selection for independent operations; `sync --item` still updates all sources.
-Full automation can explicitly exclude unsupported items through the machine's [`automation.skip_unsupported` setting](automation.md#device-automation-settings).
 
 ### Symbolic link identity and relocation
 
@@ -79,8 +76,9 @@ Ignored links participate in local payload validation, copies, and detach, but a
 External handling confirms local link preservation only; synchronization-service behavior remains outside AEM.
 
 All affected active live consumers must permit a source change, including saved live links removed from the catalog.
-When enabling the option for an existing live installation, apply the new policy before receiving a Git revision that introduces links.
+When adopting the default for an existing live installation, apply the new policy before receiving a Git revision that introduces links.
 Update protects the last installed policy until apply records its replacement.
+
 Disabling the option refuses ordinary installation or collection while links remain in the source or managed copy.
 Source updates also refuse this policy transition while links remain.
 Remove those links and reconcile local edits before applying the disabled policy, or detach using saved ownership.
@@ -94,7 +92,7 @@ Source-root copy and detach automatically omit the top-level `.git` entry; Git-i
 
 Existing link/copy conflict, transaction, backup, detach, and recovery contracts apply.
 
-Ordinary publication does not collect copy edits; use explicit `publish NAME --from-copy` to collect an installed, managed directory copy.
+Explicit `publish NAME` collects installed managed directory copies; use `--local` for local handoff only, or `--source-only` to bypass collection.
 Collection compares the last common baseline, preserves conflicting source edits, and retains backups; see [publication](../commands/publish.md).
 Links expose writes and source updates immediately.
 External transport remains outside AEM; copy publication only hands content to the local external source.
