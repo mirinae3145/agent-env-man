@@ -123,7 +123,7 @@ The generated machine fields bind those declarations to this device:
 
 ### Default and custom locations
 
-The default config directory is `$XDG_CONFIG_HOME/agent-env-man` or `~/.config/agent-env-man` on Linux/WSL, and `%LOCALAPPDATA%/agent-env-man` on Windows (falling back to `~/AppData/Local`).
+The default config directory is `$XDG_CONFIG_HOME/agent-env-man` or `~/.config/agent-env-man` on Linux/WSL.
 The default `agent` root is `CODEX_HOME` or `~/.codex`; `skills` defaults to `~/.agents/skills`.
 Saved roots take precedence over later environment changes.
 
@@ -132,7 +132,7 @@ An explicitly named `install.entry.root` other than `agent` must be supplied thr
 For separate configurations, use `aem --config /custom/machine.toml bootstrap CATALOG ...` and retain that `--config` argument in subsequent commands.
 [examples/instructions-machine.toml](../../examples/instructions-machine.toml) remains an optional manual equivalent.
 
-Machine source/storage/root paths must be absolute or start with `~/`; use forward slashes in TOML Windows examples to avoid backslash escaping.
+Machine source/storage/root paths must be absolute or start with `~/`; WSL uses the paths visible from its Linux environment.
 
 ### Saved state
 
@@ -193,4 +193,4 @@ After installation, complete these steps:
 1. Run `aem locate personal` to inspect the saved bundle and entry locations if reading-location metadata is missing.
 
 The [hook reference](locations.md) describes generated groups, callback fields, and diagnostic behavior.
-For Windows, Git sources, and copy mode, use the [installation variants](variants.md).
+For WSL, Git sources, and copy mode, use the [installation variants](variants.md).

@@ -32,7 +32,7 @@ It never opens credentials, sessions, project history or plugin data.
 - **Settings fields**: Settings fields are compared leaf by leaf; arrays and empty objects are atomic, numbers compare by exact value and stay apart from booleans, and a missing field is distinct from `null`.
   In reported field names, literal dots and backslashes in JSON keys are escaped as `\.` and `\\`; nested fields still use an unescaped dot.
   For example, the literal key `a.b` is reported as `a\.b`, separately from the nested field `a.b`; use that reported spelling with `--expect`.
-- **Hook groups**: A hook command is AEM-owned when it carries `--aem-hook-id` or an AEM personal-hook identity marker, including inside the encoded PowerShell command AEM writes on Windows; this is the same rule `copy-profile` uses.
+- **Hook groups**: A hook command is AEM-owned when it carries `--aem-hook-id` or an AEM personal-hook identity marker, including inside the encoded PowerShell command older AEM versions wrote on Windows; this is the same rule `copy-profile` uses.
   A group's AEM-owned commands and its other commands are compared as separate items, each reporting its `owner`.
   An AEM-owned item with `--aem-hook-id` names its own machine configuration, so only its presence is compared.
   Other items, including personal hooks, are compared by their commands with the identity marker removed, so the same hook compares equal across agents; their labels carry a short digest of the command.

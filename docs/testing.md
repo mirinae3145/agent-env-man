@@ -43,7 +43,7 @@ Record the actual filesystem and mount used; a successful check on a mount's par
 
 Select the checks required by the affected contract, then use the appropriate execution guide.
 
-- [Test environment contracts](testing/environments.md) covers portable fixtures, Windows process behavior, and limits of platform evidence.
+- [Test environment contracts](testing/environments.md) covers isolated fixtures, supported environments, and limits of platform evidence.
 - [CI and agent integration checks](testing/ci.md) describes the CI jobs, local reproduction, and unauthenticated agent checks.
 - [Installed distribution verification](testing/distribution.md) covers isolated builds and runtime environments without development dependencies.
 - [Coverage measurement](testing/coverage.md) covers measurement commands, reports, and interpretation limits.

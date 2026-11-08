@@ -41,7 +41,7 @@ Cancel a prepared update if the installed version changed, and retain both locks
 Persist attempts before launch, throttle failures across startup events, keep previews offline and read-only, and distinguish queued work from completed updates.
 Keep self commands independent of content declarations; ordinary content operations and instruction location callbacks must not schedule self-updates.
 Keep removal-only setup independent of runtime registration and policy edits.
-Package-manager rollback and real Windows replacement require separate evidence before strengthening their documented guarantees.
+Package-manager rollback requires separate evidence before strengthening their documented guarantees.
 Keep the installer standard-library-only; configuration and ownership logic belong in the package.
 
 ## Official skill lifecycle

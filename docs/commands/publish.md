@@ -103,7 +103,7 @@ Source groups have independent outcomes, with no cross-source transaction.
 
 Copy publication uses existing `planned`, `published` and `failed` result values.
 Additional `collection` entries contain `item`, `source`, `copy`, `baseline_hash`, `source_hash`, `copy_hash`, boolean `changed`, `stale`, `conflict`, and relative `changes` (including `.` for root permission changes).
-`compare` contains argument-list data for `git difftool --no-index -- SOURCE COPY`; `compare_command` is a POSIX-shell command, or a PowerShell command on native Windows, for manual inspection.
+`compare` contains argument-list data for `git difftool --no-index -- SOURCE COPY`; `compare_command` is a POSIX-shell command for manual inspection.
 Neither text nor JSON output launches an editor or comparison tool, and conflict exits `1`.
 Successful collection adds `collection_complete = true` and `collection_backup` (null when no source writes were needed); the backup directory includes a recovery manifest.
 External results add `transport_complete = false`, including when `status = "published"`; they never assert synchronization completion.

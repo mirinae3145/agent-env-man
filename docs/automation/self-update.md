@@ -35,4 +35,4 @@ If another update changed the installed version during preparation, the attempt 
 Commands can report lock contention during replacement; startup remains fail-open.
 Other package-manager processes and external editors are not covered by these locks.
 A failed uv replacement is reported without a rollback guarantee; rerun `scripts/setup.py` to repair the installation if AEM cannot start.
-Native Windows worker/replacement and actual agent hook continuity require platform validation.
+Actual agent hook continuity requires integration validation.

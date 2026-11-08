@@ -12,12 +12,11 @@ Successful operations exit `0`; status also exits `0` when its report contains c
 
 ## Platform support and preflight
 
-Platform-unsupported directory policies appear as item `status = "unavailable"` with `error`; detached items retain `status = "detached"` and include the limitation as `error`.
-Their presence does not invalidate the catalog or prevent independent supported item operations.
-Explicit content commands preflight the complete selected operation and its shared-source consumers before content changes; unsupported policies fail rather than being silently skipped.
-Bootstrap performs this preflight after reading the catalog and before saving the machine binding or preparing content.
-`sync --item` still updates all sources; use `update NAME` and `apply --item NAME` for independent work.
-Callbacks have the exceptions defined in the [automation and callback reference](automation.md).
+Linux and WSL are supported; native Windows commands and the standalone installer refuse execution before configuration or target changes.
+Use the last Windows-supporting release to recover, detach, and remove its integrations before moving to a separate WSL installation.
+
+Unsupported payload types and ordinary operation failures remain errors; there is no automatic skip option.
+Explicit content commands still preflight the complete selection and shared-source consumers.
 
 ## Compatibility
 
@@ -40,7 +39,7 @@ Read-only commands and dry runs may create the lock directory/file; `setup --dry
 Catalog [permission levels](../configuration/payload.md#permission-preservation) apply to payload copying in `apply`, link materialization in `detach`, and explicit `publish --from-copy` collection.
 For best-effort payloads, apply and detach results include `permissions = "best-effort"` and `permission_differences`.
 Each difference identifies the payload-relative `path` (`.` for the root), integer native mode `requested`, observed `actual`, and an optional permission-setter `error`.
-Modes are POSIX permission bits or the Windows writable flag; these fields do not describe ACLs or effective access rights.
+Modes are POSIX permission bits; these fields do not describe ACLs or effective access rights.
 An empty array means no observed native mode difference or setter failure, not complete metadata preservation.
 
 `apply --dry-run` and link `detach --dry-run` report `permission_check = "pending-copy"` when copying would be needed; it does not probe or promise permission support.

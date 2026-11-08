@@ -52,8 +52,9 @@ Keep shared-checkout validation and live-link side effects intact, including exc
 
 ### Unsupported payloads and failures
 
-Full mode refuses unsupported payload requirements before its content stage unless the machine explicitly enables `skip_unsupported`.
-That option excludes only known platform limitations, reports every exclusion, and never suppresses shared-source guards or ordinary errors.
-Include it in the saved automation settings used to cancel obsolete worker requests.
+Full mode refuses unsupported payload requirements before its content stage.
+Native Windows is no longer supported, removing the only platform-specific skip case.
+Accept legacy Boolean `skip_unsupported` fields without changing failure handling; retain their raw saved binding when checking obsolete worker requests.
+
 Policy-based automation keeps independent attempts and failure throttling; previews report unsupported due work without recording attempts.
 Stop later stages on failure without claiming cross-repository rollback; preserve ordinary per-target journals and recovery.

@@ -51,4 +51,4 @@ After an interrupted group, subsequent operations are blocked until `aem recover
 Recovery validates every member before restoring any and refuses to overwrite later user edits.
 Backups are retained alongside their files after successful writes.
 Different application files retain AEM's per-target transaction boundary; a later failure does not undo earlier successful items.
-Native Windows behavior and power-loss guarantees require separate platform evidence.
+Power-loss guarantees require separate filesystem evidence.

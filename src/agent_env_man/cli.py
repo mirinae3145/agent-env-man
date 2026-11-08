@@ -1,6 +1,7 @@
 """Click entrypoint and command registration for AEM."""
 
 from pathlib import Path
+import sys
 
 import click
 
@@ -32,6 +33,8 @@ def cli(ctx, config, json_output, verbose, progress):
     # and locks belong to the selected command's Runtime.run boundary.
     if json_output and verbose:
         raise click.UsageError("--json and --verbose are mutually exclusive")
+    if sys.platform == 'win32':
+        raise click.ClickException('Native Windows is no longer supported; run AEM inside WSL or Linux')
     ctx.obj = Runtime(config, json_output, verbose, progress)
 
 

@@ -12,6 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Compatibility policy**: Distinguish explicit guarantees from descriptions of current behavior using workflow reliance, migration cost, and preservation criteria.
   See the [workflow migration guidance](docs/removed-interfaces.md#unreleased-workflow-changes) for the combined migration.
 
+### Removed
+
+- **Native Windows execution**: Refuse CLI and installer operations before changes; Linux and WSL remain supported, and CI targets Linux.
+- **Unsupported-item skipping**: Remove setup/installer skip options after retiring the Windows-only case.
+  Legacy Boolean machine fields remain readable without suppressing operation failures.
+
 ## [1.3.0] &mdash; 2026-11-07
 
 Git tag `v1.3.0` corresponds to Python package version `1.3.0`; based on `v1.3.0-rc.2`.

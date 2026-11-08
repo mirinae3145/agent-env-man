@@ -34,8 +34,7 @@ These boundaries apply across the layers:
   Progress samples the current operation while a blocking read or Git subprocess runs, without touching configuration/state or performing extra filesystem inspections.
   Disabled progress creates no reporter thread; callbacks and internal workers always disable it.
   Stop and join the reporter before final output or error handling, restore nested observation scopes, and keep stdout/exit codes and queued-work outcomes authoritative.
-- **Background processes**: Captured background processes on Windows must not open console windows, including Git, uv, PowerShell profile discovery, and fresh-CLI worker continuations.
-  Keep the worker lifetime pipe, process-group termination, captured output, and exit-code behavior intact when controlling console creation.
+- **Background processes**: Keep the worker lifetime pipe, process-group termination, captured output, and exit-code behavior intact.
 
 ## Contract areas
 

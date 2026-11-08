@@ -1,43 +1,14 @@
 # Instruction installation variants
 
-These variants adapt the [external bundle walkthrough](install.md#original-files-before-installation) for Windows, Git, shared skills, or separate and shared offline copies.
+These variants adapt the [external bundle walkthrough](install.md#original-files-before-installation) for WSL, Git, shared skills, or separate and shared offline copies.
 Each example uses the same `guidance/start.md` bundle unless stated otherwise.
 
-## The same catalog on a Windows device
+## The same catalog on a WSL device
 
-Keep `instructions.toml` unchanged and bind this device's folder:
-
-```powershell
-aem bootstrap C:/Users/me/ai-config/instructions.toml --external personal-documents=D:/Synced/agent-documents
-aem apply
-```
-
-With the default environment, the generated `%LOCALAPPDATA%/agent-env-man/machine.toml` contains the following bindings (plus a default `skills` root):
-
-```toml
-version = 1
-catalog = "C:/Users/me/ai-config/instructions.toml"
-
-[external_paths]
-personal-documents = "D:/Synced/agent-documents"
-
-[roots]
-agent = "C:/Users/me/.codex"
-```
-
-With symbolic link creation enabled, the same commands using this machine file produce:
-
-```text
-C:/Users/me/AppData/Local/agent-env-man/machine.toml.bundles/personal
-  -> D:/Synced/agent-documents/guidance
-C:/Users/me/.codex/AGENTS.md
-  -> D:/Synced/agent-documents/guidance/start.md
-C:/Users/me/.codex/hooks.json
-  merged SessionStart and SubagentStart groups invoking the AEM callback
-```
-
-The generated command explicitly invokes an encoded PowerShell command on Windows and uses POSIX quoting on Linux/WSL; paths containing spaces are supported.
-AEM does not transfer the catalog or source documents between these devices.
+Run AEM inside WSL with Linux paths and a separate machine configuration.
+Bind the source folder as visible from that environment, and verify symbolic link behavior on mounted storage.
+Native Windows execution is unsupported; use the [workflow migration guidance](../removed-interfaces.md#unreleased-workflow-changes) to preserve an older Windows installation before moving.
+AEM does not transfer the catalog or source documents between devices.
 
 ## Use Git for the instruction source instead
 
@@ -119,7 +90,7 @@ Set `mode = "copy"` under `[instructions.personal.install.bundle]`, or set `pers
 The bundle is copied on apply and the global entry links to its entry inside that copy.
 All referenced documents remain together when the external source disappears; `locate personal` and the instruction hook resolve the installed tree without reading the catalog.
 `locate personal --source` still selects the original for source editing.
-Windows still needs symbolic link capability for the global entry; there is no automatic fallback to an entry copy.
+The global entry still requires symbolic link capability; there is no automatic fallback to an entry copy.
 
 Existing linked installations require an explicit transition:
 

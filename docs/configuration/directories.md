@@ -49,15 +49,12 @@ Set `preserve_symlinks = true` directly under `directories.NAME` to preserve nes
 Other reparse points, special files, and Git submodules remain unsupported.
 This option does not enable links in skills, instructions, settings, or hooks.
 
-The declaration is valid on every platform; native Windows execution is unsupported and is not planned.
-AEM never substitutes junctions, ordinary text files, or copies of referents.
-Windows can read and update a catalog containing the declaration and operate on independent supported items.
-Selecting the opted-in directory fails before content changes, even if it currently contains no links and regardless of installation mode.
+Linux and WSL are supported; native Windows execution is no longer supported.
+AEM never substitutes ordinary text files or copies of referents for links.
 
 Shared-source preparation, updates, and publication still check every affected consumer, including unselected declarations and orphaned active links.
 Ordinary machine bindings, destination checks, and saved ownership requirements remain in force.
 Use explicit item selection for independent operations; `sync --item` still updates all sources.
-Full automation can explicitly exclude unsupported items through the machine's [`automation.skip_unsupported` setting](automation.md#device-automation-settings).
 
 ### Symbolic link identity and relocation
 

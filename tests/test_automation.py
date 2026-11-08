@@ -117,7 +117,9 @@ class FullAutomation(SetupFixture):
 
     def test_full_skip_setting_reaches_worker_and_invalidates_continuation(self):
         self.register()
-        self.run_cli('setup', '--automation-skip-unsupported')
+        document = tomlkit.parse(self.config.read_text())
+        document['automation']['skip_unsupported'] = True
+        self.config.write_text(tomlkit.dumps(document))
         manager = Manager(Config(self.config), State(self.configuration.state_dir))
         with patch.object(self_update, 'launch', return_value={'status': 'queued'}) as launch:
             automation.schedule(manager.config, 'interval')
@@ -125,7 +127,8 @@ class FullAutomation(SetupFixture):
         saved = {'token': 'test', 'status': 'continuing',
                  'binding': self_update.full_binding(manager.config.doc)}
         self_update.write_json(automation.result_path(manager.config), saved)
-        self.run_cli('setup', '--no-automation-skip-unsupported')
+        document['automation']['skip_unsupported'] = False
+        self.config.write_text(tomlkit.dumps(document))
         self.assertIn('No matching', str(self.run_cli('_full-run', '--token', 'test', code=1)))
 
     def test_policy_only_setup_preserves_fields_and_invalid_settings_fail(self):

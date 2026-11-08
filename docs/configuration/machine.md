@@ -44,7 +44,7 @@ report = "copy"
 ```
 
 Machine selection defaults to `$XDG_CONFIG_HOME/agent-env-man/machine.toml` or `~/.config/agent-env-man/machine.toml` on Linux/WSL.
-On Windows it uses `%LOCALAPPDATA%/agent-env-man/machine.toml`, falling back to `~/AppData/Local/agent-env-man/machine.toml`.
+Native Windows execution is unsupported; WSL uses its own Linux paths and configuration.
 Pass `--config PATH` before the command to select another file.
 
 ## Roots and agents

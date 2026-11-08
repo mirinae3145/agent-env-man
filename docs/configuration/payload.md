@@ -110,7 +110,6 @@ The selected level controls copying and verification as follows:
 ### Limits of preservation
 
 Neither level guarantees complete preservation of ownership, ACLs, extended attributes, or other platform-specific metadata.
-On Windows, native permission observation covers the writable/read-only flag supported by `chmod`, not ACL access rights.
 Best-effort copying retains timestamp application; timestamp failures, content I/O errors, unsupported payload types, and source or target changes remain fatal.
 It does not ensure that copied scripts can execute or reproduce the source's access restrictions.
 

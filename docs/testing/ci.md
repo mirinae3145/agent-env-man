@@ -15,12 +15,12 @@ The CI workflow runs these independent checks:
 
 | Check | Runners | Python | Commands |
 | --- | --- | --- | --- |
-| Source | Ubuntu 24.04, Windows Server 2025 | 3.11, 3.15 | Full unittest discovery under coverage, and compileall |
-| Distribution | Ubuntu 24.04, Windows Server 2025 | 3.11 | Direct wheel and sdist-rebuilt wheel runtime verification |
+| Source | Ubuntu 24.04 | 3.11, 3.15 | Full unittest discovery under coverage, and compileall |
+| Distribution | Ubuntu 24.04 | 3.11 | Direct wheel and sdist-rebuilt wheel runtime verification |
 | Upgrade | Ubuntu 24.04 | 3.11 | Self-update from previous releases to the tested revision |
 | Documents | Ubuntu 24.04 | 3.11 | Markdown structure check with mddt's current default branch |
 
-Every matrix job requires working file and directory symlinks; Windows also requires Windows PowerShell.
+Every matrix job requires working file and directory symlinks.
 A missing capability fails preparation instead of silently skipping its success paths.
 Verbose unittest logs retain individual skips, including tests for the other operating system.
 Source jobs install the development extra and uv to exercise tool-discovery tests.
@@ -35,7 +35,7 @@ A newer PR revision cancels the previous run for that PR.
 
 Each job uploads command logs for 14 days, including on failure when logs are available.
 Inspect the failed step and skip reasons before interpreting a run as platform coverage.
-Hosted Linux and Windows checks do not cover WSL interoperability, real mounted filesystems, or authenticated agent sessions.
+Hosted Linux checks do not cover WSL interoperability, real mounted filesystems, or authenticated agent sessions.
 
 ### Document structure
 
@@ -63,7 +63,7 @@ Other transitions must leave the installation unchanged before succeeding in `br
 The job checks that installed contents, local edits, and existing status fields survive, allowing additive JSON output fields, and that ordinary updates continue afterwards.
 
 Rerunning setup afterwards must leave the agent profile files unchanged.
-Native Windows self-update remains outside this job.
+Native Windows execution is unsupported.
 
 ### Agent integration workflow
 
@@ -114,7 +114,7 @@ For a regular uv tool installation, reinstall the updated checkout before testin
 
 Test setup with temporary homes and fake installer subprocesses, never actual user profiles or live remote repositories.
 Exercise repeat/add/remove, edited blocks, invalid hook files, redirected paths, grouped hook writes, partial failure/retry, offline previews, and fail-open startup.
-Shell quoting and PowerShell serialization tests do not establish native shell or Windows readiness.
+Shell quoting and PowerShell serialization tests do not establish native shell execution.
 
 ### Installed CLI verification
 

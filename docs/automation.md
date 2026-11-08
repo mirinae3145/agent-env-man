@@ -48,7 +48,6 @@ See [Personal hooks](personal-hooks.md).
 Startup callbacks wait up to five seconds for short lock contention.
 On Linux/WSL, instruction callbacks can return validated saved location metadata while a content update holds the configuration lock.
 They still refuse package-replacement contention, pending recovery, replaced links, or a saved configuration/state change during lookup.
-Native Windows retains exclusive installation locking.
 
 In one automatic skill-policy run, skills sharing a prepared checkout, remote, branch, and Git timeout reuse the same fetch observation, including a network failure.
 Different timeout budgets fetch separately.

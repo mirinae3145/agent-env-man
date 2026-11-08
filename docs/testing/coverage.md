@@ -26,9 +26,8 @@ Keep coverage.py's default exclusions; do not exclude whole files to improve the
 Review unmeasured failure, recovery, and platform paths for meaningful behavior tests before choosing a minimum threshold.
 Record the source revision, environment, test outcomes and skips, statement and branch coverage, and combined percentage with validation results.
 Do not embed changing baselines in this guidance.
-Linux/WSL measurement does not establish coverage of Windows-only behavior.
+Linux measurement does not establish WSL mounted-filesystem behavior.
 
-The same commands work with the native Windows environment's Python, but report its results separately.
 Workers copied into temporary request directories are outside the configured source roots; subprocess measurement does not map those copies back to their originals.
 Test the original worker's policy, failure, and continuation behavior separately from copied-worker lifetime integration.
-Mocked Windows API tests check branching and resource handling; they do not establish native Windows lock or process behavior.
+Retained mocks of legacy platform helpers check branching and resource handling; native Windows execution is unsupported.
