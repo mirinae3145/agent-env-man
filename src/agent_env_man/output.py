@@ -100,7 +100,7 @@ def _attention(value):
     for key, child in value.items():
         if key in HISTORY_FIELDS:
             continue
-        if child and (key in {"error", "last_update_error", "configuration_error", "catalog_error",
+        if child and (key in {"error", "configuration_error", "catalog_error",
                              "failed", "conflict", "conflicts", "pending", "remaining"}
                       or key in ("status", "installation", "availability", "checkout") and child in (
                           "failed", "conflict", "unavailable", "missing", "broken-link",

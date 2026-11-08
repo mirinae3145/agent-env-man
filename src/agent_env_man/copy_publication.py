@@ -101,10 +101,11 @@ def plan(manager, names, *, installed_only=False):
             if installed_only:
                 if item.kind not in ('skill', 'directory', 'instruction'):
                     continue
-                if not record or record.get('detached'):
+                # Links and uninstalled items already use the source directly.
+                if not record or record.get('detached') or record.get('mode') != 'copy':
                     continue
-                if item.mode != 'copy' and record.get('mode') != 'copy':
-                    continue
+                if item.mode != 'copy':
+                    raise Error(f'{item.key}: install mode changed; apply before collection')
             if item.kind not in ('skill', 'directory', 'instruction') or item.mode != 'copy':
                 raise Error(f'{name}: --from-copy requires installed skill, directory, or instruction copies')
             if not record:
@@ -123,9 +124,11 @@ def plan(manager, names, *, installed_only=False):
             if item.kind == 'directory' and record.get('preserve_symlinks', False) != item.preserve_symlinks:
                 raise Error(f'{item.key}: symlink policy changed; apply before collection')
             if record.get('permissions', 'strict') != item.permissions:
-                raise Error(f'{item.key}: permission policy changed; apply before collection')
+                raise Error(f'{item.key}: permission policy changed; apply before collection, '
+                            'or declare the previous policy explicitly to keep an edited copy')
             if record.get('exclusions', []) != saved_policy(payload_options(item)).get('exclusions', []):
-                raise Error(f'{item.key}: exclusion policy changed; apply before collection')
+                raise Error(f'{item.key}: exclusion policy changed; apply before collection, '
+                            'or declare the previous policy explicitly to keep an edited copy')
             saved_path(str(item.target))
             if not item.target.is_dir():
                 raise Error(f'{item.key}: installed copy directory is missing')

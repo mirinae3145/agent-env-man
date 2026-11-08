@@ -1302,7 +1302,7 @@ class Manager:
         Git commit scope remains the entire checkout.
         """
         from .copy_publication import plan, selected_writes, guard_links, collect
-        from .settings import Settings, changed, Bundle
+        from .settings import Settings, changed, Bundle, metadata_path
         self.state.ready()
         sources = self.config.sources
         if not names or set(names) - sources.keys():
@@ -1338,8 +1338,10 @@ class Manager:
                     self.check_destinations(self.items())
                     collection = plan(self, selected, installed_only=not from_copy)
                     report['collection'] = [p.report for p in collection]
+                    # Detached links are materialized copies but keep their saved mode.
                     report['excluded_copies'] = sorted({r.get('source_name') for r in self.state.data['items'].values()
-                        if r.get('source_name') in selected and r.get('mode') == 'copy' and r.get('detached')})
+                        if r.get('source_name') in selected and r.get('kind') in ('skill', 'directory', 'instruction')
+                        and r.get('detached')})
                     if any(p.report['conflict'] for p in collection):
                         raise Error('Copy and source changed since the common baseline; reconcile the reported paths and retry')
                     writes = selected_writes(collection)
@@ -1349,9 +1351,10 @@ class Manager:
                     if setting_names:
                         report['export'] = settings.export(setting_names, dry_run=True)
                         for name in setting_names:
-                            for destination, _, _ in settings.export_plan(name)[0][:2]:
-                                if any(overlaps(destination, p.item.source) for p in writes):
-                                    raise Error('Copy collection overlaps settings export; publish them separately')
+                            path = settings.item(name).source
+                            if any(overlaps(destination, p.item.source)
+                                   for destination in (path, metadata_path(path)) for p in writes):
+                                raise Error('Copy collection overlaps settings export; publish them separately')
                 if not source_only:
                     report["unpublished_settings"] = [n for n, _ in members if n not in setting_names and n in self.config._settings
                         and (r := settings.record(n, required=False))
@@ -1360,7 +1363,12 @@ class Manager:
                 if source.git:
                     source = self.delivery_source(source)
                     git = Git(timeout)
-                    report.update(git.publication(source))
+                    if local:
+                        # Local gathering needs no push destination or change report.
+                        git.validate(source)
+                        git.idle(source)
+                    else:
+                        report.update(git.publication(source))
                 report['transport_complete'] = False
                 if not dry_run:
                     if git and not local:
