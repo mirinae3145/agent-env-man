@@ -369,7 +369,33 @@ class Manager:
             raise Error(f"Payload changed during inspection: {item.source}")
         return result
 
-    def locate(self, name, agent="codex", *, source=False, target=False, repo=False):
+    def locate_agent(self, name, *, source=False):
+        """Select one real destination without requiring a catalog for saved work."""
+        records = [r for r in self.state.data['items'].values() if r.get('source_name') == name]
+        if not source and any(r.get('kind') == 'directory' for r in records):
+            return None
+        candidates = set()
+        if not source:
+            for record in records:
+                if record.get('kind') in ('skill', 'instruction', 'personal-hook'):
+                    candidates.update(record.get('agents') or [record.get('agent', 'codex')])
+        if not candidates:
+            config = Config(self.config.path)
+            sources = config.sources
+            if name not in sources:
+                raise Error(f'{name}: unknown catalog item')
+            for item in config.declarations(sources[name]):
+                if item.kind == 'directory':
+                    return None
+                if item.kind in ('skill', 'instruction', 'personal-hook'):
+                    candidates.update(item.agents or (item.agent,))
+        candidates.discard(None)
+        if len(candidates) != 1:
+            choices = ', '.join(sorted(candidates)) or 'no matching destinations'
+            raise Error(f'{name}: specify --agent ({choices})')
+        return candidates.pop()
+
+    def locate(self, name, agent=None, *, source=False, target=False, repo=False):
         """Locate saved content by default, or current catalog source content explicitly.
 
         Saved locations take precedence even when broken: never silently redirect
@@ -397,7 +423,9 @@ class Manager:
             if name in current._settings:
                 self.config = current
                 return Settings(self).locate(name, source=source, target=target)
-        hook_record = self.state.data['items'].get(f'{name}:hook{suffix(agent)}')
+        if agent is None:
+            agent = self.locate_agent(name, source=source)
+        hook_record = self.state.data['items'].get(f'{name}:hook{suffix(agent)}') if agent else None
         if hook_record and hook_record.get('kind') == 'personal-hook' and not source:
             if target:
                 raise Error('--target is supported only for settings')
@@ -409,7 +437,8 @@ class Manager:
                     'location': 'source'}
         if target:
             raise Error("--target is supported only for settings")
-        self.validate_agent(agent, saved=True)
+        if agent is not None:
+            self.validate_agent(agent, saved=True)
         if not source:
             record = self.state.data["items"].get(f"{name}:directory")
             if record is not None:
@@ -427,7 +456,7 @@ class Manager:
                     raise Error(f"{name}: saved directory is missing or is not a directory")
                 return {"root": str(root), "entry": str(root), "installed_root": str(target),
                         "detached": bool(record.get("detached")), "location": "source" if linked else "copy"}
-            record = self.instruction_record(name, agent)
+            record = self.instruction_record(name, agent) if agent else None
             if record is not None:
                 return self.locate_instruction(name, agent)
             records = [r for r in self.state.data["items"].values()

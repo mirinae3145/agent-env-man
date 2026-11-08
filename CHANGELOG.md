@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Compatibility policy**: Distinguish explicit guarantees from descriptions of current behavior using workflow reliance, migration cost, and preservation criteria.
   See the [workflow migration guidance](docs/removed-interfaces.md#unreleased-workflow-changes) for the combined migration.
 
+### Fixed
+
+- **Agent lookup**: Infer the sole saved or declared destination when `locate --agent` is omitted; ambiguous destinations require a selector.
+
 ### Removed
 
 - **Native Windows execution**: Refuse CLI and installer operations before changes; Linux and WSL remain supported, and CI targets Linux.

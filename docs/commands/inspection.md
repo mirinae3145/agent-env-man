@@ -40,7 +40,9 @@ aem locate NAME [--agent AGENT] [--source | --target] [--repo] [--cd]
 
 ### Selection
 
-The agent defaults to `codex`; NAME is a catalog skill, directory, instruction bundle, setting, or personal hook name; directory and setting locations do not depend on an agent.
+NAME is a catalog skill, directory, instruction bundle, setting, or personal hook name; directory and setting locations do not depend on an agent.
+When `--agent` is omitted, choose the sole saved destination, or the sole matching current declaration when no saved destination exists.
+Several matches require an explicit `--agent`, including for shared bundles; no product is preferred.
 
 With `--source` or `--repo`, NAME may also be a catalog source name; `source:NAME` explicitly selects a source when names collide.
 Bare names prefer existing catalog item names, preserving their content-subdirectory lookup.

@@ -247,3 +247,35 @@ class Locate(unittest.TestCase):
         before = state.read_bytes()
         self.assertEqual(self.cli('locate', 'one')['root'], str(self.root / 'installed/one'))
         self.assertEqual(state.read_bytes(), before)
+
+
+class InferredLocate(unittest.TestCase):
+    def setUp(self):
+        self.case = c = publication_tests.Publication()
+        self.addCleanup(c.doCleanups)
+        c.setUp()
+        document = tomlkit.parse(c.config.read_text())
+        document['agents'] = {'claude': {'root': str(c.root / 'claude'), 'skills': str(c.root / 'claude-skills')}}
+        c.config.write_text(tomlkit.dumps(document))
+
+
+    def test_claude_only_prepared_and_saved_lookup_without_catalog(self):
+        c = self.case
+        self.assertEqual(c.cli('locate', 'personal')['entry'], str(c.checkout / 'AGENTS.md'))
+        c.cli('apply', '--item', 'one', '--item', 'personal:entry')
+        skill = c.cli('locate', 'one')
+        instruction = c.cli('locate', 'personal')
+        c.catalog.unlink()
+        self.assertEqual(c.cli('locate', 'one')['root'], skill['root'])
+        self.assertEqual(c.cli('locate', 'personal')['root'], instruction['root'])
+
+
+    def test_multiple_destinations_require_explicit_agent(self):
+        c = self.case
+        document = tomlkit.parse(c.config.read_text())
+        document['agents']['codex'] = {'root': str(c.root / 'codex'), 'skills': str(c.root / 'codex-skills')}
+        c.config.write_text(tomlkit.dumps(document))
+        self.assertIn('--agent', c.cli('locate', 'one', code=1))
+        c.cli('locate', 'one', '--agent', 'claude')
+        c.cli('apply', '--item', 'one')
+        self.assertIn('--agent', c.cli('locate', 'one', code=1))
