@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.0.0-beta.2] &mdash; 2026-11-09
+
+Git tag `v2.0.0-beta.2` corresponds to Python package version `2.0.0b2`; based on `v2.0.0-beta.1`.
+
 ### Fixed
 
 - **Instruction location lookup**: Stop failing agent startup when a concurrent automation callback records its attempt during an unlocked lookup.
@@ -556,7 +560,8 @@ See [Removed interfaces and existing installations](docs/removed-interfaces.md) 
 - Linux/WSL and native Windows path handling, with Python 3.11 or later and Git required.
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
-[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.1...HEAD
+[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.2...HEAD
+[2.0.0-beta.2]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.1...v2.0.0-beta.2
 [2.0.0-beta.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0...v2.0.0-beta.1
 [1.3.0]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-rc.2...v1.3.0
 [1.3.0-rc.2]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-rc.1...v1.3.0-rc.2
