@@ -4,11 +4,11 @@ The catalog is now the only content declaration format.
 This is a breaking cleanup for installation: there is no legacy source parser, command alias, or automatic conversion.
 Saved ownership remains available for maintenance without restoring legacy installation semantics.
 
-## Unreleased workflow changes
+## 2.0 workflow changes
 
-These unreleased workflow changes retain catalog format `2`, machine format `1`, and state format `2`.
+The 2.0 workflow changes retain catalog format `2`, machine format `1`, and state format `2`.
 Do not edit these markers or discard saved ownership.
-No package release number has been selected for this work; the catalog format number remains independent of package versioning.
+They first ship in `2.0.0-beta.1`; the catalog format number remains independent of package versioning.
 
 Existing omitted fields now select best-effort permissions, nested directory symlink preservation, and default exclusions `**/._DAV` and `**/@eaDir`.
 To retain the previous policies, set `payload.defaults.permissions = "strict"`, `payload.defaults.exclude = []`, and `directories.NAME.preserve_symlinks = false` for each directory.

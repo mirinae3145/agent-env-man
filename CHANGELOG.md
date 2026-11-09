@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.0.0-beta.1] &mdash; 2026-11-09
+
+Git tag `v2.0.0-beta.1` corresponds to Python package version `2.0.0b1`; based on `v1.3.0`.
+
 ### Changed
 
 - **Payload defaults**: Use best-effort permission preservation and preserve nested directory symlinks by default.
@@ -17,7 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   External sources support the same workflow, `export` becomes the local-gathering alias with grouped reports, and actual application fields still require explicit collection.
 - **Status history**: Keep historical failures and attempt details in verbose/JSON status without presenting them as current faults in concise status.
 - **Compatibility policy**: Distinguish explicit guarantees from descriptions of current behavior using workflow reliance, migration cost, and preservation criteria.
-  See the [workflow migration guidance](docs/removed-interfaces.md#unreleased-workflow-changes) for the combined migration.
+  See the [workflow migration guidance](docs/removed-interfaces.md#20-workflow-changes) for the combined migration.
 
 ### Fixed
 
@@ -32,7 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   Legacy Boolean machine fields remain readable without suppressing operation failures.
   Effective policy JSON omits the obsolete field.
 - **PowerShell shell integration**: Remove the `powershell` choice from `aem setup` and the installer; setup, installation, and update commands reject machine files selecting `setup.shells.powershell`.
-  Remove the integration with the previous release before upgrading; see the [workflow migration guidance](docs/removed-interfaces.md#unreleased-workflow-changes).
+  Remove the integration with the previous release before upgrading; see the [workflow migration guidance](docs/removed-interfaces.md#20-workflow-changes).
 - **Native Windows code paths**: Remove Windows-only locking, process, permission, link-spelling, and encoded hook handling, including recognition of encoded PowerShell hook commands written on Windows.
 
 ## [1.3.0] &mdash; 2026-11-07
@@ -547,7 +551,8 @@ See [Removed interfaces and existing installations](docs/removed-interfaces.md) 
 - Linux/WSL and native Windows path handling, with Python 3.11 or later and Git required.
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
-[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.1...HEAD
+[2.0.0-beta.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0...v2.0.0-beta.1
 [1.3.0]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-rc.2...v1.3.0
 [1.3.0-rc.2]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-rc.1...v1.3.0-rc.2
 [1.3.0-rc.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0-beta.3...v1.3.0-rc.1

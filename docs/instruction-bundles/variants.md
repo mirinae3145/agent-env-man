@@ -7,7 +7,7 @@ Each example uses the same `guidance/start.md` bundle unless stated otherwise.
 
 Run AEM inside WSL with Linux paths and a separate machine configuration.
 Bind the source folder as visible from that environment, and verify symbolic link behavior on mounted storage.
-Native Windows execution is unsupported; use the [workflow migration guidance](../removed-interfaces.md#unreleased-workflow-changes) to preserve an older Windows installation before moving.
+Native Windows execution is unsupported; use the [workflow migration guidance](../removed-interfaces.md#20-workflow-changes) to preserve an older Windows installation before moving.
 AEM does not transfer the catalog or source documents between devices.
 
 ## Use Git for the instruction source instead

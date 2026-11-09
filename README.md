@@ -23,7 +23,7 @@ Prepared sources remain usable offline.
 
 Requirements: Python 3.11 or later, Git, and [uv](https://docs.astral.sh/uv/).
 Linux and WSL are supported; native Windows execution is unsupported.
-For existing installations, read the [upcoming workflow changes](docs/removed-interfaces.md#unreleased-workflow-changes) before upgrading.
+For existing installations, read the [2.0 workflow changes](docs/removed-interfaces.md#20-workflow-changes) before upgrading.
 Configure Git credentials separately; AEM uses noninteractive authentication.
 
 From this checkout on Linux/WSL:
