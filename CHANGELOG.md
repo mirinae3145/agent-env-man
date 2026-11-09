@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **Instruction location lookup**: Stop failing agent startup when a concurrent automation callback records its attempt during an unlocked lookup.
+  An unlocked lookup still refuses changes to the machine file, installation records, or pending recovery.
+
 ## [2.0.0-beta.1] &mdash; 2026-11-09
 
 Git tag `v2.0.0-beta.1` corresponds to Python package version `2.0.0b1`; based on `v1.3.0`.

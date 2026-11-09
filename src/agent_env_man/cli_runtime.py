@@ -21,6 +21,24 @@ from .storage import State, lock
 
 
 OPERATION_ERRORS = (Error, OSError, ValueError, subprocess.SubprocessError)
+# Saved state an unlocked instruction lookup depends on. Startup, catalog, and
+# source automation records change independently and must not fail the lookup.
+LOOKUP_STATE_KEYS = ('version', 'items', 'pending')
+
+
+def lookup_snapshot(config_path, state_path):
+    """Capture the saved data an unlocked instruction lookup reads."""
+    machine = config_path.read_bytes() if config_path.exists() else None
+    if not state_path.exists():
+        return machine, None
+    data = state_path.read_bytes()
+    try:
+        saved = json.loads(data)
+    except ValueError:
+        return machine, data  # Unparseable state is compared exactly.
+    if not isinstance(saved, dict):
+        return machine, data
+    return machine, {key: saved.get(key) for key in LOOKUP_STATE_KEYS}
 
 
 class FiniteNumber(click.ParamType):
@@ -172,8 +190,7 @@ class Runtime:
                         # Network delivery can hold this lock for much longer
                         # than a SessionStart hook. Location metadata is read-only:
                         # accept only an unchanged, recovery-free saved snapshot.
-                        snapshot = {path: path.read_bytes() if path.exists() else None
-                                    for path in (self.config_path, config.state_dir / 'state.json')}
+                        snapshot = lookup_snapshot(self.config_path, config.state_dir / 'state.json')
                 # Re-read after acquiring the lock or capturing the snapshot.
                 step("Loading catalog and saved state")
                 saved_error = None
@@ -194,8 +211,7 @@ class Runtime:
                 report, failed = operation(Session(Manager(config, state), saved_error))
                 if snapshot is not None:
                     state.ready()
-                    if any((path.read_bytes() if path.exists() else None) != data
-                           for path, data in snapshot.items()):
+                    if lookup_snapshot(self.config_path, config.state_dir / 'state.json') != snapshot:
                         raise Error('Saved instruction locations changed during lookup; retry after the active command')
             # Presentation uses the operation's in-memory snapshot. A slow
             # terminal or pipe must not retain configuration/installation locks.

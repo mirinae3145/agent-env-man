@@ -171,7 +171,7 @@ class HookInstallation(InstructionFixture):
 
             def changing_lookup(manager, *args):
                 result = original(manager, *args)
-                state.data['snapshot_changed'] = True
+                state.data['items']['snapshot-changed'] = {'kind': 'example'}
                 state.save()
                 return result
 
@@ -180,6 +180,28 @@ class HookInstallation(InstructionFixture):
                 result = self.run_cli('agent-hook', 'personal', '--agent', 'codex')
             self.assertIs(result['continue'], False)
             self.assertIn('recover' if pending else 'changed during lookup', result['stopReason'])
+
+    def test_contended_snapshot_accepts_concurrent_automation_records(self):
+        self.configure()
+        self.run_cli("apply")
+        directory = Config(self.config).state_dir
+        state = State(directory)
+        original = Manager.hook_context
+
+        def recording_lookup(manager, *args):
+            result = original(manager, *args)
+            # A concurrent startup callback records even throttled attempts.
+            state.data['startup'] = {'trigger': 'agent-start', 'status': 'throttled'}
+            state.data['catalog'] = {'status': 'throttled'}
+            state.data['sources'].setdefault('example', {})['settings_automation'] = {'status': 'throttled'}
+            state.save()
+            return result
+
+        with lock(directory), patch('agent_env_man.cli_runtime.lock', side_effect=Error('contended')), \
+                patch.object(Manager, 'hook_context', recording_lookup):
+            result = self.run_cli('agent-hook', 'personal', '--agent', 'codex')
+        self.assertIn('hookSpecificOutput', result)
+        self.assertIn('AEM instruction document locations', result['hookSpecificOutput']['additionalContext'])
 
     def test_contended_snapshot_refuses_changed_machine_file_and_replaced_links(self):
         self.configure()
