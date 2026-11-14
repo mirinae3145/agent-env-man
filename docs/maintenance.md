@@ -39,6 +39,20 @@ Replacement backups are stored according to the target type.
 Skill backups preserve previous contents or link identity and support recovery across filesystems.
 Existing sibling backups are preserved; move reviewed old skill backups outside discovery roots if they appear as duplicate skills.
 
+### Backup accumulation and manual cleanup
+
+AEM creates a backup only when a write changes the target's content, and it never deletes backups itself.
+A settings file therefore gains one `<target>.aem-backup-<id>` per changing apply, and the files keep accumulating until you remove them.
+Many backups created within minutes usually mean something other than `aem apply` is writing the profile, for example a test run or script pointed at a real configuration directory.
+
+Remove backups by hand only after checking:
+
+1. `aem recover` has nothing to do: the `pending` field in `<machine-file>.state/state.json` is `null`. A pending journal names the backups it needs.
+2. The backup is not the only copy of content you still want: compare it with the live file, for example `diff <(python -m json.tool OLD) <(python -m json.tool LIVE)`.
+3. Keep at least the newest backup of each day, and every backup from before a change you may want to undo.
+
+Review the file list before deleting, and delete only the paths you reviewed.
+
 ### Detach and reattach
 
 A directory item owns its entire subtree; local additions count as modifications.
