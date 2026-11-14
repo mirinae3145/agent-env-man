@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Documentation
+
+- Explain in the maintenance guide that backups accumulate by design and how to clean them up safely by hand.
+
 ## [2.0.0-beta.2] &mdash; 2026-11-09
 
 Git tag `v2.0.0-beta.2` corresponds to Python package version `2.0.0b2`; based on `v2.0.0-beta.1`.
