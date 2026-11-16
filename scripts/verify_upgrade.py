@@ -82,6 +82,14 @@ def compatible_transition(baseline, candidate):
     return after[3] == LABELS[None] and before[:width] == after[:width]
 
 
+def predates_payload_defaults(version):
+    """Whether `version` installed content under the strict, unexcluded payload policy."""
+    order = tag_order('v' + version)
+    require(order is not None, f'Unsupported baseline version: {version}')
+    # 2.0.0b1 first selected best-effort permissions and default exclusions.
+    return order < (2, 0, 0, LABELS['b'], 1)
+
+
 def differences(left, right, path='$', *, allow_additions=False):
     """List changed JSON paths, optionally allowing new output fields."""
     if isinstance(left, dict) and isinstance(right, dict):
@@ -247,8 +255,9 @@ def verify(checkout, baseline, candidate, timeout):
                 'Refused policy migration changed the edited copy or saved ownership')
         # Older releases predate these fields. Retain their policy explicitly only
         # after upgrading, then keep the exact existing-status comparison below.
-        with (profile.root / 'catalog.toml').open('a', encoding='utf-8') as catalog_file:
-            catalog_file.write('\n[payload.defaults]\npermissions = "strict"\nexclude = []\n')
+        if predates_payload_defaults(baseline_version):
+            with (profile.root / 'catalog.toml').open('a', encoding='utf-8') as catalog_file:
+                catalog_file.write('\n[payload.defaults]\npermissions = "strict"\nexclude = []\n')
         # The retired skip policy is intentionally absent from effective reports.
         # Keep every other baseline field in the existing-status comparison.
         status_before.get('automation', {}).get('policy', {}).pop('skip_unsupported', None)

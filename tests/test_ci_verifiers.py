@@ -41,6 +41,16 @@ class UpgradeVerifier(unittest.TestCase):
             with self.subTest(before=before, after=after):
                 self.assertEqual(compatible(before, after), expected)
 
+    def test_legacy_payload_policy_is_retained_only_for_older_baselines(self):
+        predates = self.verifier['predates_payload_defaults']
+        for version, expected in [('1.0.0', True), ('1.3.0', True), ('1.3.0rc2', True),
+                                  ('2.0.0a1', True), ('2.0.0b1', False), ('2.0.0b2', False),
+                                  ('2.0.0', False), ('2.1.0', False)]:
+            with self.subTest(version=version):
+                self.assertEqual(predates(version), expected)
+        with self.assertRaises(RuntimeError):
+            predates('2.0.0.dev0')
+
     def test_differences_name_changed_paths(self):
         differences = self.verifier['differences']
         self.assertEqual(differences({'a': [1, {'b': 2}]}, {'a': [1, {'b': 2}]}), [])
