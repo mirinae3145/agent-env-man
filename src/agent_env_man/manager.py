@@ -369,11 +369,11 @@ class Manager:
             raise Error(f"Payload changed during inspection: {item.source}")
         return result
 
-    def locate_agent(self, name, *, source=False):
-        """Select one real destination without requiring a catalog for saved work."""
+    def locate_agents(self, name, *, source=False):
+        """List real destinations without requiring a catalog for saved work."""
         records = [r for r in self.state.data['items'].values() if r.get('source_name') == name]
         if not source and any(r.get('kind') == 'directory' for r in records):
-            return None
+            return [None]
         candidates = set()
         if not source:
             for record in records:
@@ -386,14 +386,27 @@ class Manager:
                 raise Error(f'{name}: unknown catalog item')
             for item in config.declarations(sources[name]):
                 if item.kind == 'directory':
-                    return None
+                    return [None]
                 if item.kind in ('skill', 'instruction', 'personal-hook'):
                     candidates.update(item.agents or (item.agent,))
         candidates.discard(None)
-        if len(candidates) != 1:
-            choices = ', '.join(sorted(candidates)) or 'no matching destinations'
-            raise Error(f'{name}: specify --agent ({choices})')
-        return candidates.pop()
+        if not candidates:
+            raise Error(f'{name}: specify --agent (no matching destinations)')
+        return sorted(candidates)
+
+    def locate_shared(self, name, agents, *, source=False, target=False):
+        """Accept several destinations only when they resolve to the same location.
+
+        Per-agent installation paths may differ while sharing one content root;
+        that path is omitted because it would name only one agent's destination.
+        """
+        results = [self.locate(name, agent, source=source, target=target) for agent in agents]
+        common = {key: value for key, value in results[0].items() if key != 'installed_root'}
+        if any({key: value for key, value in result.items() if key != 'installed_root'} != common
+               for result in results[1:]):
+            raise Error(f"{name}: specify --agent ({', '.join(agents)})")
+        installed = {result.get('installed_root') for result in results}
+        return {**results[0], 'installed_root': installed.pop() if len(installed) == 1 else None}
 
     def locate(self, name, agent=None, *, source=False, target=False, repo=False):
         """Locate saved content by default, or current catalog source content explicitly.
@@ -424,7 +437,10 @@ class Manager:
                 self.config = current
                 return Settings(self).locate(name, source=source, target=target)
         if agent is None:
-            agent = self.locate_agent(name, source=source)
+            agents = self.locate_agents(name, source=source)
+            if len(agents) > 1:
+                return self.locate_shared(name, agents, source=source, target=target)
+            agent = agents[0]
         hook_record = self.state.data['items'].get(f'{name}:hook{suffix(agent)}') if agent else None
         if hook_record and hook_record.get('kind') == 'personal-hook' and not source:
             if target:

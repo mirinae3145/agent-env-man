@@ -9,7 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
-- **Agent lookup**: Infer the sole saved or declared destination when `locate --agent` is omitted; ambiguous destinations require a selector.
+- **Agent lookup**: Infer the destination when `locate --agent` is omitted instead of defaulting to `codex`, which failed on machines without Codex.
+  Several matching agents are accepted when they resolve to the same location, such as per-agent links to one instruction bundle; destinations that actually differ require `--agent`.
 
 ## [1.3.1] &mdash; 2026-11-18
 

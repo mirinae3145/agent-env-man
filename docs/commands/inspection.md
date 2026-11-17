@@ -42,7 +42,8 @@ aem locate NAME [--agent AGENT] [--source | --target] [--repo] [--cd]
 
 NAME is a catalog skill, directory, instruction bundle, setting, or personal hook name; directory and setting locations do not depend on an agent.
 When `--agent` is omitted, choose the sole saved destination, or the sole matching current declaration when no saved destination exists.
-Several matches require an explicit `--agent`, including for shared bundles; no product is preferred.
+Several matches require an explicit `--agent`, without preferring a product, unless every match resolves to the same location, such as per-agent links to one source.
+Such a result omits `installed_root` when the matching agents' installation paths differ.
 
 With `--source` or `--repo`, NAME may also be a catalog source name; `source:NAME` explicitly selects a source when names collide.
 Bare names prefer existing catalog item names, preserving their content-subdirectory lookup.
@@ -63,7 +64,7 @@ Instruction callbacks continue to use saved instruction installations only, with
 
 For an opted-in shared instruction bundle, participating agents resolve the same installed root.
 Saved entries retain the bundle reference, so lookup and callbacks remain usable without the catalog or source.
-The existing default agent selection still applies.
+Because participating agents resolve the same location, lookup without `--agent` reports the shared installed root.
 
 ### Prepared source lookup
 

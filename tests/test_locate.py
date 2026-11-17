@@ -270,12 +270,15 @@ class InferredLocate(unittest.TestCase):
         self.assertEqual(c.cli('locate', 'personal')['root'], instruction['root'])
 
 
-    def test_multiple_destinations_require_explicit_agent(self):
+    def test_multiple_destinations_require_agent_only_when_locations_differ(self):
         c = self.case
         document = tomlkit.parse(c.config.read_text())
         document['agents']['codex'] = {'root': str(c.root / 'codex'), 'skills': str(c.root / 'codex-skills')}
         c.config.write_text(tomlkit.dumps(document))
-        self.assertIn('--agent', c.cli('locate', 'one', code=1))
-        c.cli('locate', 'one', '--agent', 'claude')
+        found = c.cli('locate', 'one')
+        self.assertEqual(found, c.cli('locate', 'one', '--agent', 'claude'))
+        self.assertEqual(found['root'], str(c.checkout / 'skill'))
+        self.assertIn('--target', c.cli('locate', 'one', '--target', code=1))
         c.cli('apply', '--item', 'one')
         self.assertIn('--agent', c.cli('locate', 'one', code=1))
+        self.assertEqual(c.cli('locate', 'one', '--agent', 'codex')['root'], str(c.root / 'codex-skills/one'))

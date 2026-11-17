@@ -124,7 +124,8 @@ def locate(runtime, name, agent, source, repo, target, cd):
     name. Skills, directories and instructions default to their saved
     installation, or the prepared source when uninstalled. Directories are
     agent-independent. Omitted --agent selects the sole saved destination or
-    matching declaration; multiple matches require --agent. Settings default to the editable stage; --source
+    matching declaration; multiple matches require --agent unless they all
+    resolve to the same location. Settings default to the editable stage; --source
     selects shared content and --target selects the actual application file.
     --repo selects the current source Git checkout root for any agent, with or
     without --source. External folder sources have no registered Git checkout.
