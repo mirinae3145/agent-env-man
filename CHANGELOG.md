@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- **Agent lookup**: Let `locate` omit `--agent` when every matching agent resolves to the same location, such as per-agent links to one instruction bundle.
+  Destinations that actually differ, such as per-agent copies, still require `--agent`.
 - Retain previous payload policies in upgrade verification only for baselines before 2.0.0b1, so 2.0 prerelease baselines compare under their installed defaults.
 
 ## [2.0.0-beta.2] &mdash; 2026-11-09

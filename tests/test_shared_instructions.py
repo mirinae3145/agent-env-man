@@ -55,6 +55,8 @@ class SharedInstructions(InstructionFixture):
             self.assertEqual(self.locations(agent)['root'], str(installed))
             found = self.run_cli('locate', 'personal', '--agent', agent)
             self.assertEqual(found['root'], str(installed))
+        found = self.run_cli('locate', 'personal')
+        self.assertEqual((found['root'], found['installed_root']), (str(installed), str(installed)))
         (installed / 'start.md').write_text('shared edit', encoding='utf-8')
         report = self.run_cli('publish', 'personal', '--from-copy')[0]
         self.assertEqual(len(report['collection']), 1)
@@ -87,6 +89,15 @@ class SharedInstructions(InstructionFixture):
         self.catalog.unlink()
         for agent in ('codex', 'claude'):
             self.assertEqual(self.locations(agent)['root'], str(installed))
+
+    def test_per_agent_links_locate_shared_source_without_agent(self):
+        self.configure_shared(mode='link', shared=False)
+        self.run_cli('apply')
+        roots = {self.run_cli('locate', 'personal', '--agent', agent)['installed_root'] for agent in ('codex', 'claude')}
+        self.assertEqual(len(roots), 2)
+        found = self.run_cli('locate', 'personal')
+        self.assertEqual((found['root'], found['installed_root']), (str(self.bundle), None))
+        self.assertEqual(self.run_cli('locate', 'personal', '--source')['root'], str(self.bundle))
 
     def test_shared_detach_is_all_consumers_and_entries_stay_independent(self):
         installed = self.configure_shared()
