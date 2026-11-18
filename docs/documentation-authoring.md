@@ -1,6 +1,6 @@
 # Documentation authoring
 
-This guide defines the Markdown writing procedure, content placement, CLI help, installed documentation, and official skill guidance.
+This guide covers how Markdown changes follow mddt, content placement, CLI help, installed documentation, and official skill guidance.
 Use the README for getting started and user workflows, and [Contributing](https://github.com/mirinae3145/agent-env-man/blob/master/CONTRIBUTING.md) for development setup and contribution decisions.
 Keep CLI and TOML details canonical in [Commands](commands.md) and [Configuration](configuration.md).
 Detailed contributor contracts live in [Architecture](architecture.md) and [Testing](testing.md).
@@ -8,13 +8,13 @@ Keep change-specific validation results with the change, rather than adding them
 
 ## Guide structure
 
-For Markdown changes, including root documents, guides, and the official skill, follow the [mddt](https://github.com/mirinae3145/mddt) skill's [writing procedure](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/writing.md).
+For Markdown changes, including root documents, guides, and the official skill, start from the [mddt](https://github.com/mirinae3145/mddt) skill's [entry](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/SKILL.md) and follow its [writing procedure](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/writing.md).
 Place content in the document tree before writing it, and reread each changed topic whole once it settles.
 The checker then covers only the requirements a parser can decide, and authors and reviewers judge the rest of the [document model](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/model.md).
-Read the procedure from an installed mddt skill or a checkout of the mddt repository, which also provides the checker.
 Sentence-only corrections and formatting changes that preserve structure need no new placement plan.
 
-A requested reorganization of existing documents follows the procedure's [restructuring order](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/writing.md#restructuring-an-existing-tree).
+To find or verify information in these documents, follow the skill's [reading procedure](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/reading.md).
+An installed mddt skill or a checkout of the mddt repository provides the procedures and the checker.
 
 ### Plan and revise
 
@@ -22,17 +22,11 @@ The procedure's [placement steps](https://github.com/mirinae3145/mddt/blob/main/
 
 - **Canonical homes**: Locate the content's home through the [documentation index](README.md), and keep CLI and TOML contracts canonical in their references.
 - **README**: Keep the README focused on installation, a minimal example, everyday commands, and preservation boundaries, with links to detailed guides.
-- **Code and documentation together**: When code and documentation change together, rewrite overviews, parent summaries, and affected links after the behavior settles.
 
 ### Review and check
 
 Authors and reviewers remain responsible for meaning, placement, and organization even where the checker reports no findings.
-Complete the procedure's [checking](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/writing.md#checking) before treating the documentation change as ready:
-
-1. Reread each changed topic as a whole against the model and its reader's task, including whether parent summaries introduce the settled content.
-1. Run the mddt checker on the changed Markdown files, or on the whole tree when documents or headings were added, moved, or renamed.
-1. Judge the findings in context as the procedure describes, and rerun the checker once after corrections.
-1. Report the checker commit, the checked scope, and each warning kept after judgment with its reason.
+Complete the procedure's [checking](https://github.com/mirinae3145/mddt/blob/main/skills/mddt/references/writing.md#checking) before treating the documentation change as ready.
 
 Run the local check from the repository root with uv and an installed skill or a checkout:
 
