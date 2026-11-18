@@ -7,11 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Changed
-
-- **Official skill**: Trigger `idk-aem` before editing an installed skill or instruction, so agents check AEM ownership and edit the source.
-  The skill also explains how to find the owning item from an installed path through `status`.
-  This change was first released in `v1.3.1` and reaches 2.0 through a merge of `release-1.3`.
+Based on merge commit `d7f1e27` of `v2.0.0-beta.3` and `v1.3.1`.
 
 ## [1.3.1] &mdash; 2026-11-18
 
