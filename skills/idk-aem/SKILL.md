@@ -1,6 +1,6 @@
 ---
 name: idk-aem
-description: Use AEM (agent-env-man) to configure agent integrations, manage catalogs, install or update managed skills and instructions, locate or publish their sources, and inspect or recover installations. Applies to AEM user operations rather than development of AEM itself.
+description: Use AEM (agent-env-man) to configure agent integrations, manage catalogs, install or update managed skills and instructions, locate or publish their sources, and inspect or recover installations. Also use before editing an installed skill or instruction, to check whether AEM manages it and to locate its editable source. Applies to AEM user operations rather than development of AEM itself.
 ---
 
 # Use AEM
@@ -106,6 +106,9 @@ Source selectors are supported only by `locate --source`, `locate --repo`, and `
 ```bash
 aem --json locate NAME --source
 ```
+
+When only an installed path is known, find the item whose `target` contains it in `aem --json status`.
+A path outside every target is not catalog content, although this official skill itself is installed from the AEM package.
 
 Before editing, identify and follow the guidance applicable to the located content, including referenced documents, using the user's and content's existing rules for discovery, scope, and precedence.
 Locating content through AEM does not replace or waive that guidance.

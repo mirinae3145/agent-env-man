@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **Official skill**: Trigger `idk-aem` before editing an installed skill or instruction, so agents check AEM ownership and edit the source.
+  The skill also explains how to find the owning item from an installed path through `status`.
+
 ## [1.3.0] &mdash; 2026-11-07
 
 Git tag `v1.3.0` corresponds to Python package version `1.3.0`; based on `v1.3.0-rc.2`.
