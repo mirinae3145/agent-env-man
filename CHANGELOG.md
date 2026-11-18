@@ -7,6 +7,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **Official skill**: Trigger `idk-aem` before editing an installed skill or instruction, so agents check AEM ownership and edit the source.
+  The skill also explains how to find the owning item from an installed path through `status`.
+  This change was first released in `v1.3.1` and reaches 2.0 through a merge of `release-1.3`.
+
+## [1.3.1] &mdash; 2026-11-18
+
+Git tag `v1.3.1` corresponds to Python package version `1.3.1`; based on `v1.3.0`.
+
+### Changed
+
+- **Official skill**: Trigger `idk-aem` before editing an installed skill or instruction, so agents check AEM ownership and edit the source.
+  The skill also explains how to find the owning item from an installed path through `status`.
+
 ## [2.0.0-beta.3] &mdash; 2026-11-17
 
 Git tag `v2.0.0-beta.3` corresponds to Python package version `2.0.0b3`; based on `v2.0.0-beta.2`.
@@ -571,6 +586,7 @@ See [Removed interfaces and existing installations](docs/removed-interfaces.md) 
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
 [Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.3...HEAD
+[1.3.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0...v1.3.1
 [2.0.0-beta.3]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.2...v2.0.0-beta.3
 [2.0.0-beta.2]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.1...v2.0.0-beta.2
 [2.0.0-beta.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0...v2.0.0-beta.1
