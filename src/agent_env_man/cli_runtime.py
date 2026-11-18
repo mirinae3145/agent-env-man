@@ -179,11 +179,16 @@ class Runtime:
                 tool_lock = None  # Opaque settings must not block offline maintenance.
             # Callbacks must not spend their hook budget waiting for content work.
             step("Acquiring operation locks")
-            with (lock(tool_lock, timeout=0, shared=True) if tool_lock and not preview else nullcontext()), ExitStack() as locks:
+            # Name the command without arguments, which may contain credentials.
+            context = click.get_current_context(silent=True)
+            holder = (context.command_path if context else "aem") + (f" ({agent})" if agent else "")
+            with (lock(tool_lock, timeout=0, shared=True, name="installation", holder=holder)
+                  if tool_lock and not preview else nullcontext()), ExitStack() as locks:
                 snapshot = None
                 if not preview:
                     try:
-                        locks.enter_context(lock(config.state_dir, timeout=0, shared=read_only or callback == "agent-hook"))
+                        locks.enter_context(lock(config.state_dir, timeout=0, shared=read_only or callback == "agent-hook",
+                                                 holder=holder))
                     except Error:
                         if callback != 'agent-hook' or not maintenance:
                             raise

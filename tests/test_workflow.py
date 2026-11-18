@@ -207,9 +207,10 @@ class Workflow(unittest.TestCase):
     def test_lock_contention_prevents_installation(self):
         self.copy_mode()
         self.bootstrap()
-        with lock(Config(self.config).state_dir):
-            self.run_cli("apply", code=1)
+        with lock(Config(self.config).state_dir, holder="aem update"):
+            error = self.run_cli("apply", code=1)
         self.assertFalse(self.destination.exists())
+        self.assertIn(f"holds the AEM configuration lock: pid {os.getpid()} `aem update`, held for", error)
 
     def test_git_dirty_divergent_and_detached_checkouts(self):
         self.copy_mode()
