@@ -49,7 +49,7 @@ Mutations retain exclusive locking throughout their preservation checks and writ
 
 Contention errors name the lock and each current holder so that users can tell which command or background stage to wait for.
 Linux `/proc/locks` identifies holders, so a crashed holder, whose lock the kernel released, leaves no stale owner.
-Each holder records its AEM command or worker stage and acquisition time beside the lock file; contention shows only records of processes the kernel lists.
+Each holder records its AEM command or worker stage and acquisition time beside the lock file; contention shows only records of processes the kernel lists, or of live processes where the kernel lists no holder, such as on NFS or btrfs.
 Other holders appear by process name, since command arguments can contain credentials.
 Recording is best-effort and never prevents locking or changes the lock file.
 

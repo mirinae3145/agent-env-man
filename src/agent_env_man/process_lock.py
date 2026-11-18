@@ -54,11 +54,22 @@ def _record(directory, holder, *, exclusive):
     """Write a best-effort holder record; diagnostics must never prevent locking."""
     records = directory / HOLDERS
     try:
-        if exclusive and records.is_dir():
+        if records.is_dir():
             # Holders write records only while locked and remove them before
-            # unlocking, so under an exclusive lock every remaining record is stale.
+            # unlocking, so under an exclusive lock every remaining record is
+            # stale. Shared holders, which may never meet an exclusive one,
+            # remove records of exited processes so killed holders cannot accumulate.
             for path in records.iterdir():
-                path.unlink(missing_ok=True)
+                if not exclusive:
+                    try:
+                        if _alive(int(path.name.split("-", 1)[0])):
+                            continue
+                    except ValueError:
+                        continue
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    continue  # Another user's or a non-file entry must not suppress this record.
         if holder is None:
             return None
         records.mkdir(exist_ok=True)
@@ -95,8 +106,10 @@ def describe_holders(directory: Path):
     except OSError:
         pass
     pids = _kernel_holders(directory / "lock")
-    if pids is None:
-        # Without kernel ownership data, only records of live processes remain plausible.
+    if not pids:
+        # Without kernel ownership data, such as where /proc/locks is missing,
+        # reports another device number (btrfs), or shows flock as POSIX
+        # locks (NFS), only records of live processes remain plausible.
         pids = sorted(pid for pid in records if _alive(pid))
     now = time.time()
     descriptions = [f"pid {pid} `{records[pid]['holder']}`, held for {_duration(now - records[pid]['acquired'])}"
