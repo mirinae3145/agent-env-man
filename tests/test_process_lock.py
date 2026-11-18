@@ -36,17 +36,19 @@ class PosixProcesses(unittest.TestCase):
         (self.root / 'lock').write_bytes(b'persistent user bytes')
         self.identity = (self.root / 'lock').stat().st_ino
 
-    def owner(self, *, shared=False, timeout=0):
+    def owner(self, *, shared=False, timeout=0, holder=None):
         program = """
 import sys
 from pathlib import Path
 from agent_env_man.process_lock import lock
 print('starting', flush=True)
-with lock(Path(sys.argv[1]), shared=sys.argv[2] == 'True', timeout=float(sys.argv[3])):
+with lock(Path(sys.argv[1]), shared=sys.argv[2] == 'True', timeout=float(sys.argv[3]),
+          holder=sys.argv[4] if len(sys.argv) > 4 else None):
     print('locked', flush=True)
     sys.stdin.read(1)
 """
-        child = subprocess.Popen([sys.executable, '-c', program, str(self.root), str(shared), str(timeout)],
+        child = subprocess.Popen([sys.executable, '-c', program, str(self.root), str(shared), str(timeout),
+                                  *([holder] if holder else [])],
                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         def cleanup():
             if child.poll() is None:
@@ -82,7 +84,7 @@ with lock(Path(sys.argv[1]), shared=sys.argv[2] == 'True', timeout=float(sys.arg
         self.message(first, b'locked\n')
         self.message(second, b'locked\n')
         for owner in (first, second):
-            with self.assertRaisesRegex(RuntimeError, 'holds this config'):
+            with self.assertRaisesRegex(RuntimeError, 'holds the AEM configuration lock'):
                 with process_lock.lock(self.root):
                     self.fail('Replacement entered with an active reader')
             self.release(owner)
@@ -114,7 +116,7 @@ with lock(Path(sys.argv[1]), shared=sys.argv[2] == 'True', timeout=float(sys.arg
     def test_timeout_does_not_release_another_process_lock(self):
         owner = self.owner()
         self.message(owner, b'locked\n')
-        with self.assertRaisesRegex(RuntimeError, 'holds this config'):
+        with self.assertRaisesRegex(RuntimeError, 'holds the AEM configuration lock'):
             with process_lock.lock(self.root, timeout=0.05):
                 self.fail('Waiter entered while owner remained alive')
         self.assertIsNone(owner.poll())
@@ -123,3 +125,54 @@ with lock(Path(sys.argv[1]), shared=sys.argv[2] == 'True', timeout=float(sys.arg
         self.release(owner)
         with process_lock.lock(self.root):
             self.assert_preserved()
+
+    def contention(self, *, shared=False):
+        with self.assertRaises(RuntimeError) as raised, process_lock.lock(self.root, shared=shared):
+            self.fail('Entered a contended lock')
+        return str(raised.exception)
+
+    def test_contention_names_each_holder_and_its_command(self):
+        first = self.owner(shared=True, holder='aem status')
+        second = self.owner(shared=True, holder='aem locate (codex)')
+        self.message(first, b'locked\n')
+        self.message(second, b'locked\n')
+        message = self.contention()
+        self.assertIn('holds the AEM configuration lock: ', message)
+        self.assertIn(f'pid {first.pid} `aem status`, held for ', message)
+        self.assertIn(f'pid {second.pid} `aem locate (codex)`, held for ', message)
+        for owner in (first, second):
+            self.release(owner)
+        self.assertEqual(list((self.root / process_lock.HOLDERS).iterdir()), [])
+        with process_lock.lock(self.root):
+            self.assert_preserved()
+
+    def test_holder_without_record_appears_by_process_name(self):
+        owner = self.owner()
+        self.message(owner, b'locked\n')
+        message = self.contention(shared=True)
+        self.assertIn(f'pid {owner.pid} (', message)
+        self.assertNotIn('-c', message, 'Command arguments must not be shown')
+        self.release(owner)
+
+    def test_crashed_holder_record_is_ignored_and_purged(self):
+        crashed = self.owner(holder='aem apply')
+        self.message(crashed, b'locked\n')
+        crashed.kill()
+        crashed.wait(timeout=10)
+        records = self.root / process_lock.HOLDERS
+        self.assertEqual(len(list(records.iterdir())), 1, 'A killed holder cannot remove its record')
+        owner = self.owner(shared=True)
+        self.message(owner, b'locked\n')
+        message = self.contention()
+        self.assertNotIn('aem apply', message)
+        self.assertIn(f'pid {owner.pid} (', message)
+        self.release(owner)
+        with process_lock.lock(self.root):
+            self.assertEqual(list(records.iterdir()), [])
+            self.assert_preserved()
+
+    def test_unwritable_holder_records_do_not_prevent_locking(self):
+        (self.root / process_lock.HOLDERS).write_bytes(b'not a directory')
+        with process_lock.lock(self.root, holder='aem apply'):
+            pass
+        self.assert_preserved()

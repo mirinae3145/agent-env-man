@@ -9,6 +9,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 Based on merge commit `d7f1e27` of `v2.0.0-beta.3` and `v1.3.1`.
 
+### Added
+
+- **Lock holders**: Lock contention errors name the configuration or installation lock and each holder's process ID.
+  Each holder also shows its AEM command or self-update worker stage and how long it has held the lock.
+  Holders from earlier releases appear by process name; command arguments are never shown.
+
 ## [1.3.1] &mdash; 2026-11-18
 
 Git tag `v1.3.1` corresponds to Python package version `1.3.1`; based on `v1.3.0`.

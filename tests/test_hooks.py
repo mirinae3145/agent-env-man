@@ -141,12 +141,14 @@ class HookInstallation(InstructionFixture):
         self.configure()
         self.run_cli('apply')
         directory = self.config.parent / 'installation-lock'
-        with lock(directory), patch('agent_env_man.cli_runtime.self_update.installation_lock', return_value=directory), \
+        with lock(directory, holder='self-update worker: installing the release'), \
+                patch('agent_env_man.cli_runtime.self_update.installation_lock', return_value=directory), \
                 patch('agent_env_man.process_lock.time.sleep') as retry:
             result = self.run_cli('agent-hook', 'personal', '--agent', 'codex')
         retry.assert_not_called()
         self.assertFalse(result['continue'])
-        self.assertIn('lock', result['stopReason'])
+        self.assertIn('AEM installation lock', result['stopReason'])
+        self.assertIn('`self-update worker: installing the release`', result['stopReason'])
 
     def test_instruction_callback_reads_stable_snapshot_without_waiting(self):
         self.configure()

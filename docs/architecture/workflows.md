@@ -47,6 +47,12 @@ Read-only inspection uses shared configuration locks, while instruction callback
 Startup callbacks fail open immediately when a command is active instead of consuming their hook budget waiting.
 Mutations retain exclusive locking throughout their preservation checks and writes.
 
+Contention errors name the lock and each current holder so that users can tell which command or background stage to wait for.
+Linux `/proc/locks` identifies holders, so a crashed holder, whose lock the kernel released, leaves no stale owner.
+Each holder records its AEM command or worker stage and acquisition time beside the lock file; contention shows only records of processes the kernel lists.
+Other holders appear by process name, since command arguments can contain credentials.
+Recording is best-effort and never prevents locking or changes the lock file.
+
 Status distinguishes current inspection errors from historical attempts.
 Keep attempt details in JSON and verbose output, but do not display old failures as current errors in the concise view.
 Successful operations clear the relevant saved source error; they do not erase independent attempt history.

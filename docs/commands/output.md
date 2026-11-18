@@ -33,10 +33,14 @@ Ordinary commands fail promptly if an incompatible lock is held; no command dele
 Installations registered for self-updates share a lock for their uv tools directory.
 `docs` and `self publish` operate independently of machine state and acquire neither lock.
 
+The contention error names the configuration or installation lock and each holder's process ID.
+It also shows each holder's AEM command or self-update worker stage and how long it has held the lock.
+A holder without a description, such as a process from an earlier AEM release, appears by process name.
+
 Content and catalog updates allow Git-ignored regular caches in their checkouts and refuse any fast-forward that would overwrite them.
 In content status, `sources[].checkout` is `dirty` for tracked edits or nonignored untracked files; ignored files alone leave it `clean`.
 External editors and other package-manager processes do not participate in these locks.
-Read-only commands and dry runs may create the lock directory/file; `setup --dry-run`, `self update --dry-run`, and `automation --dry-run` do not.
+Read-only commands and dry runs may create the lock directory/file and holder records beside it; `setup --dry-run`, `self update --dry-run`, and `automation --dry-run` do not.
 
 ## Permission preservation reports
 

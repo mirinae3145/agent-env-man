@@ -186,6 +186,18 @@ class OriginalWorker(unittest.TestCase):
         self.assertFalse(self.directory.exists(), 'Worker request was not cleaned up')
         return self_update.read_result(self.result), perform, subprocess_run
 
+    def test_worker_describes_its_stage_to_contending_commands(self):
+        seen = []
+        def perform(*args, **options):
+            seen.extend(process_lock.describe_holders(directory)
+                        for directory in (self_update.installation_lock(self.settings), self.state_dir))
+            return {'status': 'updated'}
+        result, _, _ = self.run_worker(perform_error=perform)
+        self.assertEqual(result['status'], 'updated')
+        for description in seen:
+            self.assertIn(f'pid {os.getpid()} `self-update worker: installing the release`, held for ', description)
+        self.assertEqual(len(seen), 2)
+
     def test_changes_during_preparation_cancel_before_replacement(self):
         for change in ('settings', 'automation', 'recovery', 'token'):
             with self.subTest(change=change):
