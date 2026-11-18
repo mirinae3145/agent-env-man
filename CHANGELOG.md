@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **Status history**: Keep each source's last automatic update attempt out of concise status, as with other historical attempts.
+  An earlier automatic failure is no longer presented as a current fault.
+  The record remains available in verbose and JSON status.
+
 ## [2.0.0-beta.4] &mdash; 2026-11-18
 
 Git tag `v2.0.0-beta.4` corresponds to Python package version `2.0.0b4`; based on merge commit `d7f1e27` of `v2.0.0-beta.3` and `v1.3.1`.

@@ -22,7 +22,7 @@ aem status [--agent AGENT] [--refresh] [--git-timeout TIMEOUT]
 ```
 
 Reports local checkout observations, last observed remote state, and ownership.
-Historical startup, catalog, and tool attempts and `last_update_error` remain available with `--verbose` or `--json`; concise status shows current inspection errors only.
+Historical startup, catalog, tool, and per-source automatic attempts, along with `last_update_error`, remain available with `--verbose` or `--json`; concise status shows current inspection errors only.
 A past failed attempt does not establish that the failure still exists.
 
 `--refresh` fetches remote references without moving checkout branches or installing content.

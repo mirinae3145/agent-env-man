@@ -67,6 +67,18 @@ PATH_FIELDS = {"path", "target", "checkout", "stage", "root", "entry", "installe
 IDENTITY_FIELDS = ("name", "item", "skill", "directory", "setting", "source", "agent")
 ROW_STATES = ("status", "action", "installation", "availability", "checkout", "remote_relation", "hook")
 HISTORY_FIELDS = {"last_update_error", "last_attempt", "startup", "catalog_automation"}
+# A row's saved automatic attempt is history; the top-level `automation`
+# report is the current policy and stays visible.
+ROW_HISTORY_FIELDS = {"automation"}
+
+
+def _is_row(value):
+    return (any(isinstance(value.get(key), str) for key in IDENTITY_FIELDS)
+            and any(key in value for key in ROW_STATES))
+
+
+def _history(key, parent):
+    return key in HISTORY_FIELDS or key in ROW_HISTORY_FIELDS and _is_row(parent)
 
 
 def _word(value, key):
@@ -98,7 +110,7 @@ def _attention(value):
     if not isinstance(value, dict):
         return False
     for key, child in value.items():
-        if key in HISTORY_FIELDS:
+        if _history(key, value):
             continue
         if child and (key in {"error", "configuration_error", "catalog_error",
                              "failed", "conflict", "conflicts", "pending", "remaining"}
@@ -191,7 +203,7 @@ def human_report(report, *, command="", verbose=False, planned=False, failed=Fal
         needs_attention = _attention(value)
         location = "locate" in command.split()
         for key, child in value.items():
-            if key in HISTORY_FIELDS and command == "status":
+            if _history(key, value) and command == "status":
                 continue
             if key == "compatibility_note" or key == "skills" and "items" in value:
                 continue

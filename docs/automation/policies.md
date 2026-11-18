@@ -39,7 +39,7 @@ Catalog automation shares one attempt clock across events, throttling failures t
 It uses the same validation and fast-forward guards as `aem catalog update`, preserving local edits and the previous catalog on validation failure.
 The catalog update itself does not bootstrap or apply content; startup's subsequent skill policies retain their existing scope and require prepared sources.
 Explicit catalog updates bypass the automatic interval.
-See `aem catalog status` or `aem status` for the last automatic result.
+See `aem catalog status` or verbose/JSON `aem status` for the last automatic result.
 
 ## Automatic skill updates
 
@@ -78,7 +78,7 @@ Each skill or directory has one attempt clock across events; failed attempts are
 Automatic sync handles skills and directories independently and preserves conflicts and detached items.
 Explicit `update`, `apply`, `sync`, and `status --refresh` ignore automatic policies.
 
-Agent startup shows a brief message for completed updates or installations; full outcomes and failures remain in status.
+Agent startup shows a brief message for completed updates or installations; full outcomes and failures remain in verbose/JSON status.
 Instruction location hooks installed by apply do not trigger updates.
 See [policy fields and precedence](../configuration/catalog.md#update-policies).
 
