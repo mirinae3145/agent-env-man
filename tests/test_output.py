@@ -41,6 +41,37 @@ class OutputTests(unittest.TestCase):
         verbose = runner.invoke(cli, ['--config', str(c.config), '--verbose', 'status'])
         self.assertIn('old startup failure', verbose.output)
 
+    def test_status_does_not_present_saved_automatic_attempt_as_current(self):
+        c = test_publish.Publication()
+        self.addCleanup(c.doCleanups)
+        c.setUp()
+        state = State(Config(c.config).state_dir)
+        state.data['sources']['one']['automation'] = {
+            'last_attempt': 1.0, 'trigger': 'agent-start', 'action': 'sync',
+            'status': 'failed', 'error': 'old automatic failure'}
+        state.save()
+        runner = CliRunner()
+        text = runner.invoke(cli, ['--config', str(c.config), 'status'])
+        self.assertEqual(text.exit_code, 0, text.output)
+        self.assertNotIn('old automatic failure', text.output)
+        self.assertNotIn('failed', text.output)
+        # The device automation policy remains part of concise status.
+        self.assertIn('Automation:', text.output)
+        report = c.cli('status')
+        self.assertEqual(report['sources'][0]['automation']['error'], 'old automatic failure')
+        verbose = runner.invoke(cli, ['--config', str(c.config), '--verbose', 'status'])
+        self.assertIn('old automatic failure', verbose.output)
+
+
+    def test_saved_automatic_failure_still_needs_attention_outside_status(self):
+        report = {"source": "catalog", "status": "present", "path": "/catalog/checkout",
+                  "automation": {"status": "failed", "error": "automatic fetch failed"}}
+        text = human_report(report, command="catalog status")
+        self.assertIn("/catalog/checkout", text)
+        self.assertIn("automatic fetch failed", text)
+        status = human_report(report, command="status")
+        self.assertNotIn("/catalog/checkout", status)
+        self.assertNotIn("automatic fetch failed", status)
 
     def test_nested_reports_preserve_paths_failures_and_notices(self):
         report = {"items": [{"item": "한글-skill", "status": "conflict",
