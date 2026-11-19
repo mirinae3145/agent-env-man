@@ -27,6 +27,7 @@ The standalone worker must remain standard-library-only, run on a Python outside
 Copy worker code into a distinct request directory before launching; never depend on package files surviving replacement.
 Registered commands and workers must acquire the shared installation lock before their configuration lock.
 This order also applies across machine files that share one uv tools directory.
+After a lock wait expires, the worker records the failure under the configuration lock alone, which every result writer holds.
 
 ### Recheck and reacquire sequence
 

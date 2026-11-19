@@ -14,6 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- **Self-update lock waits**: A self-update worker whose lock wait expires now records a `failed` result naming the contending holders.
+  It previously exited silently and could leave the result `queued`.
+
 - **Status history**: Keep each source's last automatic update attempt out of concise status, as with other historical attempts.
   An earlier automatic failure is no longer presented as a current fault.
   The record remains available in verbose and JSON status.
