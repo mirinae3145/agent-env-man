@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.0.0-beta.5] &mdash; 2026-11-19
+
+Git tag `v2.0.0-beta.5` corresponds to Python package version `2.0.0b5`; based on `v2.0.0-beta.4`.
+
 ### Changed
 
 - **Documentation workflow**: Start Markdown changes from the mddt skill's entry and follow its reading procedure to find information in the documents.
@@ -18,7 +22,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **Self-update lock waits**: A self-update worker whose lock wait expires now records a `failed` result naming the contending holders.
   It previously exited silently and could leave the result `queued`.
-
 - **Status history**: Keep each source's last automatic update attempt out of concise status, as with other historical attempts.
   An earlier automatic failure is no longer presented as a current fault.
   The record remains available in verbose and JSON status.
@@ -605,7 +608,8 @@ See [Removed interfaces and existing installations](docs/removed-interfaces.md) 
 - Linux/WSL and native Windows path handling, with Python 3.11 or later and Git required.
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
-[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.4...HEAD
+[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.5...HEAD
+[2.0.0-beta.5]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.4...v2.0.0-beta.5
 [2.0.0-beta.4]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.3...v2.0.0-beta.4
 [1.3.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0...v1.3.1
 [2.0.0-beta.3]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.2...v2.0.0-beta.3
