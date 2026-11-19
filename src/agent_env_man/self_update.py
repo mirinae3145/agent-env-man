@@ -355,14 +355,38 @@ def worker_failure(exc):
                                         else f'{type(exc).__name__}: release update failed')}
 
 
+class LockTimeout(RuntimeError):
+    """A worker lock wait expired; the message names holders by command, never arguments."""
+
+
 @contextmanager
 def worker_locks(request, state_dir, stage):
     """Hold both locks, describing this detached worker's stage to contending commands."""
     from process_lock import lock
     holder = f'self-update worker: {stage}'
-    with (lock(installation_lock(request['settings']), timeout=TIMEOUT, name='installation', holder=holder),
-          lock(state_dir, timeout=TIMEOUT, holder=holder)):
+    with (lock(installation_lock(request['settings']), timeout=TIMEOUT, error_type=LockTimeout,
+               name='installation', holder=holder),
+          lock(state_dir, timeout=TIMEOUT, error_type=LockTimeout, holder=holder)):
         yield
+
+
+def record_lock_timeout(request, state_dir, result, exc):
+    """Record an expired lock wait, which has no other channel: worker output is discarded.
+
+    Every result writer holds the configuration lock, so the token check under it
+    still keeps a newer request's result intact. Taking that lock alone does not
+    invert the installation-first order. If it stays busy, nothing can be written
+    safely and the result keeps its in-progress status.
+    """
+    from process_lock import lock
+    try:
+        with lock(state_dir, timeout=TIMEOUT, error_type=LockTimeout,
+                  holder='self-update worker: recording a lock timeout'):
+            latest = read_result(result)
+            if latest.get('token') == request['token'] and latest.get('status') in ('queued', 'continuing'):
+                write_json(result, {**latest, 'status': 'failed', 'error': str(exc), 'finished': time.time()})
+    except (LockTimeout, OSError, ValueError):
+        pass
 
 
 def worker(request_path):
@@ -463,6 +487,8 @@ def worker(request_path):
                     if latest.get('token') == request['token'] and latest.get('status') == 'continuing':
                         write_json(result, {**latest, 'status': 'failed', 'error': 'Fresh AEM continuation failed',
                                             'finished': time.time()})
+    except LockTimeout as exc:
+        record_lock_timeout(request, state_dir, result, exc)
     finally:
         shutil.rmtree(request_path.parent, ignore_errors=True)
 
