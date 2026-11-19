@@ -112,6 +112,10 @@ aem --json locate NAME --source
 When only an installed path is known, find the item whose `target` contains it in `aem --json status`.
 A path outside every target is not catalog content, although this official skill itself is installed from the AEM package.
 
+A located Git checkout also serves its link installations, and updates expect it on its recorded branch.
+Switching its branch therefore changes installed content and blocks updates until it returns.
+For work that needs another branch, prefer a separate worktree of that repository.
+
 Before editing, identify and follow the guidance applicable to the located content, including referenced documents, using the user's and content's existing rules for discovery, scope, and precedence.
 Locating content through AEM does not replace or waive that guidance.
 

@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **Documentation workflow**: Start Markdown changes from the mddt skill's entry and follow its reading procedure to find information in the documents.
   The authoring guide now links the procedure's steps instead of restating them.
+- **Official skill**: `idk-aem` recommends a separate worktree for branch work in a Git source checkout.
+  That checkout serves its link installations, and updates expect its recorded branch.
 
 ### Fixed
 
