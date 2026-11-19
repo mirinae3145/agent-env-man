@@ -63,6 +63,16 @@ class OutputTests(unittest.TestCase):
         self.assertIn('old automatic failure', verbose.output)
 
 
+    def test_saved_automatic_failure_still_needs_attention_outside_status(self):
+        report = {"source": "catalog", "status": "present", "path": "/catalog/checkout",
+                  "automation": {"status": "failed", "error": "automatic fetch failed"}}
+        text = human_report(report, command="catalog status")
+        self.assertIn("/catalog/checkout", text)
+        self.assertIn("automatic fetch failed", text)
+        status = human_report(report, command="status")
+        self.assertNotIn("/catalog/checkout", status)
+        self.assertNotIn("automatic fetch failed", status)
+
     def test_nested_reports_preserve_paths_failures_and_notices(self):
         report = {"items": [{"item": "한글-skill", "status": "conflict",
                              "target": "/path with spaces/SKILL.md",

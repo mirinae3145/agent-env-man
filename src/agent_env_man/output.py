@@ -67,8 +67,8 @@ PATH_FIELDS = {"path", "target", "checkout", "stage", "root", "entry", "installe
 IDENTITY_FIELDS = ("name", "item", "skill", "directory", "setting", "source", "agent")
 ROW_STATES = ("status", "action", "installation", "availability", "checkout", "remote_relation", "hook")
 HISTORY_FIELDS = {"last_update_error", "last_attempt", "startup", "catalog_automation"}
-# A row's saved automatic attempt is history; the top-level `automation`
-# report is the current policy and stays visible.
+# In `aem status`, a row's saved automatic attempt is history; the top-level
+# `automation` report is the current policy and stays visible.
 ROW_HISTORY_FIELDS = {"automation"}
 
 
@@ -77,8 +77,9 @@ def _is_row(value):
             and any(key in value for key in ROW_STATES))
 
 
-def _history(key, parent):
-    return key in HISTORY_FIELDS or key in ROW_HISTORY_FIELDS and _is_row(parent)
+def _history(key, parent, command):
+    return (key in HISTORY_FIELDS
+            or key in ROW_HISTORY_FIELDS and command == "status" and _is_row(parent))
 
 
 def _word(value, key):
@@ -104,13 +105,13 @@ def _display(value):
             if key != "compatibility_note" and not (key == "skills" and "items" in value)}
 
 
-def _attention(value):
+def _attention(value, command):
     if isinstance(value, list):
-        return any(_attention(child) for child in value)
+        return any(_attention(child, command) for child in value)
     if not isinstance(value, dict):
         return False
     for key, child in value.items():
-        if _history(key, value):
+        if _history(key, value, command):
             continue
         if child and (key in {"error", "configuration_error", "catalog_error",
                              "failed", "conflict", "conflicts", "pending", "remaining"}
@@ -118,7 +119,7 @@ def _attention(value):
                           "failed", "conflict", "unavailable", "missing", "broken-link",
                           "modified", "dirty", "orphaned-or-source-unavailable")):
             return True
-        if isinstance(child, (dict, list)) and _attention(child):
+        if isinstance(child, (dict, list)) and _attention(child, command):
             return True
     return False
 
@@ -200,10 +201,10 @@ def human_report(report, *, command="", verbose=False, planned=False, failed=Fal
         elif label:
             lines.append(prefix + label.replace("_", " ").capitalize() + ":")
             indent += 2
-        needs_attention = _attention(value)
+        needs_attention = _attention(value, command)
         location = "locate" in command.split()
         for key, child in value.items():
-            if _history(key, value) and command == "status":
+            if _history(key, value, command) and command == "status":
                 continue
             if key == "compatibility_note" or key == "skills" and "items" in value:
                 continue
@@ -225,7 +226,7 @@ def human_report(report, *, command="", verbose=False, planned=False, failed=Fal
             if key in DETAIL_FIELDS and not location:
                 # Historical failures must remain visible; routine metadata is
                 # available with --verbose, including raw timestamps and hashes.
-                if not isinstance(child, (dict, list)) or not _attention(child):
+                if not isinstance(child, (dict, list)) or not _attention(child, command):
                     continue
             # Settings field paths are arrays identifying the operation's
             # subject, not routine filesystem locations.
