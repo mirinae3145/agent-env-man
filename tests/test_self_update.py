@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from contextlib import redirect_stdout
@@ -198,6 +199,46 @@ class OriginalWorker(unittest.TestCase):
             self_update.worker(self.request_path)
         self.assertFalse(self.directory.exists(), 'Worker request was not cleaned up')
         return self_update.read_result(self.result), perform, subprocess_run
+
+    def hold_lock(self, directory, seconds=None):
+        """Hold a real lock from another descriptor, releasing it after seconds when given."""
+        acquired, release = threading.Event(), threading.Event()
+        def holder():
+            with process_lock.lock(directory):
+                acquired.set()
+                release.wait(seconds)
+        thread = threading.Thread(target=holder)
+        thread.start()
+        self.addCleanup(thread.join)
+        self.addCleanup(release.set)
+        acquired.wait()
+
+    def test_expired_installation_lock_wait_records_failure(self):
+        self.hold_lock(self_update.installation_lock(self.settings))
+        with patch.object(self_update, 'TIMEOUT', 0):
+            result, perform, run = self.run_worker()
+        self.assertEqual(result['status'], 'failed')
+        self.assertIn("holds this config's lock", result['error'])
+        self.assertIn('finished', result)
+        perform.assert_not_called()
+        run.assert_not_called()
+
+    def test_expired_configuration_lock_wait_records_failure_once_lock_is_free(self):
+        # The first wait expires while the holder runs; recording waits again
+        # for the configuration lock alone, which every result writer holds.
+        self.hold_lock(self.state_dir, seconds=1.5)
+        with patch.object(self_update, 'TIMEOUT', 1):
+            result, perform, _ = self.run_worker()
+        self.assertEqual(result['status'], 'failed')
+        self.assertIn("holds this config's lock", result['error'])
+        perform.assert_not_called()
+
+    def test_lock_timeout_never_records_without_the_configuration_lock(self):
+        self.hold_lock(self.state_dir)
+        with patch.object(self_update, 'TIMEOUT', 0):
+            result, perform, _ = self.run_worker()
+        self.assertEqual(result, {'token': 'request-token', 'status': 'queued'})
+        perform.assert_not_called()
 
     def test_changes_during_preparation_cancel_before_replacement(self):
         for change in ('settings', 'automation', 'recovery', 'token'):

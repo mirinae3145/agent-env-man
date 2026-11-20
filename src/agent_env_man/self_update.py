@@ -5,6 +5,7 @@ Its stdin is a lifetime pipe: replacement starts only after the requesting AEM
 process exits, including releasing its configuration and installation locks.
 """
 import atexit
+from contextlib import contextmanager
 from importlib.metadata import version
 import json
 import hashlib
@@ -385,8 +386,38 @@ def worker_failure(exc):
                                         else f'{type(exc).__name__}: release update failed')}
 
 
-def worker(request_path):
+class LockTimeout(RuntimeError):
+    """A worker lock wait expired."""
+
+
+@contextmanager
+def worker_locks(request, state_dir):
+    """Hold both locks in installation-first order, raising LockTimeout when a wait expires."""
     from process_lock import lock
+    with (lock(installation_lock(request['settings']), timeout=TIMEOUT, error_type=LockTimeout),
+          lock(state_dir, timeout=TIMEOUT, error_type=LockTimeout)):
+        yield
+
+
+def record_lock_timeout(request, state_dir, result, exc):
+    """Record an expired lock wait, which has no other channel: worker output is discarded.
+
+    Every result writer holds the configuration lock, so the token check under it
+    still keeps a newer request's result intact. Taking that lock alone does not
+    invert the installation-first order. If it stays busy, nothing can be written
+    safely and the result keeps its in-progress status.
+    """
+    from process_lock import lock
+    try:
+        with lock(state_dir, timeout=TIMEOUT, error_type=LockTimeout):
+            latest = read_result(result)
+            if latest.get('token') == request['token'] and latest.get('status') in ('queued', 'continuing'):
+                write_json(result, {**latest, 'status': 'failed', 'error': str(exc), 'finished': time.time()})
+    except (LockTimeout, OSError, ValueError):
+        pass
+
+
+def worker(request_path):
     request_path = Path(request_path)
     # The pipe also prevents inheriting callback stdout or keeping its host waiting.
     sys.stdin.buffer.read()
@@ -403,7 +434,7 @@ def worker(request_path):
         tool_disabled = request.get('full') and request['settings'].get('mode', 'off') == 'off'
         # Snapshot only the installed version. Remote discovery and metadata
         # fetching do not mutate the registered tool or configuration.
-        with lock(installation_lock(request['settings']), timeout=TIMEOUT), lock(state_dir, timeout=TIMEOUT):
+        with worker_locks(request, state_dir):
             if read_result(result).get('token') != request['token']:
                 return
             try:
@@ -423,7 +454,7 @@ def worker(request_path):
                 outcome = worker_failure(exc)
         # A new request or policy edit may have arrived while preparing. Never
         # install or overwrite a newer result using the initial snapshot.
-        with lock(installation_lock(request['settings']), timeout=TIMEOUT), lock(state_dir, timeout=TIMEOUT):
+        with worker_locks(request, state_dir):
             previous = read_result(result)
             if previous.get('token') != request['token']:
                 return
@@ -456,7 +487,7 @@ def worker(request_path):
                 refresh = {'status': 'completed', **json.loads(process.stdout)}
             except (OSError, ValueError, subprocess.SubprocessError):
                 refresh = {'status': 'failed', 'error': 'Official skill refresh failed; retry setup --agent codex'}
-            with lock(installation_lock(request['settings']), timeout=TIMEOUT), lock(state_dir, timeout=TIMEOUT):
+            with worker_locks(request, state_dir):
                 latest = read_result(result)
                 if latest.get('token') != request['token']:
                     return
@@ -479,11 +510,13 @@ def worker(request_path):
             except (OSError, subprocess.SubprocessError):
                 failed = True
             if failed:
-                with lock(installation_lock(request['settings']), timeout=TIMEOUT), lock(state_dir, timeout=TIMEOUT):
+                with worker_locks(request, state_dir):
                     latest = read_result(result)
                     if latest.get('token') == request['token'] and latest.get('status') == 'continuing':
                         write_json(result, {**latest, 'status': 'failed', 'error': 'Fresh AEM continuation failed',
                                             'finished': time.time()})
+    except LockTimeout as exc:
+        record_lock_timeout(request, state_dir, result, exc)
     finally:
         shutil.rmtree(request_path.parent, ignore_errors=True)
 

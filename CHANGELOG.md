@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **Agent lookup**: Infer the destination when `locate --agent` is omitted instead of defaulting to `codex`, which failed on machines without Codex.
   Several matching agents are accepted when they resolve to the same location, such as per-agent links to one instruction bundle; destinations that actually differ require `--agent`.
+- **Self-update lock waits**: A self-update worker whose lock wait expires now records a `failed` result.
+  It previously exited silently and could leave the result `queued`.
 
 ## [1.3.1] &mdash; 2026-11-18
 

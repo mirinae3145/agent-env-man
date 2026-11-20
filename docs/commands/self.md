@@ -49,7 +49,8 @@ A queued report contains `status`, `time` (Unix seconds), `token`, and `mode`.
 Dry run returns `status = "planned"`, `mode`, and `network = false`.
 The initially empty `last_attempt` subsequently contains those queued fields and can become `up-to-date`, `updated`, `failed`, or `cancelled`.
 Completed results include `finished` (Unix seconds); an updated result also includes `version` and `revision`, failures include `error`, and cancellations include `reason`.
-An interrupted worker can leave a queued result; explicit update queues a fresh attempt immediately.
+A worker whose lock wait expires records `failed` with the contention `error` once it can take the configuration lock alone.
+An interrupted worker, or one whose recording wait also expires, can leave a queued result; explicit update queues a fresh attempt immediately.
 During startup, disabled/throttled work is reported in the saved startup outcome as `disabled`/`throttled` and does not replace the last attempt.
 
 ## self publish
