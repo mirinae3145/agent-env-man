@@ -109,16 +109,23 @@ def full_content(manager, timeout, *, dry_run=False):
     an agent are excluded together if any component is detached, preventing
     hook selection from implicitly expanding into a preserved installation.
     Shared Git checkouts retain their ordinary cross-consumer link effects.
+    Package-declared sources without an explicit sync policy are only fetched,
+    so incoming revisions are reported without moving the checkout.
     """
     policies = {**manager.config.full_update_policies(),
                 **manager.config.settings_update_policies(full=True)}
-    sources, items, excluded = [], [], []
+    sources, items, excluded, checks = [], [], [], []
     for name, source in manager.config.sources.items():
         if name in manager.config._hooks:
             excluded.append({'source': name, 'reason': 'personal-hook-requires-explicit-apply'})
             continue
         if name in policies and policies[name]['trigger'] == ['manual']:
             excluded.append({'source': name, 'reason': 'manual'})
+            continue
+        if manager.config.package(name) is not None and policies.get(name, {}).get('action') != 'sync':
+            # Only an explicit sync policy may move a checkout that an
+            # externally installed package was built from.
+            checks.append(name)
             continue
         declarations = manager.config.declarations(source)
         shared = next((item for item in declarations if item.shared_bundle), None)
@@ -138,23 +145,59 @@ def full_content(manager, timeout, *, dry_run=False):
         sources.append(name)
         items.extend(selected)
     report = {'sources': sources, 'excluded': excluded}
-    if not sources:
+    if checks:
+        report['checked_sources'] = checks
+    if not sources and not checks:
         return {**report, 'status': 'skipped'}, False
-    try:
-        manager.selected(items)
-    except (Error, OSError, ValueError) as exc:
-        return {**report, 'status': 'failed', 'error': str(exc)}, True
+    if sources:
+        try:
+            manager.selected(items)
+        except (Error, OSError, ValueError) as exc:
+            return {**report, 'status': 'failed', 'error': str(exc)}, True
     if dry_run:
         return {**report, 'status': 'planned', 'network': False,
                 'notice': 'Local catalog only; content is checked again after catalog update.'}, False
-    report['prepare'], failed = manager.prepare_skills(sources, timeout=timeout, defer_payloads=True)
-    if failed:
+    # Checks never change content, so their failures do not stop delivery.
+    report['check'], check_failed = check_packages(manager, checks, timeout)
+    if sources:
+        report['prepare'], failed = manager.prepare_skills(sources, timeout=timeout, defer_payloads=True)
+        if failed:
+            return {**report, 'status': 'failed'}, True
+        report['update'], failed = manager.update(sources, timeout=timeout, prepare_settings=True)
+        if failed:
+            return {**report, 'status': 'failed'}, True
+        report['apply'] = manager.apply(items, timeout=timeout)
+    if check_failed:
         return {**report, 'status': 'failed'}, True
-    report['update'], failed = manager.update(sources, timeout=timeout, prepare_settings=True)
-    if failed:
-        return {**report, 'status': 'failed'}, True
-    report['apply'] = manager.apply(items, timeout=timeout)
     return {**report, 'status': 'completed'}, False
+
+
+def check_packages(manager, names, timeout):
+    """Fetch package-declared sources without advancing them, reporting drift."""
+    from .git_source import Git, now
+    from .updates import package_notice
+    rows, failed, fetch_cache = [], False, {}
+    for name in names:
+        row = {'source': name}
+        try:
+            if not manager.config.sources[name].path.is_dir():
+                # Unprepared sources wait for an explicit bootstrap or update.
+                row['status'] = 'not-prepared'
+            else:
+                source = manager.delivery_source(manager.config.sources[name])
+                git = Git(timeout, fetch_cache=fetch_cache)
+                revision = git.fetch(source)
+                manager.state.data['sources'].setdefault(name, {}).update(
+                    last_fetch=now(), observed_revision=revision)
+                row.update(status='checked', remote_relation=git.relation(source, revision=revision))
+                if row['remote_relation'] == 'behind':
+                    row.update(package_notice(manager.config.package(name)))
+        except (Error, OSError, ValueError) as exc:
+            failed = True
+            row.update(status='failed', error=str(exc))
+        rows.append(row)
+    manager.state.save()
+    return rows, failed
 
 
 def complete(manager, token):

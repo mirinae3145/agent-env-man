@@ -379,14 +379,18 @@ class Config(MachineFile):
             raise Error("Machine mode override does not name a skill, directory, or instruction in the catalog")
         from .updates import resolve_policies
 
-        self._update_policies = resolve_policies(document.get("updates", {}), skills)
-        self._update_policies.update(resolve_policies(document.get("updates", {}), directories, kind="directories"))
+        packaged = frozenset(name for name, data in repositories.items() if "package" in data)
+        self._update_policies = resolve_policies(document.get("updates", {}), skills, packaged=packaged)
+        self._update_policies.update(resolve_policies(document.get("updates", {}), directories, kind="directories",
+                                                      packaged=packaged))
         # Full mode supplies its own opt-in default; explicit empty-trigger
         # overrides still resolve through the same precedence rules.
         from .updates import TRIGGERS
-        self._full_update_policies = resolve_policies(document.get('updates', {}), skills, default_trigger=list(TRIGGERS))
+        self._full_update_policies = resolve_policies(document.get('updates', {}), skills, default_trigger=list(TRIGGERS),
+                                                      packaged=packaged)
         self._full_update_policies.update(resolve_policies(document.get('updates', {}), directories,
-                                                          default_trigger=list(TRIGGERS), kind="directories"))
+                                                          default_trigger=list(TRIGGERS), kind="directories",
+                                                          packaged=packaged))
         self._repositories = repositories
         self._catalog = skills
         return skills
@@ -400,6 +404,18 @@ class Config(MachineFile):
             raise Error(f"{label}: use an absolute path for a local Git repository")
         if "branch" in data and (not isinstance(data["branch"], str) or not data["branch"] or data["branch"].startswith("-")):
             raise Error(f"{label}: branch must be a nonempty branch name")
+
+    def package(self, name):
+        """Return the package declaration of an item's Git source, or None.
+
+        Read only an already loaded catalog, so maintenance and offline status
+        paths never load or validate declarations just to describe a notice.
+        """
+        if self._catalog is None:
+            return None
+        data = (self._catalog.get(name) or self._directories.get(name) or self._instructions.get(name)
+                or self._settings.get(name) or self._hooks.get(name) or {})
+        return self._repositories.get(data.get("repo"), {}).get("package")
 
     def update_policies(self) -> dict:
         """Return validated effective policies from the currently bound catalog."""

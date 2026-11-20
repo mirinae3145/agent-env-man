@@ -10,6 +10,8 @@ Keep the existing `["manual"]` sentinel in effective policy JSON and the existin
 Validate all policy declarations, including unused named policies, before network access.
 Keep common trigger/action/interval settings separate from source-specific delivery options; reject unsupported capabilities rather than substituting another action.
 
+For an item whose source declares a [package](delivery.md#package-coupled-sources), apply `action = "check"` after catalog-wide defaults, so only a named policy or item-local field can select `sync`.
+
 External callers supply `shell-start`, `agent-start`, or `interval` events to `auto`.
 
 - Policy configuration does not install hooks, modify shell profiles, register OS tasks, or imply an in-process scheduler.
@@ -47,6 +49,7 @@ Cancel queued work when automation settings change, and cancel queued individual
 
 Validate and fast-forward the catalog before loading full content selection; skip transport for local/unbound catalogs.
 Full mode opts in otherwise unconfigured skills but preserves explicit or inherited empty-trigger exclusions using the existing precedence.
+Package-declared sources whose resolved action stays `check` are only fetched, and a failed fetch fails the run without stopping delivery of other sources.
 Prepare/update eligible sources before applying selected items, with no adoption, replacement, reattachment, deletion, publication, or hook trust granting.
 Keep shared-checkout validation and live-link side effects intact, including excluded consumers; document this boundary.
 

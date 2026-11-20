@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Package-coupled sources**: A Git source can declare `package`, with an optional `note`, when its checkout also builds a package installed outside AEM.
+  Its items default to the `check` automatic action, and full mode only fetches them unless their policy selects `sync`.
+  `update`, `sync`, automatic updates, and status report a reinstall notice with the note when they observe or apply a new revision.
+  AEM never installs the package; older releases reject catalogs that use the field.
+
 ## [2.0.0-beta.5] &mdash; 2026-11-19
 
 Git tag `v2.0.0-beta.5` corresponds to Python package version `2.0.0b5`; based on `v2.0.0-beta.4`.

@@ -85,6 +85,9 @@ A source selection includes every consumer and receives all its shared settings 
 Live links change immediately during update.
 Copies need apply, and settings receive into their stage before apply changes the actual file.
 
+A package notice means the source also builds software installed outside AEM, which the update did not change.
+Report it to the user, and reinstall the package only as the user directs.
+
 For a complete source update followed by installation, use `aem sync`.
 `sync --item ID` filters only installation: its update phase still visits all sources and must succeed before application starts.
 

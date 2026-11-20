@@ -132,6 +132,21 @@ Keep the breaking-change instructions in [Removed interfaces](../removed-interfa
 
 Staged application settings follow the independent contracts in [Settings management](../settings-management.md); they do not revive legacy installation semantics.
 
+### Package-coupled sources
+
+A Git source can also build a package that each machine installs outside AEM, such as a command-line tool its skills call.
+Fast-forwarding such a checkout lets live skill and hook content drift from the installed package.
+The catalog declares this coupling on the source with `sources.NAME.package`, so it covers every consumer of that checkout.
+
+AEM does not install, build, or detect the package.
+Installation methods differ by ecosystem, and running them would add external effects that AEM does not own or roll back.
+Instead, AEM keeps declared checkouts from moving without the user's attention and reports when they move:
+
+- **Automatic updates**: Declared sources default to the `check` action, and full mode only fetches them unless their policy selects `sync`.
+- **Notices**: Commands and automatic runs that advance a declared checkout, or observe an incoming revision for it, report the revisions and the declared note.
+
+External sources cannot declare a package, because AEM does not observe their revisions.
+
 ### State versions and maintenance paths
 
 Installation requires state version 2; maintenance may read the shared ownership/journal envelope of versions 1 and 2 without conversion.
