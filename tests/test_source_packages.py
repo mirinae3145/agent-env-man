@@ -182,6 +182,29 @@ class SourcePackages(unittest.TestCase):
         self.assertNotEqual(self.checkout_head(), head)
         self.assertEqual(report['update'][0]['package']['reinstall'], 'required')
 
+    def test_settings_automation_only_checks_declared_sources(self):
+        from agent_env_man.updates import run_settings_updates
+        (self.repo / 'editor.toml').write_text('color = "blue"\n', encoding='utf-8')
+        self.commit(self.repo)
+        self.copy_mode()
+        self.declare()
+        document = tomlkit.parse(self.catalog.read_text(encoding='utf-8'))
+        document['settings'] = {'editor': {'source': 'report', 'path': 'editor.toml', 'format': 'toml',
+                                           'update': {'trigger': ['interval']}}}
+        self.catalog.write_text(tomlkit.dumps(document), encoding='utf-8')
+        self.run_cli('bootstrap', '--catalog', self.catalog, '--checkout-root', self.checkouts,
+                     '--root', f'skills={self.destination}',
+                     '--setting-target', f'editor={self.root / "editor.toml"}')
+        self.run_cli('apply')
+        head = self.checkout_head()
+        self.publish_skill_change()
+        report, failed = run_settings_updates(self.manager(), 'interval')
+        self.assertFalse(failed, report)
+        self.assertEqual(report[0]['status'], 'checked')
+        self.assertEqual(report[0]['remote_relation'], 'behind')
+        self.assertEqual(report[0]['package']['reinstall'], 'after-update')
+        self.assertEqual(self.checkout_head(), head)
+
     def test_full_mode_check_failure_does_not_block_other_sources(self):
         self.copy_mode()
         other = self.repository('other', '.')

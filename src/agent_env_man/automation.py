@@ -176,15 +176,18 @@ def check_packages(manager, names, timeout):
     """Fetch package-declared sources without advancing them, reporting drift."""
     from .git_source import Git, now
     from .updates import package_notice
+    if not names:
+        return [], False
     rows, failed, fetch_cache = [], False, {}
+    sources = manager.config.sources
     for name in names:
         row = {'source': name}
         try:
-            if not manager.config.sources[name].path.is_dir():
+            if not sources[name].path.is_dir():
                 # Unprepared sources wait for an explicit bootstrap or update.
                 row['status'] = 'not-prepared'
             else:
-                source = manager.delivery_source(manager.config.sources[name])
+                source = manager.delivery_source(sources[name])
                 git = Git(timeout, fetch_cache=fetch_cache)
                 revision = git.fetch(source)
                 manager.state.data['sources'].setdefault(name, {}).update(

@@ -413,6 +413,9 @@ class Config(MachineFile):
         """
         if self._catalog is None:
             return None
+        if name.startswith("source:"):
+            # A named source selection without consumer items.
+            return self._repositories.get(name.removeprefix("source:"), {}).get("package")
         data = (self._catalog.get(name) or self._directories.get(name) or self._instructions.get(name)
                 or self._settings.get(name) or self._hooks.get(name) or {})
         return self._repositories.get(data.get("repo"), {}).get("package")

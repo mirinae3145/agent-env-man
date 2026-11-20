@@ -249,11 +249,25 @@ def run_settings_updates(manager, trigger, *, dry_run=False):
         if entry['status'] != 'planned' or dry_run:
             continue
         manager.state.ready()
-        attempt = {'last_attempt': current, 'trigger': trigger, 'action': 'sync', 'status': 'running'}
+        # Settings have no action field, so a package-declared source is only
+        # fetched; reception would advance the checkout the package was built from.
+        package = manager.config.package(name)
+        attempt = {'last_attempt': current, 'trigger': trigger,
+                   'action': 'sync' if package is None else 'check', 'status': 'running'}
         manager.state.data['sources'].setdefault(name, {})['settings_automation'] = attempt
         manager.state.save()
         try:
             source = manager.delivery_source(manager.config.sources[name])
+            if source.git and package is not None:
+                git = Git(policy['timeout'])
+                revision = git.fetch(source)
+                manager.state.data['sources'][name].update(last_fetch=now(), observed_revision=revision)
+                entry.update(status='checked', remote_relation=git.relation(source, revision=revision))
+                if entry['remote_relation'] == 'behind':
+                    entry.update(package_notice(package))
+                attempt.update(status='checked', last_success=time.time())
+                manager.state.save()
+                continue
             if source.git:
                 git = Git(policy['timeout'])
                 if source.path not in initial_revisions:
