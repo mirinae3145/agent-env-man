@@ -1,5 +1,6 @@
 """Explicit ownership and per-target transactions; delivery lives elsewhere."""
 
+from copy import deepcopy
 from dataclasses import dataclass, replace, field
 import os
 from pathlib import Path
@@ -1419,12 +1420,22 @@ class Manager:
             name, source = members[0]
             step("Updating source", name)
             source_state = self.state.data["sources"].setdefault(name, {})
+            notice = {}
             try:
                 if source.git:
                     git = Git(timeout) if fetch_cache is None else Git(timeout, fetch_cache=fetch_cache)
+                    package = next((p for p in (self.config.package(n) for n, _ in members) if p is not None), None)
+                    previous = None
+                    if package is not None:
+                        # A missing checkout is reported by the update itself.
+                        head = git.run(source.path, "rev-parse", "HEAD", check=False)
+                        previous = head.stdout if head.returncode == 0 else None
                     git.update(self.delivery_source(source), self.state.data["items"], source_state,
                         validate_candidate=lambda git, src, rev: self.validate_consumers_revision(git, src, rev, members))
                     status = "updated"
+                    if previous is not None and previous != source_state["revision"]:
+                        from .updates import package_notice
+                        notice = package_notice(package, previous, source_state["revision"])
                 else:
                     if not source.path.is_dir():
                         raise Error(f"External source missing: {source.path}")
@@ -1442,7 +1453,7 @@ class Manager:
                         self.state.data["sources"].setdefault(skill_name, {}).update(
                             {key: source_state[key] for key in ("last_fetch", "observed_revision", "last_update", "revision", "error")
                              if key in source_state})
-                results.extend({"source": skill_name, "status": status} for skill_name, _ in selected)
+                results.extend({"source": skill_name, "status": status, **deepcopy(notice)} for skill_name, _ in selected)
                 from .settings import Settings
                 for selected_name, _ in selected:
                     if selected_name in self.config._settings:
@@ -1595,6 +1606,10 @@ class Manager:
                     entry["branch"] = branch.stdout if branch.returncode == 0 else "detached"
                     entry["checkout"] = "dirty" if git.run(source.path, "status", "--porcelain", "--untracked-files=all").stdout else "clean"
                     entry["remote_relation"] = git.relation(source)
+                    package = self.config.package(name)
+                    if package is not None and entry["remote_relation"] == "behind":
+                        from .updates import package_notice
+                        entry.update(package_notice(package))
                 else:
                     entry["remote_relation"] = "externally-managed-unknown"
             except (Error, OSError, ValueError) as exc:

@@ -70,7 +70,7 @@ def preparation_reports(report, config):
 
 # Only walk report containers, never user settings, hook definitions, policy
 # objects or recovery journals that might themselves contain keys like item.
-REPORT_CONTAINERS = {"items", "updates", "update", "apply", "outcomes", "results",
+REPORT_CONTAINERS = {"items", "updates", "update", "check", "apply", "outcomes", "results",
                      "stages", "content", "prepare", "integrations", "official_skills",
                      "excluded", "catalog", "automation", "self_update", "startup",
                      "catalog_automation", "last_attempt", "skill_updates", "settings_updates", "collection"}

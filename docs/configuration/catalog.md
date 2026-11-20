@@ -41,12 +41,26 @@ trigger = []
 ## `sources.NAME`
 
 Every source requires an explicit `type`, either `"git"` or `"external"`.
-Git sources accept only `type`, required `repository`, and optional `branch`, `exclude`, and `permissions`.
+Git sources accept only `type`, required `repository`, and optional `branch`, `exclude`, `permissions`, and `package`.
 `repository` is a Git URL, SSH repository location, or absolute local repository path.
 When `branch` is absent, bootstrap discovers and records the remote default branch.
 External sources accept `type` and optional `exclude` and `permissions`; their device-local paths belong in machine `external_paths.NAME`.
 External sources support directories, instruction bundles, staged settings and personal hooks; skills still require Git sources.
 AEM neither fetches external folders nor administers the service that synchronizes them.
+
+A Git source whose checkout also builds a package installed outside AEM, such as a command its skills call, declares a `package` table.
+Its optional `note` is a nonempty string that AEM shows with each package notice, such as the reinstall command.
+External sources cannot declare a package.
+
+```toml
+[sources.tools.package]
+note = "Reinstall with: uv tool install --force ."
+```
+
+AEM never builds, installs, or detects the package.
+A declaration changes the [update policy](#update-policies) default for the source's skills and directories to `check`, so automation never advances the checkout unless their policy selects `sync`.
+Instructions and settings from the source change only through explicit commands.
+`update`, `sync`, automatic updates, and status then report a notice whenever they observe an incoming revision or move the checkout.
 
 Items referencing the same source name share its checkout; different names have independent checkouts even with equal URLs.
 Git storage is `CHECKOUT_ROOT/.aem-repositories/NAME`, preserving the former named-repository path.
@@ -96,6 +110,7 @@ No other fields belong directly under `updates`.
 | `policy` | String | Optional name in `updates.policies`; allowed only in `skills.NAME.update` or `directories.NAME.update`. |
 
 Resolution order is built-ins, catalog defaults, selected named policy, then item-local fields.
+For a skill or directory whose source declares a `package`, `action = "check"` follows the catalog defaults, so only a named policy or item-local field can select `sync`.
 Only supplied fields override earlier values; trigger arrays replace earlier arrays.
 In full mode, omitted policies participate by default, but an explicit or inherited `[]` excludes the skill or directory.
 

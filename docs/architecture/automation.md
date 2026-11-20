@@ -10,6 +10,9 @@ Keep the existing `["manual"]` sentinel in effective policy JSON and the existin
 Validate all policy declarations, including unused named policies, before network access.
 Keep common trigger/action/interval settings separate from source-specific delivery options; reject unsupported capabilities rather than substituting another action.
 
+For an item whose source declares a [package](delivery.md#package-coupled-sources), apply `action = "check"` after catalog-wide defaults, so only a named policy or item-local field can select `sync`.
+This selection exists only for skills and directories; instructions and settings from a declared source have no automatic action and change only through explicit commands.
+
 External callers supply `shell-start`, `agent-start`, or `interval` events to `auto`.
 
 - Policy configuration does not install hooks, modify shell profiles, register OS tasks, or imply an in-process scheduler.
@@ -49,6 +52,9 @@ Validate and fast-forward the catalog before loading full content selection; ski
 Full mode opts in otherwise unconfigured skills but preserves explicit or inherited empty-trigger exclusions using the existing precedence.
 Prepare/update eligible sources before applying selected items, with no adoption, replacement, reattachment, deletion, publication, or hook trust granting.
 Keep shared-checkout validation and live-link side effects intact, including excluded consumers; document this boundary.
+
+Package-declared sources whose resolved action stays `check` are fetched and their selected skills and directories applied at the current revision, without preparing or advancing the checkout.
+A missing checkout stays `not-prepared`, and a failed fetch fails the run without stopping delivery of other sources.
 
 ### Unsupported payloads and failures
 

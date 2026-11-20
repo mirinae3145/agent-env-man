@@ -109,10 +109,16 @@ def full_content(manager, timeout, *, dry_run=False):
     an agent are excluded together if any component is detached, preventing
     hook selection from implicitly expanding into a preserved installation.
     Shared Git checkouts retain their ordinary cross-consumer link effects.
+    Package-declared sources without an explicit sync policy are never
+    advanced: they are fetched to report incoming revisions, and their skills
+    and directories are applied at the current checkout revision. A missing
+    checkout stays unprepared, because a fresh clone could describe a package
+    version this machine never installed. Their instructions and settings
+    change only through explicit commands.
     """
     policies = {**manager.config.full_update_policies(),
                 **manager.config.settings_update_policies(full=True)}
-    sources, items, excluded = [], [], []
+    sources, items, excluded, checks, held = [], [], [], [], []
     for name, source in manager.config.sources.items():
         if name in manager.config._hooks:
             excluded.append({'source': name, 'reason': 'personal-hook-requires-explicit-apply'})
@@ -120,6 +126,13 @@ def full_content(manager, timeout, *, dry_run=False):
         if name in policies and policies[name]['trigger'] == ['manual']:
             excluded.append({'source': name, 'reason': 'manual'})
             continue
+        packaged = manager.config.package(name) is not None and policies.get(name, {}).get('action') != 'sync'
+        if packaged:
+            # Only an explicit sync policy may move a checkout that an
+            # externally installed package was built from.
+            checks.append(name)
+            if not source.path.is_dir():
+                continue
         declarations = manager.config.declarations(source)
         shared = next((item for item in declarations if item.shared_bundle), None)
         if shared and (any(manager.state.data['items'].get(item.key, {}).get('detached') for item in declarations)
@@ -132,29 +145,75 @@ def full_content(manager, timeout, *, dry_run=False):
         selected = [item.key for item in declarations
                     if not manager.state.data['items'].get(item.key, {}).get('detached')
                     and (item.kind in ('skill', 'directory') or item.agent not in detached_agents)]
+        if packaged:
+            # Applying at the current revision installs newly declared skills
+            # and directories without preparing, so HEAD cannot move.
+            held.extend(item.key for item in declarations
+                        if item.key in selected and item.kind in ('skill', 'directory'))
+            continue
         if not selected:
             excluded.append({'source': name, 'reason': 'detached'})
             continue
         sources.append(name)
         items.extend(selected)
     report = {'sources': sources, 'excluded': excluded}
-    if not sources:
+    if checks:
+        report['checked_sources'] = checks
+    if not sources and not checks:
         return {**report, 'status': 'skipped'}, False
-    try:
-        manager.selected(items)
-    except (Error, OSError, ValueError) as exc:
-        return {**report, 'status': 'failed', 'error': str(exc)}, True
+    if items or held:
+        try:
+            manager.selected(items + held)
+        except (Error, OSError, ValueError) as exc:
+            return {**report, 'status': 'failed', 'error': str(exc)}, True
     if dry_run:
         return {**report, 'status': 'planned', 'network': False,
                 'notice': 'Local catalog only; content is checked again after catalog update.'}, False
-    report['prepare'], failed = manager.prepare_skills(sources, timeout=timeout, defer_payloads=True)
-    if failed:
+    # Checks never change content, so their failures do not stop delivery.
+    report['check'], check_failed = check_packages(manager, checks, timeout)
+    if sources:
+        report['prepare'], failed = manager.prepare_skills(sources, timeout=timeout, defer_payloads=True)
+        if failed:
+            return {**report, 'status': 'failed'}, True
+        report['update'], failed = manager.update(sources, timeout=timeout, prepare_settings=True)
+        if failed:
+            return {**report, 'status': 'failed'}, True
+    if items or held:
+        report['apply'] = manager.apply(items + held, timeout=timeout)
+    if check_failed:
         return {**report, 'status': 'failed'}, True
-    report['update'], failed = manager.update(sources, timeout=timeout, prepare_settings=True)
-    if failed:
-        return {**report, 'status': 'failed'}, True
-    report['apply'] = manager.apply(items, timeout=timeout)
     return {**report, 'status': 'completed'}, False
+
+
+def check_packages(manager, names, timeout):
+    """Fetch package-declared sources without advancing them, reporting drift."""
+    from .git_source import Git, now
+    from .updates import package_notice
+    if not names:
+        return [], False
+    rows, failed, fetch_cache = [], False, {}
+    sources = manager.config.sources
+    for name in names:
+        row = {'source': name}
+        try:
+            if not sources[name].path.is_dir():
+                # Unprepared sources wait for an explicit bootstrap or update.
+                row['status'] = 'not-prepared'
+            else:
+                source = manager.delivery_source(sources[name])
+                git = Git(timeout, fetch_cache=fetch_cache)
+                revision = git.fetch(source)
+                manager.state.data['sources'].setdefault(name, {}).update(
+                    last_fetch=now(), observed_revision=revision)
+                row.update(status='checked', remote_relation=git.relation(source, revision=revision))
+                if row['remote_relation'] == 'behind':
+                    row.update(package_notice(manager.config.package(name)))
+        except (Error, OSError, ValueError) as exc:
+            failed = True
+            row.update(status='failed', error=str(exc))
+        rows.append(row)
+    manager.state.save()
+    return rows, failed
 
 
 def complete(manager, token):

@@ -66,9 +66,16 @@ def validate(document):
         patterns(data.get("exclude", []), f"sources.{name}.exclude")
         permission_policy(data.get("permissions", "strict"), f"sources.{name}.permissions")
         if data["type"] == "git":
-            table(data, {"type", "repository", "branch", "exclude", "permissions"}, f"Source {name}")
+            table(data, {"type", "repository", "branch", "exclude", "permissions", "package"}, f"Source {name}")
             Config._validate_repository(data, f"Source {name}")
+            if "package" in data:
+                package = table(data["package"], {"note"}, f"sources.{name}.package")
+                if "note" in package and (not isinstance(package["note"], str) or not package["note"].strip()):
+                    raise Error(f"sources.{name}.package.note: expected a nonempty string")
         else:
+            if "package" in data:
+                # AEM never observes external revisions, so it could not report package drift.
+                raise Error(f"Source {name}: package is supported only for Git sources")
             table(data, {"type", "exclude", "permissions"}, f"Source {name}")
     for kind in ("skills", "directories", "instructions"):
         entries = document.get(kind, {})

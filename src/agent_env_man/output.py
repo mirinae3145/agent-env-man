@@ -62,7 +62,7 @@ STATUS_LABELS = {
 SECONDS_FIELDS = {"min_interval", "timeout", "git_timeout", "startup_hook_timeout"}
 DETAIL_FIELDS = {"revision", "observed_revision", "head", "last_fetch", "last_update",
                  "last_attempt", "repository", "config", "hook_group", "hook_groups",
-                 "runtime_registered", "state_version"}
+                 "runtime_registered", "state_version", "package"}
 PATH_FIELDS = {"path", "target", "checkout", "stage", "root", "entry", "installed_root"}
 IDENTITY_FIELDS = ("name", "item", "skill", "directory", "setting", "source", "agent")
 ROW_STATES = ("status", "action", "installation", "availability", "checkout", "remote_relation", "hook")

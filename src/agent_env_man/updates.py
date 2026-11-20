@@ -65,10 +65,13 @@ def catalog_policy(value):
             **policy_fields(value, 'catalog_update')}
 
 
-def resolve_policies(updates, skills, *, default_trigger=None, kind="skills"):
+def resolve_policies(updates, skills, *, default_trigger=None, kind="skills", packaged=frozenset()):
     """Merge built-ins, global defaults, one named policy, then item fields.
 
     Trigger lists replace rather than append; manual explicitly disables events.
+    Items whose source is in ``packaged`` default to ``check`` after the global
+    defaults, so only a named policy or item field can let automation move a
+    checkout that an externally installed package was built from.
     Source-specific capabilities are checked here, before any network operation.
     """
     if not isinstance(updates, dict) or set(updates) - {"defaults", "policies"}:
@@ -90,10 +93,31 @@ def resolve_policies(updates, skills, *, default_trigger=None, kind="skills"):
         if selection is not None and selection not in policies:
             label = "Directory" if kind == "directories" else "Skill"
             raise Error(f"{label} {name}: unknown update policy {selection!r}")
-        effective = {**defaults, **policies.get(selection, {}), **own}
+        package = {"action": "check"} if skill.get("repo") in packaged else {}
+        effective = {**defaults, **package, **policies.get(selection, {}), **own}
         if kind == "skills" and skill.get("type", "git" if "repo" in skill else None) != "git":
             raise Error(f"Skill {name}: update actions are unsupported for source type {skill.get('type')!r}")
         result[name] = effective
+    return result
+
+
+def package_notice(package, previous=None, revision=None):
+    """Describe package drift for a declared source; AEM never installs packages.
+
+    Without revisions, an incoming revision is pending; with two different
+    revisions, the checkout has already moved past the installed package.
+    """
+    if previous is None:
+        result = {"package": {"reinstall": "after-update"},
+                  "notice": "This source builds a package installed outside AEM; "
+                            "after updating it, reinstall that package."}
+    else:
+        result = {"package": {"reinstall": "required", "previous_revision": previous, "revision": revision},
+                  "notice": f"Source moved {previous[:8]} -> {revision[:8]}; "
+                            "reinstall the package it builds outside AEM."}
+    if package.get("note"):
+        result["package"]["note"] = package["note"]
+        result["notice"] += " " + package["note"]
     return result
 
 
@@ -161,6 +185,9 @@ def run_updates(manager, trigger, names=(), *, dry_run=False):
                 revision = git.fetch(source)
                 source_state.update(last_fetch=now(), observed_revision=revision)
                 entry.update(status="checked", remote_relation=git.relation(source, revision=revision))
+                package = manager.config.package(name)
+                if package is not None and entry["remote_relation"] == "behind":
+                    entry.update(package_notice(package))
             else:
                 # Keep the first observed HEAD for shared checkouts: an earlier
                 # skill in this invocation may already have advanced the branch.
@@ -172,6 +199,9 @@ def run_updates(manager, trigger, names=(), *, dry_run=False):
                 if update_failed:
                     raise Error(outcomes[0]["error"])
                 entry["revision"] = git.run(source.path, "rev-parse", "HEAD").stdout
+                package = manager.config.package(name)
+                if package is not None and entry["previous_revision"] != entry["revision"]:
+                    entry.update(package_notice(package, entry["previous_revision"], entry["revision"]))
                 entry["apply"] = manager.apply([name], timeout=policy["timeout"])
                 entry["status"] = "synced"
             attempt.update(status=entry["status"], last_success=time.time())
@@ -219,11 +249,25 @@ def run_settings_updates(manager, trigger, *, dry_run=False):
         if entry['status'] != 'planned' or dry_run:
             continue
         manager.state.ready()
-        attempt = {'last_attempt': current, 'trigger': trigger, 'action': 'sync', 'status': 'running'}
+        # Settings have no action field, so a package-declared source is only
+        # fetched; reception would advance the checkout the package was built from.
+        package = manager.config.package(name)
+        attempt = {'last_attempt': current, 'trigger': trigger,
+                   'action': 'sync' if package is None else 'check', 'status': 'running'}
         manager.state.data['sources'].setdefault(name, {})['settings_automation'] = attempt
         manager.state.save()
         try:
             source = manager.delivery_source(manager.config.sources[name])
+            if source.git and package is not None:
+                git = Git(policy['timeout'])
+                revision = git.fetch(source)
+                manager.state.data['sources'][name].update(last_fetch=now(), observed_revision=revision)
+                entry.update(status='checked', remote_relation=git.relation(source, revision=revision))
+                if entry['remote_relation'] == 'behind':
+                    entry.update(package_notice(package))
+                attempt.update(status='checked', last_success=time.time())
+                manager.state.save()
+                continue
             if source.git:
                 git = Git(policy['timeout'])
                 if source.path not in initial_revisions:
@@ -281,11 +325,19 @@ def startup_briefing(outcomes):
     """
     changes = []
     for outcome in outcomes:
+        reinstall = outcome.get("package", {}).get("reinstall")
+        if outcome.get("status") == "checked" and reinstall == "after-update":
+            # Catalog notes stay out of hook context; aem status repeats them.
+            changes.append(f"{outcome.get('skill', outcome.get('directory'))}: "
+                           "incoming revision; update explicitly, then reinstall its package")
+            continue
         if outcome.get("status") != "synced":
             continue
         before, after = outcome.get("previous_revision"), outcome.get("revision")
         if before and after and before != after:
             detail = f"{before[:8]} -> {after[:8]}"
+            if reinstall == "required":
+                detail += " (reinstall its package)"
         elif any(item["action"] == "install" for item in outcome.get("apply", [])):
             detail = "installed/refreshed"
         else:
