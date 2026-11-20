@@ -71,7 +71,9 @@ These policies behave as follows:
 - **External callers**: Without setup, external callers can invoke `aem auto --trigger shell-start`, `agent-start`, or `interval`.
   For `interval`, arrange an OS scheduler; AEM does not run a daemon.
 - **Preview**: Preview due work with `aem auto --trigger agent-start --dry-run`.
-- **Package sources**: Items whose source declares a [package](../configuration/catalog.md#sourcesname) default to `check`, and full mode only fetches them unless their policy selects `sync`.
+- **Package sources**: Items whose source declares a [package](../configuration/catalog.md#sourcesname) default to `check`, and automation never advances their checkout unless their policy selects `sync`.
+  Full mode still applies their skills and directories at the current revision but does not clone a missing checkout.
+  Instructions and settings from such a source change only through explicit commands.
   An incoming revision is reported with a reinstall notice; after an explicit update, reinstall the package outside AEM.
 
 ### Independent outcomes

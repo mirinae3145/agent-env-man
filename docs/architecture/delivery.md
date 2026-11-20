@@ -142,7 +142,10 @@ AEM does not install, build, or detect the package.
 Installation methods differ by ecosystem, and running them would add external effects that AEM does not own or roll back.
 Instead, AEM keeps declared checkouts from moving without the user's attention and reports when they move:
 
-- **Automatic updates**: Declared sources default to the `check` action, and full mode only fetches them unless their policy selects `sync`.
+- **Automatic updates**: Declared sources default to the `check` action, and automation never advances them unless a skill or directory policy selects `sync`.
+  Full mode fetches them and applies their skills and directories at the current revision.
+  It does not clone a missing checkout, because a fresh clone could describe a package version the machine never installed.
+  Instructions and settings have no automatic action here, so they change only through explicit commands; automatic settings updates only fetch declared sources.
 - **Notices**: Commands and automatic runs that advance a declared checkout, or observe an incoming revision for it, report the revisions and the declared note.
 
 External sources cannot declare a package, because AEM does not observe their revisions.

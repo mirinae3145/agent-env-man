@@ -109,12 +109,16 @@ def full_content(manager, timeout, *, dry_run=False):
     an agent are excluded together if any component is detached, preventing
     hook selection from implicitly expanding into a preserved installation.
     Shared Git checkouts retain their ordinary cross-consumer link effects.
-    Package-declared sources without an explicit sync policy are only fetched,
-    so incoming revisions are reported without moving the checkout.
+    Package-declared sources without an explicit sync policy are never
+    advanced: they are fetched to report incoming revisions, and their skills
+    and directories are applied at the current checkout revision. A missing
+    checkout stays unprepared, because a fresh clone could describe a package
+    version this machine never installed. Their instructions and settings
+    change only through explicit commands.
     """
     policies = {**manager.config.full_update_policies(),
                 **manager.config.settings_update_policies(full=True)}
-    sources, items, excluded, checks = [], [], [], []
+    sources, items, excluded, checks, held = [], [], [], [], []
     for name, source in manager.config.sources.items():
         if name in manager.config._hooks:
             excluded.append({'source': name, 'reason': 'personal-hook-requires-explicit-apply'})
@@ -122,11 +126,13 @@ def full_content(manager, timeout, *, dry_run=False):
         if name in policies and policies[name]['trigger'] == ['manual']:
             excluded.append({'source': name, 'reason': 'manual'})
             continue
-        if manager.config.package(name) is not None and policies.get(name, {}).get('action') != 'sync':
+        packaged = manager.config.package(name) is not None and policies.get(name, {}).get('action') != 'sync'
+        if packaged:
             # Only an explicit sync policy may move a checkout that an
             # externally installed package was built from.
             checks.append(name)
-            continue
+            if not source.path.is_dir():
+                continue
         declarations = manager.config.declarations(source)
         shared = next((item for item in declarations if item.shared_bundle), None)
         if shared and (any(manager.state.data['items'].get(item.key, {}).get('detached') for item in declarations)
@@ -139,6 +145,12 @@ def full_content(manager, timeout, *, dry_run=False):
         selected = [item.key for item in declarations
                     if not manager.state.data['items'].get(item.key, {}).get('detached')
                     and (item.kind in ('skill', 'directory') or item.agent not in detached_agents)]
+        if packaged:
+            # Applying at the current revision installs newly declared skills
+            # and directories without preparing, so HEAD cannot move.
+            held.extend(item.key for item in declarations
+                        if item.key in selected and item.kind in ('skill', 'directory'))
+            continue
         if not selected:
             excluded.append({'source': name, 'reason': 'detached'})
             continue
@@ -149,9 +161,9 @@ def full_content(manager, timeout, *, dry_run=False):
         report['checked_sources'] = checks
     if not sources and not checks:
         return {**report, 'status': 'skipped'}, False
-    if sources:
+    if items or held:
         try:
-            manager.selected(items)
+            manager.selected(items + held)
         except (Error, OSError, ValueError) as exc:
             return {**report, 'status': 'failed', 'error': str(exc)}, True
     if dry_run:
@@ -166,7 +178,8 @@ def full_content(manager, timeout, *, dry_run=False):
         report['update'], failed = manager.update(sources, timeout=timeout, prepare_settings=True)
         if failed:
             return {**report, 'status': 'failed'}, True
-        report['apply'] = manager.apply(items, timeout=timeout)
+    if items or held:
+        report['apply'] = manager.apply(items + held, timeout=timeout)
     if check_failed:
         return {**report, 'status': 'failed'}, True
     return {**report, 'status': 'completed'}, False

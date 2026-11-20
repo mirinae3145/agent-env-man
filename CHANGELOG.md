@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - **Package-coupled sources**: A Git source can declare `package`, with an optional `note`, when its checkout also builds a package installed outside AEM.
-  Its items default to the `check` automatic action, and full mode only fetches them unless their policy selects `sync`.
+  Unless a skill or directory policy selects `sync`, automation never advances or clones the checkout; its instructions and settings change only through explicit commands.
   `update`, `sync`, automatic updates, and status report a reinstall notice with the note when they observe or apply a new revision.
   AEM never installs the package; older releases reject catalogs that use the field.
 

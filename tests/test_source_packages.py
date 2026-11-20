@@ -170,7 +170,10 @@ class SourcePackages(unittest.TestCase):
         self.assertEqual(report['check'][0]['package']['reinstall'], 'after-update')
         self.assertNotIn('update', report)
         self.assertEqual(self.checkout_head(), head)
-        self.assertFalse(self.destination.exists())
+        installed = (self.destination / 'report/SKILL.md').read_text(encoding='utf-8')
+        self.assertNotIn('Published change', installed)
+        self.assertEqual(installed, self.git(self.checkouts / '.aem-repositories/report',
+                                             'show', 'HEAD:skills/report/SKILL.md') + '\n')
         self.assertEqual(self.run_cli('status')['sources'][0]['package']['reinstall'], 'after-update')
 
         self.skills['report']['update'] = {'action': 'sync'}
@@ -181,6 +184,19 @@ class SourcePackages(unittest.TestCase):
         self.assertNotIn('checked_sources', report)
         self.assertNotEqual(self.checkout_head(), head)
         self.assertEqual(report['update'][0]['package']['reinstall'], 'required')
+
+    def test_full_mode_leaves_missing_declared_checkouts_unprepared(self):
+        self.copy_mode()
+        self.bootstrap()
+        tools = self.repository('tools', '.')
+        self.catalog_sources['tools'] = {'type': 'git', 'repository': str(tools), 'package': {'note': NOTE}}
+        self.skills['tools'] = {'source': 'tools', 'install': {'mode': 'copy'}}
+        self.save_catalog()
+        report, failed = automation.full_content(self.manager(), 30)
+        self.assertFalse(failed, report)
+        self.assertIn({'source': 'tools', 'status': 'not-prepared'}, report['check'])
+        self.assertFalse((self.checkouts / '.aem-repositories/tools').exists())
+        self.assertFalse((self.destination / 'tools').exists())
 
     def test_settings_automation_only_checks_declared_sources(self):
         from agent_env_man.updates import run_settings_updates
