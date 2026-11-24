@@ -183,7 +183,8 @@ def human_report(report, *, command="", verbose=False, planned=False, failed=Fal
         identity_key = next((key for key in IDENTITY_FIELDS if isinstance(value.get(key), str)), None)
         is_row = _is_row(value)
         external_status = (command == "status" and identity_key == "source"
-                           and value.get("transport") == "external" and "availability" in value)
+                           and value.get("transport") == "external" and "availability" in value
+                           and isinstance(value.get("path"), str))
         if is_row:
             states = []
             for key in ROW_STATES:

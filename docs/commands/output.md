@@ -72,7 +72,6 @@ Result counts count operation results, so preparation and staging of one setting
 Empty results are explicit; routine paths, revisions, empty fields, and duplicate compatibility views are omitted.
 For external sources, the default `status` summary includes availability and the source path resolved from the machine configuration.
 Errors, conflicts, pending recovery, comparison arguments, settings field paths, and required notices remain visible.
-
 Use `--verbose` for detailed text, for example `aem --verbose status`; it cannot be combined with `--json` (usage error, exit `2`).
 Text durations include units, and previews and last-fetch observations are distinguished from completed operations and current remote observations.
 Use `--json` for the existing JSON report schema, for example `aem --json status` or `aem --json catalog status`.

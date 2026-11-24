@@ -73,6 +73,12 @@ class OutputTests(unittest.TestCase):
         self.assertNotIn("/catalog/checkout", status)
         self.assertNotIn("automatic fetch failed", status)
 
+    def test_external_status_row_without_path_uses_generic_summary(self):
+        report = {"sources": [{"source": "personal", "transport": "external", "availability": "available"}]}
+        text = human_report(report, command="status")
+        self.assertIn("personal", text)
+        self.assertNotIn("(external source)", text)
+
     def test_nested_reports_preserve_paths_failures_and_notices(self):
         report = {"items": [{"item": "한글-skill", "status": "conflict",
                              "target": "/path with spaces/SKILL.md",
