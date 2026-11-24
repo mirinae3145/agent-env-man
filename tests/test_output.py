@@ -243,6 +243,23 @@ class MixedOutputTests(unittest.TestCase):
     def test_external_types_legacy_compatibility_and_settings_stage(self):
         self.check_preparation(self.configure(external=True))
 
+    def test_external_status_shows_machine_path(self):
+        self.configure(external=True)
+        for availability in ("present", "missing"):
+            with self.subTest(availability=availability):
+                text = self.call("status")
+                self.assertIn(f"personal: {availability} at {self.repo} (external source)", text)
+                self.assertNotIn("remote state unknown", text)
+                verbose = self.call("status", flags=["--verbose"])
+                self.assertIn(f"path: {self.repo}", verbose)
+                self.assertIn("remote relation: not checked for external sources", verbose)
+                report = self.call("status", flags=["--json"])
+                row = next(row for row in report["sources"] if row["transport"] == "external")
+                self.assertEqual(row["path"], str(self.repo))
+                self.assertEqual(row["remote_relation"], "externally-managed-unknown")
+            if availability == "present":
+                self.repo.rename(self.repo.with_name("moved-source"))
+
     def test_offline_status_labels_cached_remote_relations(self):
         self.configure()
         from agent_env_man.git_source import Git

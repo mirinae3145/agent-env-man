@@ -52,7 +52,7 @@ KIND_LABELS = {"instruction": "Instructions", "skill": "Skills", "directory": "D
 STATUS_LABELS = {
     "matches-last-apply": "matches last installation",
     "equal-at-last-fetch": "up to date at last fetch",
-    "externally-managed-unknown": "managed externally; remote state unknown",
+    "externally-managed-unknown": "not checked for external sources",
     "already-prepared": "already prepared", "external-ready": "external content ready",
     "external-no-fetch": "external source checked; no fetch",
     "not-prepared": "not prepared", "changed-live": "linked content changed",
@@ -182,12 +182,19 @@ def human_report(report, *, command="", verbose=False, planned=False, failed=Fal
 
         identity_key = next((key for key in IDENTITY_FIELDS if isinstance(value.get(key), str)), None)
         is_row = _is_row(value)
+        external_status = (command == "status" and identity_key == "source"
+                           and value.get("transport") == "external" and "availability" in value)
         if is_row:
             states = []
             for key in ROW_STATES:
                 state = value.get(key)
                 # A checkout path is not a state; it belongs in detailed output.
                 if key == "checkout" and state not in ("clean", "dirty"):
+                    continue
+                if external_status and key == "remote_relation":
+                    continue
+                if external_status and key == "availability":
+                    states.append(f"{state} at {value['path']} (external source)")
                     continue
                 if isinstance(state, str):
                     word = _word(state, key)
@@ -212,6 +219,8 @@ def human_report(report, *, command="", verbose=False, planned=False, failed=Fal
                 continue
             if is_row and (key in (*IDENTITY_FIELDS, "kind", "phase", *ROW_STATES)
                            and not (key == "checkout" and child not in ("clean", "dirty"))):
+                continue
+            if external_status and key in ("path", "transport"):
                 continue
             if key == "pending":
                 lines.append(" " * indent + "Recovery required: run aem recover after reviewing the pending operation.")
