@@ -7,17 +7,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.0.0-beta.6] &mdash; 2026-11-24
+
+Git tag `v2.0.0-beta.6` corresponds to Python package version `2.0.0b6`.
+This release is based on `v2.0.0-beta.5`.
+
 ### Added
 
-- **Package-coupled sources**: A Git source can declare `package`, with an optional `note`, when its checkout also builds a package installed outside AEM.
-  Unless a skill or directory policy selects `sync`, automation never advances or clones the checkout; its instructions and settings change only through explicit commands.
-  `update`, `sync`, automatic updates, and status report a reinstall notice with the note when they observe or apply a new revision.
-  AEM never installs the package; older releases reject catalogs that use the field.
+- A Git source can declare `package`, with an optional `note`, when its checkout also builds a package installed outside AEM.
+  - **Catalog compatibility** requires upgrading AEM on each machine using the catalog before adding `package`.
+    Older releases reject the field.
+  - **Automatic updates** default to `check` for skills and directories.
+    In full mode, AEM applies them from an existing checkout at its current revision.
+    A skill or directory policy must select `sync` to allow automatic cloning or advancement.
+    Advancing a shared checkout can also change linked instructions immediately.
+    Applying settings changes still requires an explicit command.
+  - **Package reinstallation** happens outside AEM.
+    AEM shows a reinstall notice when a check or status detects an incoming revision, or when an update advances the checkout.
+    Both notices include the declared `note` when present.
 
 ### Changed
 
-- **External source status**: Concise `aem status` shows each external source’s configured local path alongside its availability.
-  Verbose status describes the remote comparison as unchecked.
+- Concise `aem status` shows the configured local path and availability for external source entries.
+  Verbose text marks their remote comparison as unchecked.
 
 ## [2.0.0-beta.5] &mdash; 2026-11-19
 
@@ -620,7 +632,8 @@ See [Removed interfaces and existing installations](docs/removed-interfaces.md) 
 - Linux/WSL and native Windows path handling, with Python 3.11 or later and Git required.
 - Legacy source-local `links.conf` delivery and partial Codex configuration merging, retained alongside the initial catalog workflow.
 
-[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.5...HEAD
+[Unreleased]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.6...HEAD
+[2.0.0-beta.6]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.5...v2.0.0-beta.6
 [2.0.0-beta.5]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.4...v2.0.0-beta.5
 [2.0.0-beta.4]: https://github.com/mirinae3145/agent-env-man/compare/v2.0.0-beta.3...v2.0.0-beta.4
 [1.3.1]: https://github.com/mirinae3145/agent-env-man/compare/v1.3.0...v1.3.1
